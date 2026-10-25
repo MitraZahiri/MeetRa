@@ -1,9 +1,0 @@
-{
-  "appId": "com.meetra.game",
-  "appName": "MeetRa",
-  "webDir": "dist",
-  "backgroundColor": "#0d1233",
-  "android": {
-    "allowMixedContent": false
-  }
-}

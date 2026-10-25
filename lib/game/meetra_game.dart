@@ -1,0 +1,857 @@
+import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as dui;
+
+import 'package:flame/game.dart' hide Matrix4;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart' show KeyEventResult;
+import 'package:flame/input.dart' show KeyboardEvents;
+
+import '../art/pixel.dart';
+import '../art/sprites.dart';
+import '../config.dart';
+import '../entities/enemy.dart';
+import '../entities/lion.dart';
+import '../entities/player.dart';
+import '../input.dart';
+import '../levels/build.dart';
+import '../levels/level1.dart';
+import '../sfx.dart';
+import 'effects.dart';
+import 'physics.dart';
+
+class BannerMsg {
+  BannerMsg(this.title, [this.sub = '']);
+  final String title;
+  final String sub;
+}
+
+// Everything the Flutter UI layer (HUD, menus) listens to
+class UiBus {
+  final sign = ValueNotifier<String?>(null);
+  final banner = ValueNotifier<BannerMsg?>(null);
+  final boss = ValueNotifier<BossDef?>(null);
+  final bossFrac = ValueNotifier<double>(1);
+  final title = ValueNotifier<bool>(true); // the title screen is mounted
+  final levelUps = ValueNotifier<int>(0); // pending level-up choices; > 0 shows the panel
+  final victory = ValueNotifier<bool>(false);
+  final session = ValueNotifier<int>(0); // bumps on restart so overlays rebuild fresh
+}
+
+class Pickup {
+  Pickup(this.body, this.life);
+  final Body body;
+  final double life;
+  double age = 0;
+  bool removed = false;
+}
+
+class Projectile {
+  Projectile(this.body, this.dmg, this.dir);
+  final Body body;
+  final int dmg;
+  final int dir;
+  double age = 0;
+  double trailT = 0;
+  bool removed = false;
+}
+
+class Orb {
+  Orb(this.x, this.y, this.vx, this.vy, this.value);
+  double x, y, vx, vy;
+  final int value;
+  double t = 0;
+}
+
+class Altar {
+  Altar(this.x, this.y);
+  final double x, y;
+  bool lit = false;
+  final flame = Anim([0, 1], 8);
+}
+
+class Sign {
+  Sign(this.x, this.y, this.text);
+  final double x, y;
+  final String text;
+}
+
+class Breakable {
+  Breakable(this.x, this.y, this.kind, this.sheet);
+  final double x, y;
+  final String kind;
+  final Sheet sheet;
+  Rect get bounds => Rect.fromLTWH(x - sheet.frameW / 2, y - sheet.frameH, sheet.frameW, sheet.frameH);
+}
+
+class Chest {
+  Chest(this.x, this.y);
+  final double x, y;
+  bool opened = false;
+  Rect get bounds => Rect.fromLTWH(x - 7, y - 10, 14, 10);
+}
+
+class FeatherItem {
+  FeatherItem(this.x, this.baseY);
+  final double x, baseY;
+  double t = 0;
+  double get y => baseY - 6 * (0.5 - 0.5 * math.cos(math.pi * t / 900));
+}
+
+class Gate {
+  Gate(this.x, this.y);
+  final double x, y;
+  double glow = 0;
+  bool opening = false;
+}
+
+// The game world: level, physics, entities, camera and parallax background.
+// HUD, menus and touch buttons are Flutter widgets on top (see ui/).
+class MeetRaGame extends Game with KeyboardEvents {
+  MeetRaGame(this.art) {
+    _startLevel();
+  }
+
+  final Art art;
+  final state = GameState();
+  final ui = UiBus();
+  final controls = Controls();
+  final keyDowns = StreamController<LogicalKeyboardKey>.broadcast();
+  final LevelDef def = level1;
+
+  late Level level;
+  late Physics physics;
+  late Player player;
+  late dui.Image _map;
+
+  final camera = Camera();
+  final timers = Timers();
+  final particles = Particles();
+  final slashes = <Slash>[];
+  final texts = <FloatText>[];
+
+  final enemies = <Enemy>[];
+  final coins = <Pickup>[];
+  final hearts = <Pickup>[];
+  final feathers = <Projectile>[];
+  final orbs = <Orb>[];
+  final altars = <Altar>[];
+  final signs = <Sign>[];
+  final breakables = <Breakable>[];
+  final chests = <Chest>[];
+  FeatherItem? featherPickup;
+  Gate? gate;
+
+  Offset checkpoint = Offset.zero;
+  Sign? activeSign;
+  double? arenaLeft, arenaRight;
+  Offset? lionSpawn;
+  Wall? leftWall, rightWall;
+  Lion? lion;
+  bool bossStarted = false;
+  bool bossDefeated = false;
+  bool victory = false;
+  int pendingLevelUps = 0;
+
+  bool started = false; // title screen dismissed
+  double timeNow = 0;
+  double _hitstop = 0;
+  double _drift = 0;
+  double _winT = -1;
+  bool _snapCamera = true;
+
+  bool get simPaused => !started || ui.levelUps.value > 0;
+  double get uiScale => size.y / gameH;
+  double get virtualW => size.x / uiScale;
+
+  // ---------- Setup ----------
+
+  void _startLevel() {
+    level = buildLevel(def);
+    physics = Physics(level);
+    for (final l in [enemies, coins, hearts, feathers, orbs, altars, signs, breakables, chests, slashes, texts, particles.list]) {
+      l.clear();
+    }
+    featherPickup = null;
+    gate = null;
+    activeSign = null;
+    arenaLeft = arenaRight = null;
+    lionSpawn = null;
+    leftWall = rightWall = null;
+    lion = null;
+    bossStarted = bossDefeated = victory = false;
+    pendingLevelUps = 0;
+    _hitstop = 0;
+    _winT = -1;
+    _snapCamera = true;
+    camera
+      ..bounds = Rect.fromLTWH(0, 0, level.width, level.height)
+      ..fade = 0;
+    _map = _renderMap();
+    _spawnObjects();
+  }
+
+  // The whole tilemap is drawn once into one image, so tiles never show seams when scaled
+  dui.Image _renderMap() {
+    final rec = dui.PictureRecorder();
+    final c = Canvas(rec);
+    final p = Paint()..filterQuality = FilterQuality.none;
+    for (var ty = 0; ty < level.rows; ty++) {
+      for (var tx = 0; tx < level.cols; tx++) {
+        final t = level.data[ty][tx];
+        if (t < 0) continue;
+        c.drawImageRect(art.tiles.image, art.tiles.src(t), Rect.fromLTWH(tx * tile, ty * tile, tile, tile), p);
+      }
+    }
+    return rec.endRecording().toImageSync(level.width.toInt(), level.height.toInt());
+  }
+
+  void _spawnObjects() {
+    var signIndex = 0;
+    Player? p;
+    for (final o in level.objects) {
+      switch (o.type) {
+        case 'P':
+          p = Player(this, o.x, o.y);
+        case 'A':
+          altars.add(Altar(o.x, o.y));
+        case 'S':
+          signs.add(Sign(o.x, o.y, def.signs[signIndex++]));
+        case 'D':
+          enemies.add(Imp(this, o.x, o.y));
+        case 'V':
+          enemies.add(Bat(this, o.x, o.y - 40));
+        case 'v':
+          breakables.add(Breakable(o.x, o.y, 'vase', art.vase));
+        case '*':
+          breakables.add(Breakable(o.x, o.y, 'bush', art.bush));
+        case 'C':
+          chests.add(Chest(o.x, o.y));
+        case 'F':
+          featherPickup = FeatherItem(o.x, o.y - 10);
+        case 'L':
+          lionSpawn = Offset(o.x, o.y);
+        case '[':
+          arenaLeft = o.x - tile / 2;
+        case ']':
+          arenaRight = o.x + tile / 2;
+          // The wall reaches from the ground up to the top of the map
+          rightWall = Wall(Rect.fromCenter(center: Offset(o.x, o.y / 2), width: 16, height: 224));
+          physics.walls.add(rightWall!);
+        case 'G':
+          gate = Gate(o.x, o.y);
+      }
+    }
+    player = p!;
+    checkpoint = Offset(player.x, player.y);
+  }
+
+  // ---------- Input ----------
+
+  @override
+  KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    controls.keys = Set.of(keysPressed);
+    if (event is KeyDownEvent) keyDowns.add(event.logicalKey);
+    return KeyEventResult.handled;
+  }
+
+  // ---------- Loop ----------
+
+  @override
+  void update(double dtSeconds) {
+    final dt = math.min(dtSeconds * 1000, 50.0);
+    _drift += dt * 0.004;
+    if (simPaused) {
+      state.flush();
+      return;
+    }
+    timeNow += dt;
+    timers.update(dt);
+
+    final c = controls.update();
+    final P = player;
+    P.update(c, dt);
+    lion?.update(timeNow, dt);
+    for (final e in enemies) {
+      e.tick(dt);
+    }
+
+    if (_hitstop > 0) {
+      _hitstop -= dt;
+    } else {
+      _stepPhysics(dt / 1000);
+    }
+
+    if (!P.dead && P.y > level.height + 16) P.fallHurt();
+
+    final pr = P.body.rect;
+    _updateAltars(pr, dt);
+    _updateSigns();
+    _updatePickups(dt);
+    _updateOrbs(dt);
+    _updateChests(pr);
+
+    final l = lion;
+    if (l != null && l.state != LionState.dead && l.state != LionState.stunned && !P.dead) {
+      if (overlaps(pr, l.body.rect)) P.hurt(l.contactDamage, l.x);
+    }
+    if (l != null && l.state != LionState.dead) {
+      for (final f in feathers) {
+        if (!f.removed && overlaps(f.body.rect, l.body.rect)) {
+          l.hurt(f.dmg);
+          _killFeather(f);
+        }
+      }
+    }
+
+    // Boss arena trigger
+    if (!bossStarted && !bossDefeated && arenaLeft != null && P.x > arenaLeft! + tile * 3) _startBoss();
+
+    // Exit gate
+    final g = gate;
+    if (g != null && bossDefeated && !victory && (P.x - g.x).abs() < 10 && P.body.blockedDown) _win();
+
+    _updateEffects(dt);
+    enemies.removeWhere((e) => e.removed);
+    coins.removeWhere((p) => p.removed);
+    hearts.removeWhere((p) => p.removed);
+    feathers.removeWhere((f) => f.removed);
+    if (lion?.removed ?? false) lion = null;
+
+    camera
+      ..viewW = size.x / (uiScale * zoom)
+      ..viewH = size.y / (uiScale * zoom);
+    camera.follow(P.x, P.y - 20, dt, snap: _snapCamera);
+    _snapCamera = false;
+    camera.update(dt, virtualW);
+    state.flush();
+  }
+
+  void _stepPhysics(double s) {
+    final P = player;
+    var spikes = false;
+    physics.step(P.body, s, skipPlatforms: P.dropTimer > 0, onTile: (t) => spikes |= t == T.spikes);
+    if (spikes) P.fallHurt();
+    for (final e in enemies) {
+      physics.step(e.body, s);
+    }
+    for (final c in [...coins, ...hearts]) {
+      physics.step(c.body, s, useWalls: false);
+    }
+    for (final f in feathers) {
+      var hit = false;
+      physics.step(f.body, s, useWalls: false, onTile: (_) => hit = true);
+      if (hit) _killFeather(f);
+    }
+    if (lion != null) physics.step(lion!.body, s);
+
+    // Overlaps
+    final pr = P.body.rect;
+    if (P.body.collides) {
+      for (final e in enemies) {
+        if (!e.dying && overlaps(pr, e.body.rect)) P.hurt(e.contactDamage, e.x);
+      }
+      for (final c in coins) {
+        if (!c.removed && overlaps(pr, c.body.rect)) _collectCoin(c);
+      }
+      for (final h in hearts) {
+        if (!h.removed && overlaps(pr, h.body.rect)) _collectHeart(h);
+      }
+    }
+    for (final f in feathers) {
+      for (final e in enemies) {
+        if (f.removed || e.dying || !overlaps(f.body.rect, e.body.rect)) continue;
+        e.hurt(f.dmg, f.body.vx.sign, 0.6);
+        _killFeather(f);
+      }
+    }
+  }
+
+  void _updateAltars(Rect pr, double dt) {
+    for (final a in altars) {
+      if (a.lit) a.flame.update(dt);
+      if (!overlaps(pr, Rect.fromLTWH(a.x - 10, a.y - 24, 20, 24))) continue;
+      if (state.hp < state.maxHp) state.hp = state.maxHp;
+      if (!a.lit) {
+        a.lit = true;
+        sfx.altar();
+        burst(a.x, a.y - 16, [0xffffe066, 0xffff9a2a], 16, 90);
+        ui.banner.value = BannerMsg('Hearth lit', 'Checkpoint reached · health restored');
+      }
+      if (checkpoint.dx != a.x) checkpoint = Offset(a.x, a.y);
+    }
+  }
+
+  void _updateSigns() {
+    final P = player;
+    Sign? near;
+    for (final s in signs) {
+      if ((P.x - s.x).abs() < 22 && (P.y - s.y).abs() < 30) near = s;
+    }
+    if (near != activeSign) {
+      activeSign = near;
+      ui.sign.value = near?.text;
+    }
+  }
+
+  void _updatePickups(double dt) {
+    final P = player;
+    // Saena's feather
+    final f = featherPickup;
+    if (f != null) {
+      f.t += dt;
+      if (_dist(P.x, P.y - 9, f.x, f.y) < 14) {
+        featherPickup = null;
+        state
+          ..hasFeather = true
+          ..aura = state.auraMax.toDouble();
+        sfx.pickup();
+        burst(P.x, P.y - 10, [0xff2bb3a8, 0xff8ae0d8, 0xffd4a845], 24, 130);
+        ui.banner.value = BannerMsg("Saena's Feather", 'Tap ✦ to throw it · costs Aura');
+      }
+    }
+    // Coin magnet
+    for (final c in coins) {
+      c.age += dt;
+      final b = c.body;
+      final d = _dist(b.centerX, b.centerY, P.x, P.y - 8);
+      if (c.age > 350 && d < 40 && d > 0) {
+        b
+          ..vx = (P.x - b.centerX) / d * 220
+          ..vy = (P.y - 8 - b.centerY) / d * 220;
+      }
+      if (c.age > c.life) c.removed = true;
+    }
+    for (final h in hearts) {
+      h.age += dt;
+      if (h.age > h.life) h.removed = true;
+    }
+  }
+
+  void _updateOrbs(double dt) {
+    final P = player;
+    for (var i = orbs.length - 1; i >= 0; i--) {
+      final o = orbs[i];
+      o.t += dt;
+      if (o.t < 300) {
+        o.x += o.vx * (dt / 1000);
+        o.y += o.vy * (dt / 1000);
+        o.vx *= 0.92;
+        o.vy *= 0.92;
+      } else {
+        final dx = P.x - o.x;
+        final dy = P.y - 9 - o.y;
+        final d = math.sqrt(dx * dx + dy * dy);
+        final sp = math.min(400, 120 + o.t * 0.4) * (dt / 1000);
+        if (d < 8 || P.dead) {
+          orbs.removeAt(i);
+          if (!P.dead) gainXp(o.value);
+          continue;
+        }
+        o.x += (dx / d) * sp;
+        o.y += (dy / d) * sp;
+      }
+    }
+  }
+
+  void _updateChests(Rect pr) {
+    for (final ch in chests) {
+      if (ch.opened || !overlaps(pr, ch.bounds)) continue;
+      ch.opened = true;
+      sfx.pickup();
+      spawnGold(ch.x, ch.y - 10, 12);
+      spawnXp(ch.x, ch.y - 10, 8);
+      ui.banner.value = BannerMsg('Treasure!', 'Hidden chests reward the curious');
+    }
+  }
+
+  void _updateEffects(double dt) {
+    particles.update(dt);
+    for (final s in slashes) {
+      s.t += dt;
+    }
+    slashes.removeWhere((s) => s.t >= Slash.duration);
+    for (final t in texts) {
+      t.t += dt;
+    }
+    texts.removeWhere((t) => t.t >= FloatText.duration);
+    for (final f in feathers) {
+      f.age += dt;
+      f.trailT += dt;
+      while (f.trailT >= 25) {
+        f.trailT -= 25;
+        particles.trail(f.body.x, f.body.centerY, [0xff8ae0d8, 0xffd4a845]);
+      }
+      if (f.age > 1100) _killFeather(f);
+    }
+    final g = gate;
+    if (g != null && g.opening) g.glow = math.min(1, g.glow + dt / 1200);
+    if (_winT >= 0) {
+      _winT += dt;
+      player.fadeAlpha = 1 - ((_winT - 300) / 900).clamp(0.0, 1.0);
+    }
+  }
+
+  double _dist(double x1, double y1, double x2, double y2) => math.sqrt(math.pow(x2 - x1, 2) + math.pow(y2 - y1, 2));
+
+  // ---------- Combat ----------
+
+  int resolveMelee(Rect rect, int dmg, int dir, double knock) {
+    var hits = 0;
+    for (final e in enemies) {
+      if (!e.dying && overlaps(rect, e.body.rect)) {
+        e.hurt(dmg, dir.toDouble(), knock);
+        hits++;
+      }
+    }
+    final l = lion;
+    if (l != null && l.state != LionState.dead && overlaps(rect, l.body.rect)) {
+      l.hurt(dmg);
+      hits++;
+    }
+    for (final b in [...breakables]) {
+      if (overlaps(rect, b.bounds)) {
+        _breakObject(b);
+        hits++;
+      }
+    }
+    if (hits > 0) {
+      sfx.hit();
+      if (_hitstop <= 0) _hitstop = 65;
+      camera.shake(70, 0.003);
+    }
+    return hits;
+  }
+
+  void _breakObject(Breakable b) {
+    breakables.remove(b);
+    sfx.breakIt();
+    final colors = b.kind == 'vase' ? [0xffb8683a, 0xffd8905a, 0xff1b2a6b] : [0xff3f7a34, 0xff5aa04a, 0xffe85a7a];
+    burst(b.x, b.y - 6, colors, 12, 110);
+    final r = rand.nextDouble();
+    if (r < 0.15) {
+      spawnHeart(b.x, b.y - 8);
+    } else if (r < 0.75) {
+      spawnGold(b.x, b.y - 8, betweenInt(1, b.kind == 'vase' ? 3 : 1));
+    }
+    if (b.kind == 'bush') spawnXp(b.x, b.y - 8, 1);
+  }
+
+  void spawnFeather(double x, double y, int dir, int dmg) {
+    sfx.feather();
+    final body = Body(x, y + 2, 10, 4)
+      ..allowGravity = false
+      ..vx = dir * 270;
+    feathers.add(Projectile(body, dmg, dir));
+  }
+
+  void _killFeather(Projectile f) {
+    if (f.removed) return;
+    burst(f.body.x, f.body.centerY, [0xff8ae0d8, 0xffffffff], 6, 60);
+    f.removed = true;
+  }
+
+  // ---------- Loot ----------
+
+  void spawnGold(double x, double y, int n) {
+    for (var i = 0; i < n; i++) {
+      final b = Body(x, y + 3, 6, 6)
+        ..bounceY = 0.45
+        ..dragX = 90
+        ..vx = betweenInt(-70, 70).toDouble()
+        ..vy = betweenInt(-220, -130).toDouble();
+      coins.add(Pickup(b, 9000));
+    }
+  }
+
+  void spawnHeart(double x, double y) {
+    final b = Body(x, y + 4, 9, 8)
+      ..bounceY = 0.3
+      ..dragX = 90
+      ..vx = betweenInt(-40, 40).toDouble()
+      ..vy = -180;
+    hearts.add(Pickup(b, 10000));
+  }
+
+  void spawnXp(double x, double y, int total) {
+    if (total <= 0) return;
+    final n = math.min(total, 8);
+    final base = total ~/ n;
+    var rest = total - base * n;
+    for (var i = 0; i < n; i++) {
+      final value = base + (rest-- > 0 ? 1 : 0);
+      final a = rand.nextDouble() * math.pi * 2;
+      orbs.add(Orb(x, y, math.cos(a) * 120, math.sin(a) * 120 - 40, value));
+    }
+  }
+
+  void _collectCoin(Pickup c) {
+    if (c.age < 150) return;
+    c.removed = true;
+    state.gold++;
+    sfx.coin();
+  }
+
+  void _collectHeart(Pickup h) {
+    h.removed = true;
+    state.hp = math.min(state.maxHp, state.hp + 2);
+    sfx.pickup();
+  }
+
+  void gainXp(int n) {
+    var xp = state.xp + n;
+    var lv = state.level;
+    var next = state.xpNext;
+    var ups = 0;
+    while (xp >= next) {
+      xp -= next;
+      lv++;
+      next = xpForLevel(lv);
+      ups++;
+    }
+    state
+      ..xp = xp
+      ..xpNext = next
+      ..level = lv;
+    if (ups > 0) {
+      sfx.levelup();
+      burst(player.x, player.y - 10, [0xffffe28a, 0xffffffff, 0xff8ae0d8], 30, 160);
+      pendingLevelUps += ups;
+      timers.after(350, _openLevelUp);
+    }
+  }
+
+  void _openLevelUp() {
+    if (pendingLevelUps == 0 || player.dead || victory) return;
+    touch.clear();
+    ui.levelUps.value += pendingLevelUps; // pauses the game until every choice is made
+    pendingLevelUps = 0;
+  }
+
+  // ---------- Boss ----------
+
+  void _startBoss() {
+    bossStarted = true;
+    leftWall = Wall(Rect.fromCenter(center: Offset(arenaLeft! + tile / 2, rightWall!.y), width: 16, height: 224));
+    physics.walls.add(leftWall!);
+    burst(leftWall!.x, level.height - 3 * tile, [0xffa88a60, 0xff5a4a38], 16, 120);
+    camera
+      ..bounds = Rect.fromLTRB(arenaLeft!, 0, arenaRight!, level.height)
+      ..shake(400, 0.008);
+    sfx.roar();
+    lion = Lion(this, lionSpawn!.dx, lionSpawn!.dy);
+    ui.bossFrac.value = 1;
+    ui.boss.value = def.boss;
+    ui.sign.value = null;
+  }
+
+  void onBossDefeated(double x, double y) {
+    bossDefeated = true;
+    spawnGold(x, y - 16, 25);
+    spawnXp(x, y - 16, 60);
+    spawnHeart(x, y - 16);
+    for (final w in [leftWall, rightWall].nonNulls) {
+      burst(w.x, w.y, [0xffa88a60, 0xff2a4a9a], 24, 160);
+      physics.walls.remove(w);
+    }
+    leftWall = rightWall = null;
+    camera.bounds = Rect.fromLTWH(0, 0, level.width, level.height);
+    ui.boss.value = null;
+    ui.banner.value = BannerMsg('The Reed Lion falls!', 'The gate to the east is open');
+    gate?.opening = true;
+  }
+
+  void _resetBoss() {
+    if (!bossStarted || bossDefeated) return;
+    lion = null;
+    if (leftWall != null) physics.walls.remove(leftWall);
+    leftWall = null;
+    bossStarted = false;
+    camera.bounds = Rect.fromLTWH(0, 0, level.width, level.height);
+    ui.boss.value = null;
+  }
+
+  // ---------- Death / victory ----------
+
+  void playerDied() {
+    final P = player;
+    if (P.dead) return;
+    P.dead = true;
+    P.tint = 0xff802020;
+    P.body
+      ..vx = 0
+      ..vy = -150
+      ..collides = false;
+    camera.shake(300, 0.01);
+    timers.after(900, () {
+      camera.fadeOut(400, () {
+        _resetBoss();
+        final cp = checkpoint;
+        P
+          ..dead = false
+          ..tint = null
+          ..respawnAt(cp.dx, cp.dy)
+          ..safe = cp;
+        P.body.collides = true;
+        state.hp = state.maxHp;
+        camera.fadeIn(400);
+        ui.banner.value = BannerMsg('Ra rises again', 'Back at the last hearth');
+      });
+    });
+  }
+
+  void _win() {
+    victory = true;
+    player.frozen = true;
+    sfx.victory();
+    _winT = 0;
+    timers.after(1100, () => ui.victory.value = true);
+  }
+
+  // Called by the title screen
+  void begin() {
+    if (started) return;
+    started = true;
+    timers.after(500, () => ui.banner.value = BannerMsg(def.title, def.subtitle));
+  }
+
+  // Called by the level-up panel after each choice
+  void chooseLevelUp(void Function(GameState s) apply) {
+    apply(state);
+    sfx.pickup();
+    state.flush();
+    ui.levelUps.value = math.max(0, ui.levelUps.value - 1);
+  }
+
+  void restart() {
+    state.reset();
+    touch.clear();
+    timers.clear();
+    started = false;
+    _startLevel();
+    ui
+      ..sign.value = null
+      ..banner.value = null
+      ..boss.value = null
+      ..levelUps.value = 0
+      ..victory.value = false
+      ..title.value = true;
+    ui.session.value++;
+  }
+
+  // ---------- Effects ----------
+
+  void burst(double x, double y, List<int> colors, [int count = 10, double speed = 100]) => particles.burst(x, y, colors, count, speed);
+
+  void floatText(double x, double y, String text, Color color) => texts.add(FloatText(x, y, text, color));
+
+  // ---------- Rendering ----------
+
+  final _pixel = Paint()..filterQuality = FilterQuality.none;
+
+  @override
+  void render(Canvas c) {
+    final z = uiScale * zoom; // screen pixels per world pixel
+    _renderBackground(c, z);
+
+    // Snap the camera to whole screen pixels, like Phaser's roundPixels
+    final sx = (camera.scrollX * z).roundToDouble() / z;
+    final sy = (camera.scrollY * z).roundToDouble() / z;
+    c.save();
+    c.translate(camera.shakeX * uiScale, camera.shakeY * uiScale);
+    c.scale(z);
+    c.translate(-sx, -sy);
+    _renderWorld(c, Rect.fromLTWH(sx, sy, size.x / z, size.y / z));
+    c.restore();
+
+    if (camera.fade > 0) {
+      c.drawRect(Offset.zero & Size(size.x, size.y), Paint()..color = Color.fromRGBO(10, 6, 20, camera.fade));
+    }
+  }
+
+  // Parallax layers: each one scrolls at its own fraction of the camera's speed
+  void _renderBackground(Canvas c, double z) {
+    final viewH = size.y / z;
+    final double y = camera.scrollY.clamp(0.0, math.max(0.0, 270 - viewH)).toDouble();
+    final rect = Offset.zero & Size(size.x, size.y);
+    for (final (sheet, factor) in [(art.bgSky, 0.0), (art.bgClouds, 0.06), (art.bgMountains, 0.15), (art.bgHills, 0.35)]) {
+      final tx = camera.scrollX * factor + (factor > 0 && factor < 0.1 ? _drift : 0.0);
+      final m = Matrix4.identity()
+        ..scale(z, z)
+        ..translate(-tx, -y);
+      final paint = Paint()
+        ..shader = ImageShader(sheet.image, TileMode.repeated, TileMode.repeated, m.storage, filterQuality: FilterQuality.none);
+      c.drawRect(rect, paint);
+    }
+  }
+
+  void _renderWorld(Canvas c, Rect view) {
+    final a = art;
+    // depth 0: arena walls
+    for (final w in physics.walls) {
+      drawFrame(c, a.wall, 0, w.x, w.rect.bottom);
+    }
+    // depth 3: signs and the gate
+    for (final s in signs) {
+      drawFrame(c, a.sign, 0, s.x, s.y);
+    }
+    final g = gate;
+    if (g != null) {
+      drawFrame(c, a.gate, 0, g.x, g.y);
+      drawFrame(c, a.gateGlow, 0, g.x, g.y, alpha: g.glow);
+    }
+    // depth 4: altars, breakables, chests
+    for (final al in altars) {
+      drawFrame(c, a.altar, 0, al.x, al.y);
+      if (al.lit) {
+        drawFrame(c, a.flame, al.flame.frame, al.x, al.y - 13);
+      } else {
+        drawFrame(c, a.px, 0, al.x, al.y - 13, oy: 0.5, tint: 0xff803020);
+      }
+    }
+    for (final b in breakables) {
+      drawFrame(c, b.sheet, 0, b.x, b.y);
+    }
+    for (final ch in chests) {
+      drawFrame(c, a.chest, ch.opened ? 1 : 0, ch.x, ch.y);
+    }
+    // depth 5: tiles (only the visible part of the map image)
+    final src = view.intersect(Rect.fromLTWH(0, 0, level.width, level.height));
+    if (!src.isEmpty) c.drawImageRect(_map, src, src, _pixel);
+    // depth 6-7: feather pickup, coins, hearts
+    final f = featherPickup;
+    if (f != null) {
+      final k = 1 - ((f.t % 1400) - 700).abs() / 700; // 0 -> 1 -> 0 over 1.4 s
+      c.drawCircle(Offset(f.x, f.y), 10 * (1 + 0.4 * k), Paint()..color = Color.fromRGBO(138, 224, 216, 0.25 - 0.15 * k));
+      drawFrame(c, a.feather, 0, f.x, f.y, oy: 0.5, scaleX: 1.5, scaleY: 1.5, angle: -30);
+    }
+    for (final co in coins) {
+      drawFrame(c, a.coin, 0, co.body.x.roundToDouble(), co.body.y.roundToDouble());
+    }
+    for (final h in hearts) {
+      drawFrame(c, a.heart, 0, h.body.x.roundToDouble(), h.body.y.roundToDouble());
+    }
+    // depth 8-9: enemies, feathers, boss, xp orbs
+    for (final e in enemies) {
+      e.render(c);
+    }
+    for (final fe in feathers) {
+      drawFrame(c, a.feather, 0, fe.body.x, fe.body.centerY, oy: 0.5, flipX: fe.dir < 0);
+    }
+    lion?.render(c, a.lion);
+    for (final o in orbs) {
+      drawFrame(c, a.xp, 0, o.x, o.y, oy: 0.5);
+    }
+    // depth 10-12: player, slashes, particles
+    player.render(c, a.hero, timeNow);
+    for (final s in slashes) {
+      s.render(c, a.slash);
+    }
+    particles.render(c);
+    for (final t in texts) {
+      t.render(c);
+    }
+  }
+}

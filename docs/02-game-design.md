@@ -102,12 +102,12 @@ Enemy families with element variants (Swordigo's method):
 - **Wisps:** create illusions (garden)
 
 ## 6. Mobile Design
-- **Landscape only.** A "turn your phone" screen appears in portrait.
+- **Landscape only.** The app is locked to landscape.
 - **Sessions:** a trial can be played in 10–15 minute chunks; hearths are never more than about 2 minutes apart.
 - **Thumb zones:** no HUD in the bottom corners; the boss bar sits at the top.
 - **Readable at small sizes:** the world camera shows 320×180 pixels at 3× zoom.
 - **Performance target:** 60 fps on mid-range Android phones.
-- **Distribution:** native apps through Capacitor (Google Play, App Store), plus an installable web version (PWA) for testing.
+- **Distribution:** native Flutter apps (Google Play, App Store).
 - **Monetization:** premium, no ads (like Swordigo). Open question.
 
 ## 7. Visual Style
@@ -121,12 +121,12 @@ Enemy families with element variants (Swordigo's method):
 Original score. Plucked strings, reed flute and frame drum give the light Persian breeze; boss fights get heavier drums and horns.
 
 ## 9. Technology
-- **Engine:** Phaser 3 (JavaScript) + Vite
-- **Mobile:** Capacitor (Android project in `android/`; iOS needs a Mac)
+- **Engine:** Flutter + Flame (Dart), with a small custom arcade physics layer
+- **Mobile:** Android and iOS from one codebase (iOS builds need a Mac)
 - **Editor:** Visual Studio Code
 - **Levels:** ASCII maps in code for now, then **Tiled** (.tmj)
-- **Resolution:** 960×540 canvas scaled to fit; world zoom 3×
-- **Saves:** local storage, later Capacitor Preferences
+- **Resolution:** 540-high virtual screen, width follows the aspect ratio; world zoom 3×
+- **Saves:** later, with shared_preferences
 
 ## 10. Roadmap
 | Milestone | Content | Status |

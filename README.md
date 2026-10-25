@@ -18,35 +18,25 @@ The First Trial (The Reed Marsh) is playable from start to finish:
 - Enemies: Hollow imps (they patrol, then chase you) and bats
 - **Boss: the Reed Lion.** It charges, stuns itself on walls, pounces, and gets enraged at half health.
 - Parallax backgrounds, on-screen touch controls, generated sound effects
-- Landscape lock, fullscreen, installable web app, Android project (Capacitor)
+- Landscape lock and fullscreen on Android and iOS
 
 All art and sound are generated placeholders. Final art arrives in M1.
 
-## Getting started (Visual Studio Code)
+## Getting started
 
-1. Open this folder in VS Code and install the recommended extensions when prompted.
-2. Open a terminal (`` Ctrl+` ``) and run:
-
-```bash
-npm install
-npm run dev
-```
-
-3. Open `http://localhost:5173` in a browser. Press **F5** in VS Code to launch Chrome with the debugger attached.
-
-### Play on your phone (same Wi-Fi)
-`npm run dev` prints a **Network** address such as `http://192.168.1.20:5173`. Open it on your phone and turn the phone sideways.
-
-### Build the Android app
-Requires [Android Studio](https://developer.android.com/studio).
+Requires [Flutter](https://docs.flutter.dev/get-started/install) (3.29 or newer) and [Android Studio](https://developer.android.com/studio) with an emulator, or a phone with USB debugging.
 
 ```bash
-npm run android
+flutter pub get
+flutter emulators --launch Pixel_8_Pro_API_29   # or any AVD, or plug in a phone
+flutter run
 ```
 
-This builds the game, copies it into `android/` and opens Android Studio. Press ▶ Run to install it on a connected phone or an emulator.
+In VS Code, install the recommended extensions when prompted, pick **MeetRa (debug)** and press **F5**. Press `r` in the terminal (or save a file) to hot reload.
 
-iOS needs a Mac with Xcode: `npx cap add ios`, then `npm run ios`.
+On a computer the keyboard works too (see Controls). iOS needs a Mac with Xcode: `flutter run` on an iOS simulator.
+
+Run the tests with `flutter test`.
 
 ## Controls
 
@@ -68,22 +58,23 @@ iOS needs a Mac with Xcode: `npx cap add ios`, then `npm run ios`.
 ## Project structure
 
 ```
-src/
-  main.js              Phaser configuration
-  config.js            Constants, player tuning, starting state
-  input.js             Merges keyboard and touch input
-  sfx.js               WebAudio sound effects
+lib/
+  main.dart            App, landscape fullscreen, UI layered over the game
+  config.dart          Constants, player tuning, GameState
+  input.dart           Merges keyboard and touch input
+  sfx.dart             Sound effects synthesized to WAV at startup
   art/                 Pixel art generated from code (sprites, tiles, backgrounds)
   levels/              ASCII level builder and the First Trial map
   entities/            Player, Enemy (Imp, Bat), Lion
-  scenes/              Boot, Background (parallax), Game, UI
-public/                Web app manifest and icon
-android/               Native Android project (Capacitor)
+  game/                MeetRaGame (loop, camera, render), arcade physics, effects
+  ui/                  HUD, sign box, banner, boss bar, menus, touch buttons
+test/                  Unit tests (level builder, physics)
+android/, ios/         Native platform projects
 docs/                  Design documents
 ```
 
-To add a level, write an ASCII map in `src/levels/`. The character legend is in `build.js`.
+To add a level, write an ASCII map in `lib/levels/`. The character legend is in `build.dart`.
 
 ## Tech
 
-[Phaser 3](https://phaser.io), [Vite](https://vitejs.dev), [Capacitor](https://capacitorjs.com).
+[Flutter](https://flutter.dev) and [Flame](https://flame-engine.org), with [audioplayers](https://pub.dev/packages/audioplayers) for sound.

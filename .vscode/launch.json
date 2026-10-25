@@ -2,21 +2,17 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Play in Chrome",
-      "type": "chrome",
+      "name": "MeetRa (debug)",
+      "type": "dart",
       "request": "launch",
-      "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}",
-      "preLaunchTask": "dev"
+      "program": "lib/main.dart"
     },
     {
-      "name": "Play in Chrome (phone size)",
-      "type": "chrome",
+      "name": "MeetRa (profile)",
+      "type": "dart",
       "request": "launch",
-      "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}",
-      "preLaunchTask": "dev",
-      "runtimeArgs": ["--window-size=844,430"]
+      "program": "lib/main.dart",
+      "flutterMode": "profile"
     }
   ]
 }
