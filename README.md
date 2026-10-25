@@ -54,6 +54,7 @@ Run the tests with `flutter test`.
 
 - [Swordigo analysis](docs/01-swordigo-analysis.md): a detailed breakdown of the reference game
 - [Game design document](docs/02-game-design.md): story, the seven trials, mechanics, mobile design, roadmap
+- [Saga Bible (PDF)](docs/MeetRa-Saga-Bible.pdf): a game scenario for every story of the Shahnameh, plus the world map. Rebuild with `python docs/saga/build.py`.
 
 ## Project structure
 

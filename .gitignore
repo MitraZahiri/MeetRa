@@ -46,3 +46,6 @@ app.*.map.json
 
 # Claude Code
 .claude/
+docs/saga/saga.html
+docs/saga/.browser-profile/
+__pycache__/
