@@ -48,6 +48,38 @@ Ra's teacher, **Old Mehr**, the keeper of the village hearth, tells Ra about two
 ### Hub
 **Hearthvale village** (like Swordigo's Cairnwood): Old Mehr's hearth, a market (shops), a smith, the **Hearthkeeper** (free full heal) and a hill that looks toward Saena's mountain.
 
+## 3b. World Structure: 7 Realms × 20 Places
+
+The game is played on a **world map** of seven realms (see the map in the Saga Bible). Each realm has its own **realm map** with **20 places** to reach, clear and unlock. That is 140 places in all.
+
+| # | Realm | Theme | Realm boss | Opens when |
+|---|---|---|---|---|
+| 1 | **Hearthvale** | Green vale, home of Ra | The White Elephant | Start |
+| 2 | **Crownhold** | The capital | The Black Hollow | Hearthvale's boss is beaten |
+| 3 | **The Serpent Sands** | Desert | Vexar, the Twin-Serpent King | Crownhold's boss is beaten |
+| 4 | **Sky Spine & Frostwood** | Snowy mountains | The Pale Giant | Serpent Sands' boss is beaten |
+| 5 | **The Duskland** | Steppe | Varak, the Dusk Khan | Sky Spine's boss is beaten |
+| 6 | **The Marble West** | Coast | The Cliff Dragon | Duskland's boss is beaten |
+| 7 | **The Lightless Land** (hidden) | Darkness | The Mirror of Ra | All **6 Dawn Sigils** are found |
+
+**Every realm has the same 20-place layout:** a winding main road of 14 stops from the town to the boss, plus six side branches.
+
+| Kind | Count | What happens |
+|---|---|---|
+| Town | 1 | Start of the realm. Rest to restore health. |
+| Hearth | 3 | Rest stops along the road. Visiting one opens the road beyond it. |
+| Trail | 7 | Platforming levels with enemies, vases and chests. |
+| Arena | 1 | A champion fight (mini-boss). |
+| Realm boss | 1 | The realm's big fight. Beating it opens the next realm. |
+| Cave | 2 | Low-ceiling levels with more treasure. |
+| Shrine | 2 | Short levels that grant a permanent blessing (+1 heart, or +might and +aura). |
+| Ruin | 1 | Treasure level: +50 gold the first time. |
+| Secret | 1 | Hidden until Ra carries Saena's Feather and reaches it. Holds a **Dawn Sigil**. |
+
+**Unlock rule:** a place opens when a neighbouring place is cleared. Secret places stay invisible until they open. Progress and Ra's stats are saved on the device.
+
+Levels for every place are built from hand-made level chunks, seeded by the place's id, so each place always has the same layout. Difficulty rises with each realm (more enemies, tougher enemies, stronger bosses). The Reed Marsh (Hearthvale) is the hand-made tutorial level.
+
 ## 4. Gameplay
 
 ### 4.1 Controls (phone)

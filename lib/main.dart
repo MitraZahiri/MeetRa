@@ -7,6 +7,7 @@ import 'config.dart';
 import 'game/meetra_game.dart';
 import 'sfx.dart';
 import 'ui/hud.dart';
+import 'ui/maps.dart';
 import 'ui/menus.dart';
 import 'ui/touch_controls.dart';
 
@@ -17,7 +18,10 @@ Future<void> main() async {
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   final art = await Art.generate();
   sfx.init();
-  runApp(MeetRaApp(game: MeetRaGame(art)));
+  final game = MeetRaGame(art);
+  await game.progress.load(game.state);
+  game.ui.realm.value = game.progress.realm;
+  runApp(MeetRaApp(game: game));
 }
 
 class MeetRaApp extends StatelessWidget {
@@ -59,8 +63,14 @@ class GameScreen extends StatelessWidget {
                     Positioned.fill(child: IgnorePointer(child: BannerView(game, w: w))),
                     Positioned.fill(child: IgnorePointer(child: BossBar(game, w: w))),
                     Positioned.fill(child: TouchControls(game, w: w, h: gameH)),
+                    _when(game.ui.screen, (s) => s == AppScreen.playing, (_) => MapButton(game, w: w)),
                     _when(game.ui.levelUps, (n) => n > 0, (n) => LevelUpPanel(game, w: w)),
                     _when(game.ui.victory, (v) => v, (_) => VictoryScreen(game, w: w)),
+                    _when(game.ui.screen, (s) => s == AppScreen.world, (_) => WorldMapScreen(game, w: w)),
+                    _when(game.ui.screen, (s) => s == AppScreen.realm, (_) => ValueListenableBuilder(
+                          valueListenable: game.ui.realm,
+                          builder: (context, r, _) => RealmMapScreen(game, key: ValueKey(r), w: w),
+                        )),
                     _when(game.ui.title, (v) => v, (_) => TitleScreen(game, w: w)),
                   ]),
                 ),

@@ -65,7 +65,7 @@ class _TitleScreenState extends State<TitleScreen> with SingleTickerProviderStat
             painter: const FramePainter(),
             child: Stack(children: [
               At(w / 2, 190, child: const OutlinedText('MeetRa', size: 96, color: gold)),
-              At(w / 2, 270, child: OutlinedText('${widget.game.def.title} · ${widget.game.def.subtitle}', size: 24)),
+              At(w / 2, 270, child: const OutlinedText('Seven realms · one hundred and forty places to explore', size: 24)),
               At(w / 2, 400,
                   child: FadeTransition(
                     opacity: Tween(begin: 1.0, end: 0.3).animate(_pulse),
@@ -211,7 +211,7 @@ class _VictoryScreenState extends State<VictoryScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => mounted ? setState(() => _opacity = 1) : null);
     _keys = widget.game.keyDowns.stream.listen((k) {
-      if (k == LogicalKeyboardKey.keyR) widget.game.restart();
+      if (k == LogicalKeyboardKey.enter || k == LogicalKeyboardKey.space) widget.game.leaveLevel();
     });
   }
 
@@ -224,7 +224,10 @@ class _VictoryScreenState extends State<VictoryScreen> {
   @override
   Widget build(BuildContext context) {
     final w = widget.w;
-    final s = widget.game.state;
+    final g = widget.game;
+    final s = g.state;
+    final loc = g.location;
+    final rewards = g.ui.rewards.value;
     return AnimatedOpacity(
       opacity: _opacity,
       duration: const Duration(milliseconds: 800),
@@ -233,15 +236,17 @@ class _VictoryScreenState extends State<VictoryScreen> {
         child: CustomPaint(
           painter: const FramePainter(inner: false),
           child: Stack(children: [
-            At(w / 2, 130, child: const OutlinedText('FIRST TRIAL COMPLETE', size: 52, color: gold)),
-            At(w / 2, 200, child: const OutlinedText('Ra has defeated the Reed Lion.\nThe road east lies open.', size: 22)),
-            At(w / 2, 280, child: OutlinedText('Level ${s.level}   ·   ${s.gold} gold', size: 26, color: const Color(0xff8ae0d8))),
-            At(w / 2, 335,
-                child: const OutlinedText('Next: The Second Trial · The Thirsting Sands (coming soon)', size: 20, color: Color(0xffc8bca0))),
-            At(w / 2, 425,
+            At(w / 2, 120, child: const OutlinedText('PLACE CLEARED', size: 52, color: gold)),
+            At(w / 2, 185, child: OutlinedText(loc?.name ?? g.def.title, size: 28)),
+            At(w / 2, 222, child: OutlinedText(loc?.realm.name ?? '', size: 18, color: const Color(0xffc8bca0))),
+            for (var i = 0; i < rewards.length; i++)
+              At(w / 2, 272 + i * 32.0, child: OutlinedText(rewards[i], size: 22, color: const Color(0xff8ae0d8))),
+            At(w / 2, 272 + rewards.length * 32.0 + 12,
+                child: OutlinedText('Level ${s.level}   ·   ${s.gold} gold', size: 20, color: const Color(0xffc8bca0))),
+            At(w / 2, 450,
                 child: GestureDetector(
-                  onTapUp: (_) => widget.game.restart(),
-                  child: const OutlinedText('[ Play again ]', size: 30, color: gold),
+                  onTapUp: (_) => g.leaveLevel(),
+                  child: const OutlinedText('[ Continue ]', size: 30, color: gold),
                 )),
           ]),
         ),

@@ -13,11 +13,11 @@ enum LionState { intro, pace, telegraph, charge, pounce, stunned, dead }
 // Loop: prowl, then (roar and) charge or pounce. A charge into a wall stuns it: that is your opening.
 // Below half health it is enraged: faster, with double pounces.
 class Lion {
-  Lion(this.game, double x, double y) : body = Body(x, y, 40, 21);
+  Lion(this.game, double x, double y, {this.maxHp = 30}) : body = Body(x, y, 40, 21);
 
   final MeetRaGame game;
   final Body body;
-  final int maxHp = 30;
+  final int maxHp;
   late int hp = maxHp;
   int facing = -1;
   LionState state = LionState.intro;

@@ -13,9 +13,10 @@ class LevelObject {
 }
 
 class BossDef {
-  const BossDef(this.name, this.title);
+  const BossDef(this.name, this.title, {this.hp = 30});
   final String name;
   final String title;
+  final int hp;
 }
 
 class LevelDef {
@@ -27,6 +28,8 @@ class LevelDef {
     required this.chunks,
     required this.signs,
     required this.boss,
+    this.enemyBonus = 0,
+    this.skyTint,
   });
 
   final String id;
@@ -36,6 +39,8 @@ class LevelDef {
   final List<List<String>> chunks;
   final List<String> signs;
   final BossDef boss;
+  final int enemyBonus; // extra health for every enemy in later realms
+  final int? skyTint; // ARGB wash over the background, per realm
 }
 
 class Level {

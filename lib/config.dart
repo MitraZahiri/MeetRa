@@ -76,6 +76,33 @@ class GameState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Map<String, Object> toJson() => {
+        'maxHp': maxHp,
+        'auraMax': auraMax,
+        'attack': attack,
+        'magic': magic,
+        'gold': gold,
+        'xp': xp,
+        'level': level,
+        'hasFeather': hasFeather,
+      };
+
+  // Health and aura always start full
+  void fromJson(Map<String, dynamic> j) {
+    maxHp = j['maxHp'] as int? ?? 6;
+    auraMax = j['auraMax'] as int? ?? 60;
+    attack = j['attack'] as int? ?? 1;
+    magic = j['magic'] as int? ?? 2;
+    gold = j['gold'] as int? ?? 0;
+    xp = j['xp'] as int? ?? 0;
+    level = j['level'] as int? ?? 1;
+    xpNext = xpForLevel(level);
+    hasFeather = j['hasFeather'] as bool? ?? false;
+    hp = maxHp;
+    aura = auraMax.toDouble();
+    notifyListeners();
+  }
+
   Object get _snapshot => (hp, maxHp, aura.floor(), auraMax, attack, magic, gold, xp, level, xpNext, hasFeather);
   Object? _last;
 

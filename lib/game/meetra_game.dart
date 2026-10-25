@@ -17,8 +17,11 @@ import '../entities/lion.dart';
 import '../entities/player.dart';
 import '../input.dart';
 import '../levels/build.dart';
+import '../levels/generator.dart';
 import '../levels/level1.dart';
 import '../sfx.dart';
+import '../world/progress.dart';
+import '../world/world.dart';
 import 'effects.dart';
 import 'physics.dart';
 
@@ -28,8 +31,12 @@ class BannerMsg {
   final String sub;
 }
 
+enum AppScreen { title, world, realm, playing }
+
 // Everything the Flutter UI layer (HUD, menus) listens to
 class UiBus {
+  final screen = ValueNotifier<AppScreen>(AppScreen.title);
+  final realm = ValueNotifier<int>(0); // realm shown on the realm map
   final sign = ValueNotifier<String?>(null);
   final banner = ValueNotifier<BannerMsg?>(null);
   final boss = ValueNotifier<BossDef?>(null);
@@ -37,6 +44,7 @@ class UiBus {
   final title = ValueNotifier<bool>(true); // the title screen is mounted
   final levelUps = ValueNotifier<int>(0); // pending level-up choices; > 0 shows the panel
   final victory = ValueNotifier<bool>(false);
+  final rewards = ValueNotifier<List<String>>(const []); // shown on the 'location cleared' screen
   final session = ValueNotifier<int>(0); // bumps on restart so overlays rebuild fresh
 }
 
@@ -119,7 +127,9 @@ class MeetRaGame extends Game with KeyboardEvents {
   final ui = UiBus();
   final controls = Controls();
   final keyDowns = StreamController<LogicalKeyboardKey>.broadcast();
-  final LevelDef def = level1;
+  final progress = Progress();
+  LevelDef def = level1;
+  Location? location; // the location being played
 
   late Level level;
   late Physics physics;
@@ -162,7 +172,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   double _winT = -1;
   bool _snapCamera = true;
 
-  bool get simPaused => !started || ui.levelUps.value > 0;
+  bool get simPaused => !started || ui.screen.value != AppScreen.playing || ui.levelUps.value > 0;
   double get uiScale => size.y / gameH;
   double get virtualW => size.x / uiScale;
 
@@ -220,9 +230,9 @@ class MeetRaGame extends Game with KeyboardEvents {
         case 'S':
           signs.add(Sign(o.x, o.y, def.signs[signIndex++]));
         case 'D':
-          enemies.add(Imp(this, o.x, o.y));
+          enemies.add(Imp(this, o.x, o.y)..hp += def.enemyBonus);
         case 'V':
-          enemies.add(Bat(this, o.x, o.y - 40));
+          enemies.add(Bat(this, o.x, o.y - 40)..hp += def.enemyBonus);
         case 'v':
           breakables.add(Breakable(o.x, o.y, 'vase', art.vase));
         case '*':
@@ -246,6 +256,11 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     player = p!;
     checkpoint = Offset(player.x, player.y);
+    // Levels without a boss have their exit gate open from the start
+    if (lionSpawn == null) {
+      bossDefeated = true;
+      gate?.opening = true;
+    }
   }
 
   // ---------- Input ----------
@@ -641,7 +656,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       ..bounds = Rect.fromLTRB(arenaLeft!, 0, arenaRight!, level.height)
       ..shake(400, 0.008);
     sfx.roar();
-    lion = Lion(this, lionSpawn!.dx, lionSpawn!.dy);
+    lion = Lion(this, lionSpawn!.dx, lionSpawn!.dy, maxHp: def.boss.hp);
     ui.bossFrac.value = 1;
     ui.boss.value = def.boss;
     ui.sign.value = null;
@@ -659,7 +674,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     leftWall = rightWall = null;
     camera.bounds = Rect.fromLTWH(0, 0, level.width, level.height);
     ui.boss.value = null;
-    ui.banner.value = BannerMsg('The Reed Lion falls!', 'The gate to the east is open');
+    ui.banner.value = BannerMsg('${def.boss.name} falls!', 'The way out is open');
     gate?.opening = true;
   }
 
@@ -707,14 +722,112 @@ class MeetRaGame extends Game with KeyboardEvents {
     player.frozen = true;
     sfx.victory();
     _winT = 0;
+    final loc = location;
+    if (loc != null) ui.rewards.value = completeLocation(loc);
     timers.after(1100, () => ui.victory.value = true);
   }
+
+  // Marks a location cleared, hands out its first-time reward and saves. Returns lines for the UI.
+  List<String> completeLocation(Location loc) {
+    final wasRealmOpen = [for (final r in realms) realmUnlocked(r, progress)];
+    final first = progress.clear(loc);
+    final lines = <String>[];
+    if (first) {
+      switch (loc.kind) {
+        case LocKind.shrine:
+          if (loc.index == 15) {
+            state
+              ..maxHp += 2
+              ..hp = state.maxHp;
+            lines.add('Shrine blessing: +1 heart');
+          } else {
+            state
+              ..auraMax += 20
+              ..attack += 1;
+            lines.add('Shrine blessing: +1 might, +20 aura');
+          }
+        case LocKind.ruin:
+          state.gold += 50;
+          lines.add('Ruin treasure: +50 gold');
+        case LocKind.secret:
+          lines.add(loc.realm.hidden ? 'The Water of Life! The saga is complete.' : 'Dawn Sigil found! (${sigilCount(progress)} / 6)');
+        case LocKind.boss:
+          lines.add('${loc.realm.name} is free!');
+        default:
+          break;
+      }
+      for (final r in realms) {
+        if (!wasRealmOpen[r.index] && realmUnlocked(r, progress)) {
+          lines.add(r.hidden ? 'A hidden realm appears: ${r.name}' : 'New realm unlocked: ${r.name}');
+        }
+      }
+    }
+    progress.save(state);
+    return lines;
+  }
+
+  // ---------- Navigation (called by the map screens) ----------
 
   // Called by the title screen
   void begin() {
     if (started) return;
     started = true;
-    timers.after(500, () => ui.banner.value = BannerMsg(def.title, def.subtitle));
+    ui.screen.value = AppScreen.world;
+  }
+
+  void openRealm(Realm r) {
+    progress.realm = r.index;
+    ui.realm.value = r.index;
+    ui.screen.value = AppScreen.realm;
+  }
+
+  void openWorld() => ui.screen.value = AppScreen.world;
+
+  // Towns and hearths: rest there, which clears them and opens the road beyond
+  List<String> visit(Location loc) {
+    state
+      ..hp = state.maxHp
+      ..aura = state.auraMax.toDouble();
+    progress.moveTo(loc);
+    final first = progress.clear(loc);
+    progress.save(state);
+    sfx.altar();
+    return first ? ['You rest by the fire. The road ahead opens.'] : ['You rest by the fire. Health restored.'];
+  }
+
+  void enterLocation(Location loc) {
+    location = loc;
+    progress.moveTo(loc);
+    def = levelFor(loc);
+    state
+      ..hp = state.maxHp
+      ..aura = state.auraMax.toDouble();
+    touch.clear();
+    timers.clear();
+    _startLevel();
+    ui
+      ..sign.value = null
+      ..boss.value = null
+      ..levelUps.value = 0
+      ..victory.value = false
+      ..rewards.value = const []
+      ..screen.value = AppScreen.playing;
+    ui.session.value++;
+    timers.after(400, () => ui.banner.value = BannerMsg(def.title, def.subtitle));
+  }
+
+  // Back to the realm map, from the victory screen or the in-level map button
+  void leaveLevel() {
+    touch.clear();
+    timers.clear();
+    ui
+      ..sign.value = null
+      ..banner.value = null
+      ..boss.value = null
+      ..victory.value = false
+      ..levelUps.value = 0;
+    progress.save(state);
+    ui.screen.value = AppScreen.realm;
   }
 
   // Called by the level-up panel after each choice
@@ -725,20 +838,11 @@ class MeetRaGame extends Game with KeyboardEvents {
     ui.levelUps.value = math.max(0, ui.levelUps.value - 1);
   }
 
-  void restart() {
-    state.reset();
-    touch.clear();
-    timers.clear();
-    started = false;
-    _startLevel();
-    ui
-      ..sign.value = null
-      ..banner.value = null
-      ..boss.value = null
-      ..levelUps.value = 0
-      ..victory.value = false
-      ..title.value = true;
-    ui.session.value++;
+  // Erases the save and starts the saga again
+  Future<void> newGame() async {
+    await progress.wipe(state);
+    ui.realm.value = 0;
+    ui.screen.value = AppScreen.world;
   }
 
   // ---------- Effects ----------
@@ -784,6 +888,12 @@ class MeetRaGame extends Game with KeyboardEvents {
       final paint = Paint()
         ..shader = ImageShader(sheet.image, TileMode.repeated, TileMode.repeated, m.storage, filterQuality: FilterQuality.none);
       c.drawRect(rect, paint);
+    }
+    // Each realm washes the sky in its own color; the Lightless Land is almost dark
+    final tint = def.skyTint;
+    if (tint != null) {
+      final dark = location?.realm.theme == RealmTheme.dark;
+      c.drawRect(rect, Paint()..color = Color(tint).withValues(alpha: dark ? 0.7 : 0.22));
     }
   }
 

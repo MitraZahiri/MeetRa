@@ -6,7 +6,11 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 
 ## Status: M0 playable prototype
 
-The First Trial (The Reed Marsh) is playable from start to finish:
+**The world:** 7 realms on a world map, each with its own map of **20 places** (140 in all): towns, hearths, trails, caves, shrines, ruins, an arena, a realm boss and a secret place. Clearing a place opens its neighbours; beating a realm's boss opens the next realm. The 7th realm, **the Lightless Land**, stays hidden until all six **Dawn Sigils** (one per secret place) are found. Progress is saved on the phone.
+
+Every place has a playable level. The Reed Marsh is the hand-made tutorial; the others are built from level chunks and get harder realm by realm.
+
+In every level:
 
 - Walking, variable-height jumps, **double jump**, coyote time and jump buffering
 - **3-hit sword combo**, down-strike (pogo), hitstop and screen shake
@@ -65,11 +69,12 @@ lib/
   input.dart           Merges keyboard and touch input
   sfx.dart             Sound effects synthesized to WAV at startup
   art/                 Pixel art generated from code (sprites, tiles, backgrounds)
-  levels/              ASCII level builder and the First Trial map
+  levels/              ASCII level builder, the hand-made tutorial and the level generator
+  world/               The 7 realms × 20 places, unlock rules and the save file
   entities/            Player, Enemy (Imp, Bat), Lion
   game/                MeetRaGame (loop, camera, render), arcade physics, effects
-  ui/                  HUD, sign box, banner, boss bar, menus, touch buttons
-test/                  Unit tests (level builder, physics)
+  ui/                  HUD, menus, world and realm maps, touch buttons
+test/                  Unit tests (level builder, physics, world and unlocks)
 android/, ios/         Native platform projects
 docs/                  Design documents
 ```
