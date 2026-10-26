@@ -18,12 +18,12 @@ class TouchControls extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: game.state,
         builder: (context, _) => Stack(children: [
-          _Button(x: 85, y: h - 90, r: 62, icon: _Icon.left, keyName: 'left'),
-          _Button(x: 230, y: h - 90, r: 62, icon: _Icon.right, keyName: 'right'),
-          _Button(x: 158, y: h - 205, r: 42, icon: _Icon.down, keyName: 'down'),
-          _Button(x: w - 90, y: h - 90, r: 66, icon: _Icon.up, keyName: 'jump'),
-          _Button(x: w - 240, y: h - 80, r: 56, icon: _Icon.sword, keyName: 'attack'),
-          if (game.state.hasFeather) _Button(x: w - 130, y: h - 235, r: 46, icon: _Icon.star, keyName: 'spell'),
+          _Button(x: 85, y: h - 90, r: 62, icon: ButtonIcon.left, keyName: 'left'),
+          _Button(x: 230, y: h - 90, r: 62, icon: ButtonIcon.right, keyName: 'right'),
+          _Button(x: 158, y: h - 205, r: 42, icon: ButtonIcon.down, keyName: 'down'),
+          _Button(x: w - 90, y: h - 90, r: 66, icon: ButtonIcon.up, keyName: 'jump'),
+          _Button(x: w - 240, y: h - 80, r: 56, icon: ButtonIcon.sword, keyName: 'attack'),
+          if (game.state.hasFeather) _Button(x: w - 130, y: h - 235, r: 46, icon: ButtonIcon.star, keyName: 'spell'),
         ]),
       );
 }
@@ -32,7 +32,7 @@ class _Button extends StatefulWidget {
   const _Button({required this.x, required this.y, required this.r, required this.icon, required this.keyName});
 
   final double x, y, r;
-  final _Icon icon;
+  final ButtonIcon icon;
   final String keyName;
 
   @override
@@ -83,28 +83,42 @@ class _ButtonState extends State<_Button> {
         onPointerCancel: (e) {
           if (_pointers.remove(e.pointer)) _sync();
         },
-        child: Container(
-          width: r * 2,
-          height: r * 2,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: parch.withValues(alpha: pressed ? 0.4 : 0.14),
-            border: Border.all(color: const Color(0xffd4a845).withValues(alpha: 0.6), width: 3),
+        // Glassy disc that sinks a little and glows gold while held
+        child: AnimatedScale(
+          scale: pressed ? 0.9 : 1,
+          duration: const Duration(milliseconds: 70),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 90),
+            width: r * 2,
+            height: r * 2,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                center: const Alignment(-0.3, -0.4),
+                colors: pressed
+                    ? [parch.withValues(alpha: 0.6), const Color(0xffd4a845).withValues(alpha: 0.35)]
+                    : [parch.withValues(alpha: 0.24), const Color(0xff1b2a6b).withValues(alpha: 0.18)],
+              ),
+              border: Border.all(color: const Color(0xffd4a845).withValues(alpha: pressed ? 0.95 : 0.6), width: 3),
+              boxShadow: pressed
+                  ? [BoxShadow(color: const Color(0xfff7d774).withValues(alpha: 0.5), blurRadius: 18, spreadRadius: 2)]
+                  : const [BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 3))],
+            ),
+            alignment: Alignment.center,
+            child: CustomPaint(size: Size.square(r * 0.8), painter: ButtonIconPainter(widget.icon)),
           ),
-          alignment: Alignment.center,
-          child: CustomPaint(size: Size.square(r * 0.8), painter: _IconPainter(widget.icon)),
         ),
       ),
     );
   }
 }
 
-enum _Icon { left, right, up, down, sword, star }
+enum ButtonIcon { left, right, up, down, sword, star }
 
 // Button icons are drawn as shapes: glyphs like ◀ ⚔ turn into emoji on some Android versions
-class _IconPainter extends CustomPainter {
-  const _IconPainter(this.icon);
-  final _Icon icon;
+class ButtonIconPainter extends CustomPainter {
+  const ButtonIconPainter(this.icon);
+  final ButtonIcon icon;
 
   @override
   void paint(Canvas c, Size size) {
@@ -127,40 +141,47 @@ class _IconPainter extends CustomPainter {
       ..close();
 
     switch (icon) {
-      case _Icon.left:
+      case ButtonIcon.left:
         shape(tri(Offset(s * 0.2, s * 0.5), Offset(s * 0.75, s * 0.18), Offset(s * 0.75, s * 0.82)));
-      case _Icon.right:
+      case ButtonIcon.right:
         shape(tri(Offset(s * 0.8, s * 0.5), Offset(s * 0.25, s * 0.18), Offset(s * 0.25, s * 0.82)));
-      case _Icon.up:
+      case ButtonIcon.up:
         shape(tri(Offset(s * 0.5, s * 0.2), Offset(s * 0.18, s * 0.75), Offset(s * 0.82, s * 0.75)));
-      case _Icon.down:
+      case ButtonIcon.down:
         shape(tri(Offset(s * 0.5, s * 0.8), Offset(s * 0.18, s * 0.25), Offset(s * 0.82, s * 0.25)));
-      case _Icon.sword:
-        // Two crossed blades with gold guards
+      case ButtonIcon.sword:
+        // Two crossed sabres: blade from the hilt (bottom corner) to the tip (opposite top corner)
+        final goldPaint = Paint()
+          ..color = const Color(0xffd4a845)
+          ..strokeCap = StrokeCap.round;
         for (final flip in [false, true]) {
           c.save();
           if (flip) {
             c.translate(s, 0);
             c.scale(-1, 1);
           }
+          // Drawn along the diagonal from (0.2, 0.8) to (0.88, 0.12)
+          c.translate(s * 0.5, s * 0.5);
+          c.rotate(-math.pi / 4);
+          final len = s * 0.98;
           final blade = Path()
-            ..moveTo(s * 0.12, s * 0.12)
-            ..lineTo(s * 0.24, s * 0.12)
-            ..lineTo(s * 0.74, s * 0.62)
-            ..lineTo(s * 0.62, s * 0.74)
-            ..lineTo(s * 0.12, s * 0.24)
+            ..moveTo(-len * 0.28, -s * 0.045)
+            ..lineTo(len * 0.42, -s * 0.045)
+            ..lineTo(len * 0.52, 0)
+            ..lineTo(len * 0.42, s * 0.045)
+            ..lineTo(-len * 0.28, s * 0.045)
             ..close();
           shape(blade);
-          c.drawLine(Offset(s * 0.58, s * 0.82), Offset(s * 0.82, s * 0.58), outline..strokeWidth = s * 0.16);
-          c.drawLine(Offset(s * 0.58, s * 0.82), Offset(s * 0.82, s * 0.58),
-              Paint()
-                ..color = const Color(0xffd4a845)
-                ..strokeWidth = s * 0.09
-                ..strokeCap = StrokeCap.round);
+          // Cross-guard and grip
+          final guard = Rect.fromCenter(center: Offset(-len * 0.3, 0), width: s * 0.07, height: s * 0.3);
+          c.drawRRect(RRect.fromRectAndRadius(guard.inflate(s * 0.03), Radius.circular(s * 0.04)), Paint()..color = ink);
+          c.drawRRect(RRect.fromRectAndRadius(guard, Radius.circular(s * 0.03)), goldPaint);
+          c.drawLine(Offset(-len * 0.34, 0), Offset(-len * 0.48, 0), outline..strokeWidth = s * 0.13);
+          c.drawLine(Offset(-len * 0.34, 0), Offset(-len * 0.48, 0), goldPaint..strokeWidth = s * 0.07);
           outline.strokeWidth = s * 0.07;
           c.restore();
         }
-      case _Icon.star:
+      case ButtonIcon.star:
         final p = Path();
         for (var i = 0; i < 8; i++) {
           final r = i.isEven ? s * 0.45 : s * 0.13;
@@ -173,5 +194,5 @@ class _IconPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_IconPainter old) => old.icon != icon;
+  bool shouldRepaint(ButtonIconPainter old) => old.icon != icon;
 }

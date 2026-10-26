@@ -307,7 +307,7 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
           At(w / 2, 32, child: OutlinedText(r.name, size: 30, color: gold)),
           At(w / 2, 60, child: OutlinedText(r.tagline, size: 15, color: const Color(0xffc8bca0))),
           At(w - 30, 36, ax: 1, child: OutlinedText('${clearedIn(r, g.progress)} / 20 explored', size: 18, color: const Color(0xff8ae0d8))),
-          At(30, 36, ax: 0, child: _TextButton('◀ World', g.openWorld, size: 16)),
+          At(30, 36, ax: 0, child: _TextButton('‹  World', g.openWorld, size: 16)),
           Positioned(left: 0, right: 0, top: 404, bottom: 0, child: _panel(g, w)),
         ]),
       ),

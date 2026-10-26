@@ -11,6 +11,57 @@ import '../sfx.dart';
 
 const _solidUnder = {T.grass, T.dirt, T.brick, T.platform};
 
+// Ra's red scarf: a short verlet rope hanging from the neck that trails and flutters
+class Scarf {
+  static const _n = 7;
+  static const _seg = 1.7;
+  final _x = List.filled(_n, 0.0), _y = List.filled(_n, 0.0);
+  final _px = List.filled(_n, 0.0), _py = List.filled(_n, 0.0);
+  bool _placed = false;
+
+  void update(double ax, double ay, int facing, double vx, double t, double dt) {
+    final s = math.min(dt, 34) / 1000;
+    if (!_placed || (_x[0] - ax).abs() > 24 || (_y[0] - ay).abs() > 24) {
+      for (var i = 0; i < _n; i++) {
+        _x[i] = _px[i] = ax - facing * i * _seg;
+        _y[i] = _py[i] = ay;
+      }
+      _placed = true;
+    }
+    _x[0] = _px[0] = ax;
+    _y[0] = _py[0] = ay;
+    // Wind blows the tail back and makes it ripple; stronger when running
+    final wind = -facing * (32 + vx.abs() * 0.3);
+    for (var i = 1; i < _n; i++) {
+      final nx = _x[i] + (_x[i] - _px[i]) * 0.9 + (wind + math.sin(t * 9 + i * 0.9) * 10) * s * s * 60;
+      final ny = _y[i] + (_y[i] - _py[i]) * 0.9 + (30 + math.cos(t * 7 + i) * 18) * s * s * 60;
+      _px[i] = _x[i];
+      _py[i] = _y[i];
+      _x[i] = nx;
+      _y[i] = ny;
+    }
+    for (var k = 0; k < 3; k++) {
+      for (var i = 1; i < _n; i++) {
+        final dx = _x[i] - _x[i - 1], dy = _y[i] - _y[i - 1];
+        final d = math.sqrt(dx * dx + dy * dy);
+        if (d == 0) continue;
+        final f = (d - _seg) / d;
+        _x[i] -= dx * f;
+        _y[i] -= dy * f;
+      }
+    }
+  }
+
+  void render(Canvas c, double alpha) {
+    final p = Paint()..isAntiAlias = false;
+    for (var i = _n - 1; i >= 1; i--) {
+      final w = i < 3 ? 2.0 : (i < 5 ? 1.8 : 1.4);
+      p.color = Color(i >= _n - 2 ? 0xff8a2a20 : (i % 2 == 0 ? 0xffb83a2e : 0xffd04a38)).withValues(alpha: alpha);
+      c.drawRect(Rect.fromCenter(center: Offset(_x[i], _y[i]), width: w, height: w), p);
+    }
+  }
+}
+
 class Player {
   Player(this.game, double x, double y)
       : body = Body(x, y, 8, 16),
@@ -46,24 +97,34 @@ class Player {
 
   // Visual state
   double _squash = 0; // ms left of the jump stretch
+  double _land = 0; // ms left of the landing squash
   double _flash = 0; // ms left of the red hurt flash
   int? tint;
   double fadeAlpha = 1;
   int _frame = 0;
   final _run = Anim([1, 2], 10);
+  final scarf = Scarf();
+  double _t = 0;
+  bool _wasGround = true;
+  double _fallSpeed = 0;
+  double _dustT = 0;
 
   GameState get reg => game.state;
   bool get onGround => body.blockedDown;
 
   void update(ControlState c, double dt) {
+    _t += dt / 1000;
     _squash = math.max(0, _squash - dt);
+    _land = math.max(0, _land - dt);
     _flash = math.max(0, _flash - dt);
+    scarf.update(x - facing * 3, y - 11, facing, body.vx, _t, dt);
     if (dead) return;
     if (frozen) {
       body.vx = 0;
       return;
     }
     final ground = onGround;
+    _feet(ground, dt);
 
     coyote = ground ? PlayerTuning.coyote : math.max(0, coyote - dt);
     if (ground) canDouble = true;
@@ -93,10 +154,12 @@ class Player {
       } else if (coyote > 0) {
         jump(PlayerTuning.jump);
         coyote = 0;
+        game.particles.dust(x, y, count: 4, spread: 35);
       } else if (canDouble) {
         jump(PlayerTuning.doubleJump);
         canDouble = false;
         game.burst(x, y, [0xfff2e6c9, 0xff8ae0d8], 6, 60);
+        game.particles.ring(x, y - 2, 0xff8ae0d8, r1: 12, life: 260, width: 1.5);
       }
     }
     if (!c.jump && body.vy < -120 && !jumpCut) {
@@ -117,6 +180,27 @@ class Player {
 
     trackSafeGround(ground, dt);
     _animate(ground, dt);
+  }
+
+  // Landing squash and dust, and little puffs behind the heels while running
+  void _feet(bool ground, double dt) {
+    if (!ground) {
+      _fallSpeed = math.max(_fallSpeed, body.vy);
+    } else if (!_wasGround) {
+      if (_fallSpeed > 180) {
+        _land = 120;
+        game.particles.dust(x, y, count: (_fallSpeed / 60).clamp(3, 8).round(), spread: 45);
+      }
+      _fallSpeed = 0;
+    }
+    _wasGround = ground;
+    if (ground && body.vx.abs() > 60) {
+      _dustT -= dt;
+      if (_dustT <= 0) {
+        _dustT = 140 + rand.nextDouble() * 80;
+        game.particles.dust(x - facing * 3, y, count: 1, dir: -facing.toDouble(), spread: 6);
+      }
+    }
   }
 
   void jump(double v) {
@@ -148,6 +232,8 @@ class Player {
       if (step == 2) {
         dmg = (atk * 1.6).ceil();
         knock = 1.8;
+        // The finisher lunges forward a little
+        if (ground) body.vx = facing * 90;
       }
     }
 
@@ -166,6 +252,7 @@ class Player {
     if (step == -1 && hits > 0) {
       body.vy = -270; // bounce off enemies with a down strike (pogo)
       canDouble = true;
+      game.particles.ring(x, y + 4, 0xfffff4c0, r1: 14, life: 240);
     }
   }
 
@@ -179,13 +266,16 @@ class Player {
     reg.aura -= PlayerTuning.featherCost;
     spellCooldown = 300;
     game.spawnFeather(x + facing * 8, y - 10, facing, reg.magic);
+    game.particles.ring(x + facing * 8, y - 10, 0xff8ae0d8, r1: 10, life: 220, width: 1.5);
   }
 
   void hurt(int dmg, double fromX) {
     if (invuln > 0 || dead || frozen) return;
     reg.hp = math.max(0, reg.hp - dmg);
     sfx.hurt();
-    game.camera.shake(150, 0.006);
+    game.camera
+      ..shake(150, 0.006)
+      ..flash(0xffd83a3a, 0.28, 260);
     invuln = PlayerTuning.invuln;
     hurtLock = 260;
     final away = (x - fromX).sign != 0 ? (x - fromX).sign : -facing.toDouble();
@@ -193,6 +283,7 @@ class Player {
       ..vx = away * 160
       ..vy = -180;
     _flash = 90;
+    game.particles.spark(x, y - 8, color: 0xffff8a7a);
     if (reg.hp <= 0) game.playerDied();
   }
 
@@ -201,12 +292,14 @@ class Player {
     if (dead) return;
     reg.hp = math.max(0, reg.hp - 1);
     sfx.hurt();
+    game.camera.flash(0xffd83a3a, 0.22, 240);
     if (reg.hp <= 0) {
       game.playerDied();
       return;
     }
     respawnAt(safe.dx, safe.dy);
     invuln = PlayerTuning.invuln;
+    game.particles.ring(safe.dx, safe.dy - 8, 0xfffff4c0, r1: 16);
   }
 
   void respawnAt(double px, double py) {
@@ -248,14 +341,16 @@ class Player {
   }
 
   void render(Canvas c, Sheet sheet, double timeNow) {
-    final k = _squash / 160;
     final blink = invuln > 0 && (timeNow / 60).floor() % 2 == 1 ? 0.35 : 1.0;
+    final alpha = blink * fadeAlpha;
+    // Stretch on take-off, squash on landing, and a slow breath when standing still
+    final jumpK = _squash / 160;
+    final landK = _land / 120;
+    final idle = _frame == 0 && !dead ? math.sin(_t * 3.2) * 0.025 : 0.0;
+    final sx = 1 - 0.15 * jumpK + 0.2 * landK - idle * 0.6;
+    final sy = 1 + 0.15 * jumpK - 0.2 * landK + idle;
+    scarf.render(c, alpha);
     drawFrame(c, sheet, _frame, x.roundToDouble(), y.roundToDouble(),
-        flipX: facing < 0,
-        scaleX: 1 - 0.15 * k,
-        scaleY: 1 + 0.15 * k,
-        alpha: blink * fadeAlpha,
-        tint: tint,
-        tintFill: _flash > 0 ? 0xffff4040 : null);
+        flipX: facing < 0, scaleX: sx, scaleY: sy, alpha: alpha, tint: tint, tintFill: _flash > 0 ? 0xffff4040 : null);
   }
 }

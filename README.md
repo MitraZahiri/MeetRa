@@ -21,7 +21,10 @@ In every level:
 - Pits and thorns send you back to the last safe ground
 - Enemies: Hollow imps (they patrol, then chase you) and bats
 - **Boss: the Reed Lion.** It charges, stuns itself on walls, pounces, and gets enraged at half health.
-- Parallax backgrounds, on-screen touch controls, generated sound effects
+- Parallax backgrounds with sun rays, on-screen touch controls, generated sound effects
+- A living world: grass that sways and parts around feet, weather for each realm (pollen and fireflies, dust, sand, snow, leaves, sea spray, embers), glowing hearths, coins and orbs, darkness and light in caves and the Lightless Land
+- Juice: Ra's flowing scarf, breathing, landing squash and dust; hit sparks, shockwave rings, popping damage numbers, screen flashes; imps and bats that notice you, a lion that kicks up dust
+- Procedural music in Persian modes: a santur and daf theme for exploring (Shur) and a tense boss theme (Chahargah), with a sound switch
 - Landscape lock and fullscreen on Android and iOS
 
 All art and sound are generated placeholders. Final art arrives in M1.
@@ -68,11 +71,12 @@ lib/
   config.dart          Constants, player tuning, GameState
   input.dart           Merges keyboard and touch input
   sfx.dart             Sound effects synthesized to WAV at startup
+  music.dart           Procedural santur and daf music, rendered in a background isolate
   art/                 Pixel art generated from code (sprites, tiles, backgrounds)
   levels/              ASCII level builder, the hand-made tutorial and the level generator
   world/               The 7 realms × 20 places, unlock rules and the save file
   entities/            Player, Enemy (Imp, Bat), Lion
-  game/                MeetRaGame (loop, camera, render), arcade physics, effects
+  game/                MeetRaGame (loop, camera, render), arcade physics, effects, ambience (grass, weather, lights)
   ui/                  HUD, menus, world and realm maps, touch buttons
 test/                  Unit tests (level builder, physics, world and unlocks)
 android/, ios/         Native platform projects

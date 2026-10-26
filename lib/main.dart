@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'art/sprites.dart';
 import 'config.dart';
 import 'game/meetra_game.dart';
+import 'music.dart';
 import 'sfx.dart';
+import 'ui/common.dart';
 import 'ui/hud.dart';
 import 'ui/maps.dart';
 import 'ui/menus.dart';
@@ -18,6 +20,7 @@ Future<void> main() async {
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   final art = await Art.generate();
   sfx.init();
+  music.init();
   final game = MeetRaGame(art);
   await game.progress.load(game.state);
   game.ui.realm.value = game.progress.realm;
@@ -64,6 +67,8 @@ class GameScreen extends StatelessWidget {
                     Positioned.fill(child: IgnorePointer(child: BossBar(game, w: w))),
                     Positioned.fill(child: TouchControls(game, w: w, h: gameH)),
                     _when(game.ui.screen, (s) => s == AppScreen.playing, (_) => MapButton(game, w: w)),
+                    _when(game.ui.screen, (s) => s == AppScreen.playing,
+                        (_) => Stack(children: [At(w / 2 + 72, 30, child: const SoundButton(size: 34))])),
                     _when(game.ui.levelUps, (n) => n > 0, (n) => LevelUpPanel(game, w: w)),
                     _when(game.ui.victory, (v) => v, (_) => VictoryScreen(game, w: w)),
                     _when(game.ui.screen, (s) => s == AppScreen.world, (_) => WorldMapScreen(game, w: w)),

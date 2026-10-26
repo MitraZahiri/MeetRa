@@ -16,12 +16,14 @@ import '../entities/enemy.dart';
 import '../entities/lion.dart';
 import '../entities/player.dart';
 import '../input.dart';
+import '../music.dart';
 import '../levels/build.dart';
 import '../levels/generator.dart';
 import '../levels/level1.dart';
 import '../sfx.dart';
 import '../world/progress.dart';
 import '../world/world.dart';
+import 'ambience.dart';
 import 'effects.dart';
 import 'physics.dart';
 
@@ -52,6 +54,7 @@ class Pickup {
   Pickup(this.body, this.life);
   final Body body;
   final double life;
+  final double phase = rand.nextDouble() * 10;
   double age = 0;
   bool removed = false;
 }
@@ -91,6 +94,7 @@ class Breakable {
   final double x, y;
   final String kind;
   final Sheet sheet;
+  double wobble = 0; // bushes rustle when Ra pushes through
   Rect get bounds => Rect.fromLTWH(x - sheet.frameW / 2, y - sheet.frameH, sheet.frameW, sheet.frameH);
 }
 
@@ -135,6 +139,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   late Physics physics;
   late Player player;
   late dui.Image _map;
+  late Ambience ambience;
 
   final camera = Camera();
   final timers = Timers();
@@ -169,6 +174,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   double timeNow = 0;
   double _hitstop = 0;
   double _drift = 0;
+  double _realT = 0; // keeps running while paused, for ambient motion
   double _winT = -1;
   bool _snapCamera = true;
 
@@ -181,9 +187,11 @@ class MeetRaGame extends Game with KeyboardEvents {
   void _startLevel() {
     level = buildLevel(def);
     physics = Physics(level);
-    for (final l in [enemies, coins, hearts, feathers, orbs, altars, signs, breakables, chests, slashes, texts, particles.list]) {
+    for (final l in [enemies, coins, hearts, feathers, orbs, altars, signs, breakables, chests, slashes, texts]) {
       l.clear();
     }
+    particles.clear();
+    ambience = Ambience(level, location?.realm.theme ?? RealmTheme.vale, cave: location?.kind == LocKind.cave);
     featherPickup = null;
     gate = null;
     activeSign = null;
@@ -278,6 +286,8 @@ class MeetRaGame extends Game with KeyboardEvents {
   void update(double dtSeconds) {
     final dt = math.min(dtSeconds * 1000, 50.0);
     _drift += dt * 0.004;
+    _realT += dt / 1000;
+    ambience.update(dt, _view, simPaused ? const [] : _pushers());
     if (simPaused) {
       state.flush();
       return;
@@ -344,6 +354,16 @@ class MeetRaGame extends Game with KeyboardEvents {
     state.flush();
   }
 
+  Rect get _view => Rect.fromLTWH(camera.scrollX, camera.scrollY, camera.viewW, camera.viewH);
+
+  // Everything that parts the grass as it moves through
+  List<Pusher> _pushers() => [
+        (player.x, player.y, player.body.vx),
+        for (final e in enemies)
+          if (e.body.allowGravity) (e.x, e.y, e.body.vx),
+        if (lion != null) ...[(lion!.x - 12, lion!.y, lion!.body.vx), (lion!.x + 12, lion!.y, lion!.body.vx)],
+      ];
+
   void _stepPhysics(double s) {
     final P = player;
     var spikes = false;
@@ -393,6 +413,9 @@ class MeetRaGame extends Game with KeyboardEvents {
         a.lit = true;
         sfx.altar();
         burst(a.x, a.y - 16, [0xffffe066, 0xffff9a2a], 16, 90);
+        particles
+          ..ring(a.x, a.y - 14, 0xffffc060, r1: 34, life: 600, width: 2.5)
+          ..ring(a.x, a.y - 14, 0xfffff0b0, r1: 20, life: 420);
         ui.banner.value = BannerMsg('Hearth lit', 'Checkpoint reached · health restored');
       }
       if (checkpoint.dx != a.x) checkpoint = Offset(a.x, a.y);
@@ -424,6 +447,8 @@ class MeetRaGame extends Game with KeyboardEvents {
           ..aura = state.auraMax.toDouble();
         sfx.pickup();
         burst(P.x, P.y - 10, [0xff2bb3a8, 0xff8ae0d8, 0xffd4a845], 24, 130);
+        particles.ring(P.x, P.y - 10, 0xff8ae0d8, r1: 40, life: 600, width: 3);
+        camera.flash(0xff8ae0d8, 0.3, 500);
         ui.banner.value = BannerMsg("Saena's Feather", 'Tap ✦ to throw it · costs Aura');
       }
     }
@@ -476,6 +501,9 @@ class MeetRaGame extends Game with KeyboardEvents {
       if (ch.opened || !overlaps(pr, ch.bounds)) continue;
       ch.opened = true;
       sfx.pickup();
+      particles
+        ..ring(ch.x, ch.y - 6, 0xffffe28a, r1: 24, life: 450)
+        ..spark(ch.x, ch.y - 8, size: 12, color: 0xffffe28a);
       spawnGold(ch.x, ch.y - 10, 12);
       spawnXp(ch.x, ch.y - 10, 8);
       ui.banner.value = BannerMsg('Treasure!', 'Hidden chests reward the curious');
@@ -491,7 +519,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     for (final t in texts) {
       t.t += dt;
     }
-    texts.removeWhere((t) => t.t >= FloatText.duration);
+    texts.removeWhere((t) => t.t >= t.duration);
     for (final f in feathers) {
       f.age += dt;
       f.trailT += dt;
@@ -503,9 +531,37 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     final g = gate;
     if (g != null && g.opening) g.glow = math.min(1, g.glow + dt / 1200);
+    _ambientSparkles(dt);
     if (_winT >= 0) {
       _winT += dt;
       player.fadeAlpha = 1 - ((_winT - 300) / 900).clamp(0.0, 1.0);
+    }
+  }
+
+  // Embers over lit hearths, glints on coins and chests, light rising from an open gate
+  void _ambientSparkles(double dt) {
+    bool chance(double everyMs) => rand.nextDouble() < dt / everyMs;
+    for (final a in altars) {
+      if (a.lit && chance(90)) particles.ember(a.x, a.y - 18);
+    }
+    for (final c in coins) {
+      if (chance(900)) particles.sparkle(c.body.x + between(-2, 2), c.body.y - between(2, 6));
+    }
+    for (final ch in chests) {
+      if (!ch.opened && chance(600)) particles.sparkle(ch.x + between(-6, 6), ch.y - between(2, 10), 0xffffe28a);
+    }
+    for (final o in orbs) {
+      if (chance(70)) particles.sparkle(o.x, o.y, 0xff8ae0d8);
+    }
+    final g = gate;
+    if (g != null && g.glow > 0 && chance(110 / g.glow)) particles.ember(g.x + between(-8, 8), g.y - between(0, 30), 0xfffff0b0);
+    final f = featherPickup;
+    if (f != null && chance(160)) particles.sparkle(f.x + between(-8, 8), f.y + between(-6, 6), 0xff8ae0d8);
+    // Bushes rustle when Ra pushes through them
+    final pr = player.body.rect;
+    for (final b in breakables) {
+      if (b.kind == 'bush' && player.body.vx.abs() > 30 && overlaps(pr, b.bounds) && b.wobble < 0.4) b.wobble = 1;
+      b.wobble = math.max(0, b.wobble - dt / 700);
     }
   }
 
@@ -607,12 +663,17 @@ class MeetRaGame extends Game with KeyboardEvents {
     c.removed = true;
     state.gold++;
     sfx.coin();
+    for (var i = 0; i < 3; i++) {
+      particles.sparkle(c.body.x + between(-3, 3), c.body.y - between(0, 6), 0xffffe28a);
+    }
   }
 
   void _collectHeart(Pickup h) {
     h.removed = true;
     state.hp = math.min(state.maxHp, state.hp + 2);
     sfx.pickup();
+    particles.ring(h.body.x, h.body.y - 4, 0xffff8a9a, r1: 16, life: 360);
+    floatText(h.body.x, h.body.y - 10, '+1', const Color(0xffff9aa8));
   }
 
   void gainXp(int n) {
@@ -633,6 +694,10 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (ups > 0) {
       sfx.levelup();
       burst(player.x, player.y - 10, [0xffffe28a, 0xffffffff, 0xff8ae0d8], 30, 160);
+      particles
+        ..ring(player.x, player.y - 10, 0xffffe28a, r1: 50, life: 700, width: 3)
+        ..ring(player.x, player.y - 10, 0xffffffff, r1: 30, life: 500);
+      camera.flash(0xffffe28a, 0.3, 600);
       pendingLevelUps += ups;
       timers.after(350, _openLevelUp);
     }
@@ -652,6 +717,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     leftWall = Wall(Rect.fromCenter(center: Offset(arenaLeft! + tile / 2, rightWall!.y), width: 16, height: 224));
     physics.walls.add(leftWall!);
     burst(leftWall!.x, level.height - 3 * tile, [0xffa88a60, 0xff5a4a38], 16, 120);
+    particles.dust(leftWall!.x, level.height - 3 * tile, count: 10, spread: 50, color: 0xffa88a60);
+    music.play(Track.boss);
     camera
       ..bounds = Rect.fromLTRB(arenaLeft!, 0, arenaRight!, level.height)
       ..shake(400, 0.008);
@@ -672,7 +739,13 @@ class MeetRaGame extends Game with KeyboardEvents {
       physics.walls.remove(w);
     }
     leftWall = rightWall = null;
-    camera.bounds = Rect.fromLTWH(0, 0, level.width, level.height);
+    camera
+      ..bounds = Rect.fromLTWH(0, 0, level.width, level.height)
+      ..flash(0xfffff0c0, 0.45, 900);
+    particles
+      ..ring(x, y - 14, 0xfffff0c0, r1: 70, life: 900, width: 4)
+      ..ring(x, y - 14, 0xffffc060, r1: 44, life: 700, width: 3);
+    music.play(Track.explore);
     ui.boss.value = null;
     ui.banner.value = BannerMsg('${def.boss.name} falls!', 'The way out is open');
     gate?.opening = true;
@@ -686,6 +759,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     bossStarted = false;
     camera.bounds = Rect.fromLTWH(0, 0, level.width, level.height);
     ui.boss.value = null;
+    music.play(Track.explore);
   }
 
   // ---------- Death / victory ----------
@@ -722,6 +796,10 @@ class MeetRaGame extends Game with KeyboardEvents {
     player.frozen = true;
     sfx.victory();
     _winT = 0;
+    camera.flash(0xfffff0c0, 0.5, 1100);
+    particles
+      ..ring(player.x, player.y - 10, 0xfffff0c0, r1: 60, life: 900, width: 3)
+      ..ring(player.x, player.y - 10, 0xffffc060, r1: 36, life: 700);
     final loc = location;
     if (loc != null) ui.rewards.value = completeLocation(loc);
     timers.after(1100, () => ui.victory.value = true);
@@ -773,6 +851,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (started) return;
     started = true;
     ui.screen.value = AppScreen.world;
+    music.play(Track.explore);
   }
 
   void openRealm(Realm r) {
@@ -849,7 +928,8 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   void burst(double x, double y, List<int> colors, [int count = 10, double speed = 100]) => particles.burst(x, y, colors, count, speed);
 
-  void floatText(double x, double y, String text, Color color) => texts.add(FloatText(x, y, text, color));
+  void floatText(double x, double y, String text, Color color, {double size = 8, double rise = 16, double duration = 650, double drift = 0}) =>
+      texts.add(FloatText(x, y, text, color, size: size, rise: rise, duration: duration, drift: drift));
 
   // ---------- Rendering ----------
 
@@ -870,9 +950,10 @@ class MeetRaGame extends Game with KeyboardEvents {
     _renderWorld(c, Rect.fromLTWH(sx, sy, size.x / z, size.y / z));
     c.restore();
 
-    if (camera.fade > 0) {
-      c.drawRect(Offset.zero & Size(size.x, size.y), Paint()..color = Color.fromRGBO(10, 6, 20, camera.fade));
-    }
+    final screen = Offset.zero & Size(size.x, size.y);
+    paintVignette(c, screen.size, ambience.dark ? 0.8 : 0.38);
+    if (camera.flashAlpha > 0) c.drawRect(screen, Paint()..color = Color(camera.flashColor).withValues(alpha: camera.flashAlpha));
+    if (camera.fade > 0) c.drawRect(screen, Paint()..color = Color.fromRGBO(10, 6, 20, camera.fade));
   }
 
   // Parallax layers: each one scrolls at its own fraction of the camera's speed
@@ -880,7 +961,9 @@ class MeetRaGame extends Game with KeyboardEvents {
     final viewH = size.y / z;
     final double y = camera.scrollY.clamp(0.0, math.max(0.0, 270 - viewH)).toDouble();
     final rect = Offset.zero & Size(size.x, size.y);
-    for (final (sheet, factor) in [(art.bgSky, 0.0), (art.bgClouds, 0.06), (art.bgMountains, 0.15), (art.bgHills, 0.35)]) {
+    final layers = [(art.bgSky, 0.0), (art.bgClouds, 0.06), (art.bgMountains, 0.15), (art.bgHills, 0.35)];
+    for (var i = 0; i < layers.length; i++) {
+      final (sheet, factor) = layers[i];
       final tx = camera.scrollX * factor + (factor > 0 && factor < 0.1 ? _drift : 0.0);
       final m = Matrix4.identity()
         ..scale(z, z)
@@ -888,6 +971,8 @@ class MeetRaGame extends Game with KeyboardEvents {
       final paint = Paint()
         ..shader = ImageShader(sheet.image, TileMode.repeated, TileMode.repeated, m.storage, filterQuality: FilterQuality.none);
       c.drawRect(rect, paint);
+      // Sun rays fan out from the painted sun, behind the clouds and mountains
+      if (i == 0) paintSunRays(c, Offset(360 * z, (80 - y) * z), z, _realT, ambience.rays, ambience.rayColor);
     }
     // Each realm washes the sky in its own color; the Lightless Land is almost dark
     final tint = def.skyTint;
@@ -895,6 +980,46 @@ class MeetRaGame extends Game with KeyboardEvents {
       final dark = location?.realm.theme == RealmTheme.dark;
       c.drawRect(rect, Paint()..color = Color(tint).withValues(alpha: dark ? 0.7 : 0.22));
     }
+  }
+
+  // The top of the nearest floor below a point, for drop shadows
+  double? _groundBelow(double x, double y) {
+    final tx = (x / tile).floor();
+    for (var ty = (y / tile).floor(); ty < level.rows && ty * tile < y + 64; ty++) {
+      final t = level.tileAt(tx, ty);
+      if (t != T.empty && t != T.spikes && ty * tile >= y - 0.5) return ty * tile;
+    }
+    return null;
+  }
+
+  void _shadow(Canvas c, double x, double y, double w) {
+    final gy = _groundBelow(x, y);
+    if (gy == null) return;
+    final k = 1 - ((gy - y) / 64).clamp(0.0, 1.0);
+    c.drawOval(Rect.fromCenter(center: Offset(x, gy), width: w * (0.5 + 0.5 * k), height: 2.6 * (0.6 + 0.4 * k)),
+        Paint()..color = Color.fromRGBO(16, 10, 30, 0.32 * k));
+  }
+
+  // Every light source in view this frame
+  List<Light> _lights() {
+    final t = _realT;
+    return [
+      for (final a in altars)
+        a.lit
+            ? Light(a.x, a.y - 16, 48 + math.sin(t * 13 + a.x) * 2 + math.sin(t * 7.3) * 2, 0xffffa040)
+            : Light(a.x, a.y - 13, 12 + math.sin(t * 3) * 2, 0xffff6020, 0.6),
+      if (featherPickup != null) Light(featherPickup!.x, featherPickup!.y, 32, 0xff8ae0d8),
+      for (final f in feathers) Light(f.body.x, f.body.centerY, 24, 0xff8ae0d8),
+      for (final o in orbs) Light(o.x, o.y, 12, 0xff8ae0d8, 0.8),
+      for (final co in coins) Light(co.body.x, co.body.y - 3, 9, 0xffffd060, 0.5),
+      for (final h in hearts) Light(h.body.x, h.body.y - 4, 10, 0xffff6a7a, 0.5),
+      for (final ch in chests)
+        if (!ch.opened) Light(ch.x, ch.y - 5, 14, 0xffffd060, 0.35 + 0.15 * math.sin(t * 2.5)),
+      for (final s in slashes) Light(s.x, s.y, 22, 0xffffe8b0, 1 - s.t / Slash.duration),
+      if (gate != null && gate!.glow > 0) Light(gate!.x, gate!.y - 22, 64 * gate!.glow, 0xfffff0b0, gate!.glow),
+      if (ambience.dark) Light(player.x, player.y - 8, 72, 0xfff0e8d0, 0.95),
+      if (ambience.dark && lion != null) Light(lion!.x, lion!.y - 14, 30, 0xffff8040, 0.5),
+    ];
   }
 
   void _renderWorld(Canvas c, Rect view) {
@@ -910,19 +1035,21 @@ class MeetRaGame extends Game with KeyboardEvents {
     final g = gate;
     if (g != null) {
       drawFrame(c, a.gate, 0, g.x, g.y);
-      drawFrame(c, a.gateGlow, 0, g.x, g.y, alpha: g.glow);
+      drawFrame(c, a.gateGlow, 0, g.x, g.y, alpha: g.glow * (0.85 + 0.15 * math.sin(_realT * 3)));
     }
     // depth 4: altars, breakables, chests
     for (final al in altars) {
       drawFrame(c, a.altar, 0, al.x, al.y);
       if (al.lit) {
-        drawFrame(c, a.flame, al.flame.frame, al.x, al.y - 13);
+        final flick = 1 + math.sin(_realT * 17 + al.x) * 0.06;
+        drawFrame(c, a.flame, al.flame.frame, al.x, al.y - 13, scaleX: 2 - flick, scaleY: flick);
       } else {
-        drawFrame(c, a.px, 0, al.x, al.y - 13, oy: 0.5, tint: 0xff803020);
+        drawFrame(c, a.px, 0, al.x, al.y - 13, oy: 0.5, tint: 0xff803020, alpha: 0.6 + 0.4 * math.sin(_realT * 3));
       }
     }
     for (final b in breakables) {
-      drawFrame(c, b.sheet, 0, b.x, b.y);
+      final wob = b.wobble > 0 ? math.sin(_realT * 32) * b.wobble * 9 : 0.0;
+      drawFrame(c, b.sheet, 0, b.x, b.y, angle: wob);
     }
     for (final ch in chests) {
       drawFrame(c, a.chest, ch.opened ? 1 : 0, ch.x, ch.y);
@@ -930,18 +1057,36 @@ class MeetRaGame extends Game with KeyboardEvents {
     // depth 5: tiles (only the visible part of the map image)
     final src = view.intersect(Rect.fromLTWH(0, 0, level.width, level.height));
     if (!src.isEmpty) c.drawImageRect(_map, src, src, _pixel);
+    // Soft shadows ground everything that moves
+    if (!player.dead) _shadow(c, player.x, player.y, 10);
+    for (final e in enemies) {
+      _shadow(c, e.x, e.y, e is Bat ? 8 : 12);
+    }
+    if (lion != null && lion!.state != LionState.dead) _shadow(c, lion!.x, lion!.y, 44);
     // depth 6-7: feather pickup, coins, hearts
     final f = featherPickup;
     if (f != null) {
       final k = 1 - ((f.t % 1400) - 700).abs() / 700; // 0 -> 1 -> 0 over 1.4 s
       c.drawCircle(Offset(f.x, f.y), 10 * (1 + 0.4 * k), Paint()..color = Color.fromRGBO(138, 224, 216, 0.25 - 0.15 * k));
-      drawFrame(c, a.feather, 0, f.x, f.y, oy: 0.5, scaleX: 1.5, scaleY: 1.5, angle: -30);
+      // Two motes circle the feather
+      final glow = Paint()
+        ..blendMode = BlendMode.plus
+        ..color = const Color(0xffc8fff8);
+      for (var i = 0; i < 2; i++) {
+        final ang = _realT * 2.4 + i * math.pi;
+        c.drawCircle(Offset(f.x + math.cos(ang) * 11, f.y + math.sin(ang) * 4), 0.9, glow);
+      }
+      drawFrame(c, a.feather, 0, f.x, f.y, oy: 0.5, scaleX: 1.5, scaleY: 1.5, angle: -30 + math.sin(_realT * 2) * 6);
     }
     for (final co in coins) {
-      drawFrame(c, a.coin, 0, co.body.x.roundToDouble(), co.body.y.roundToDouble());
+      // Coins spin: squeeze the width with a cosine
+      final spin = math.cos(co.age / 140 + co.phase).abs();
+      drawFrame(c, a.coin, 0, co.body.x.roundToDouble(), co.body.y.roundToDouble(), scaleX: math.max(0.2, spin));
     }
     for (final h in hearts) {
-      drawFrame(c, a.heart, 0, h.body.x.roundToDouble(), h.body.y.roundToDouble());
+      final bob = h.body.blockedDown ? math.sin(h.age / 180) * 1.2 - 1 : 0.0;
+      final beat = 1 + math.max(0.0, math.sin(h.age / 120)) * 0.12;
+      drawFrame(c, a.heart, 0, h.body.x.roundToDouble(), (h.body.y + bob).roundToDouble(), scaleX: beat, scaleY: beat);
     }
     // depth 8-9: enemies, feathers, boss, xp orbs
     for (final e in enemies) {
@@ -952,14 +1097,19 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     lion?.render(c, a.lion);
     for (final o in orbs) {
-      drawFrame(c, a.xp, 0, o.x, o.y, oy: 0.5);
+      drawFrame(c, a.xp, 0, o.x, o.y, oy: 0.5, angle: o.t * 0.4);
     }
-    // depth 10-12: player, slashes, particles
+    // depth 10: Ra, then the grass in front of everyone's feet
     player.render(c, a.hero, timeNow);
+    ambience.renderGrass(c, view);
+    // depth 11-12: slashes, particles, light and darkness, weather, numbers
     for (final s in slashes) {
       s.render(c, a.slash);
     }
     particles.render(c);
+    ambience
+      ..renderLights(c, view, _lights())
+      ..renderMotes(c);
     for (final t in texts) {
       t.render(c);
     }

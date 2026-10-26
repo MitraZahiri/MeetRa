@@ -168,6 +168,7 @@ class Sfx {
   final Map<String, Source> _sources = {};
   final Map<String, int> _next = {};
   bool _ready = false;
+  bool enabled = true; // the sound switch (see music.dart)
 
   Future<void> init() async {
     try {
@@ -193,7 +194,7 @@ class Sfx {
   }
 
   void _play(String name) {
-    if (!_ready) return;
+    if (!_ready || !enabled) return;
     final pool = _pools[name]!;
     final i = _next[name] = ((_next[name] ?? -1) + 1) % pool.length;
     pool[i].play(_sources[name]!).catchError((_) {});
