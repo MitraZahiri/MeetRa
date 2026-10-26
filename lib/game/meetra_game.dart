@@ -132,6 +132,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   final controls = Controls();
   final keyDowns = StreamController<LogicalKeyboardKey>.broadcast();
   final progress = Progress();
+  final mapSeen = <String>{}; // places and realms already shown out of the fog (reveals animate once)
   LevelDef def = level1;
   Location? location; // the location being played
 
@@ -920,6 +921,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   // Erases the save and starts the saga again
   Future<void> newGame() async {
     await progress.wipe(state);
+    mapSeen.clear();
     ui.realm.value = 0;
     ui.screen.value = AppScreen.world;
   }

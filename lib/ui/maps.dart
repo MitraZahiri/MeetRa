@@ -47,6 +47,67 @@ void _label(Canvas c, String text, Offset at, {double size = 15, Color color = _
 
 // ---------- Shared bits ----------
 
+// Fog of war: a drifting cloud layer over the map with soft holes cut around what Ra knows.
+// Each hole is (centre, radius, reveal 0..1); a new hole grows open when something is revealed.
+void _paintFog(Canvas c, Rect area, List<(Offset, double, double)> holes, double t, {bool dark = false}) {
+  c.save();
+  c.clipRect(area);
+  c.saveLayer(area, Paint());
+  c.drawRect(
+    area,
+    Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: dark ? const [Color(0xff1c1a26), Color(0xff2a2638)] : const [Color(0xff9a8f7c), Color(0xff7d7364)],
+      ).createShader(area),
+  );
+  // Slow clouds rolling through the fog
+  final rnd = math.Random(5);
+  for (var i = 0; i < 46; i++) {
+    final speed = 4 + rnd.nextDouble() * 10;
+    final r = 30 + rnd.nextDouble() * 60;
+    final span = area.width + r * 2;
+    final x = area.left - r + (rnd.nextDouble() * span + t * speed) % span;
+    final y = area.top + rnd.nextDouble() * area.height + math.sin(t * 0.3 + i) * 6;
+    final light = rnd.nextBool();
+    final col = dark ? (light ? const Color(0xff3a3650) : const Color(0xff12101a)) : (light ? const Color(0xffcfc4ac) : const Color(0xff5f574a));
+    c.drawCircle(
+        Offset(x, y), r, Paint()..shader = RadialGradient(colors: [col.withValues(alpha: 0.35), col.withValues(alpha: 0)]).createShader(Rect.fromCircle(center: Offset(x, y), radius: r)));
+  }
+  final cut = Paint()..blendMode = BlendMode.dstOut;
+  for (final (p, radius, reveal) in holes) {
+    if (reveal <= 0) continue;
+    final r = radius * Curves.easeOutCubic.transform(reveal.clamp(0.0, 1.0));
+    if (r < 1) continue;
+    cut.shader = const RadialGradient(colors: [Color(0xff000000), Color(0xff000000), Color(0x00000000)], stops: [0, 0.55, 1])
+        .createShader(Rect.fromCircle(center: p, radius: r));
+    c.drawCircle(p, r, cut);
+  }
+  c.restore();
+  c.restore();
+}
+
+// Remembers which places have already been shown, so only new ones play the reveal
+class _Reveals {
+  _Reveals(this.seen);
+  final Set<String> seen;
+  final _clock = Stopwatch()..start();
+  final _start = <String, double>{};
+
+  double get now => _clock.elapsedMilliseconds / 1000;
+
+  // 0..1: how far the fog has opened over [id]; first sightings animate, known ones are open
+  double of(String id) {
+    if (!seen.contains(id)) {
+      seen.add(id);
+      _start[id] = now + 0.35;
+    }
+    final s = _start[id];
+    return s == null ? 1 : ((now - s) / 1.1).clamp(0.0, 1.0);
+  }
+}
+
 class _TextButton extends StatelessWidget {
   const _TextButton(this.text, this.onTap, {this.size = 22});
   final String text;
@@ -84,6 +145,7 @@ class WorldMapScreen extends StatefulWidget {
 
 class _WorldMapScreenState extends State<WorldMapScreen> with SingleTickerProviderStateMixin {
   late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
+  late final _reveals = _Reveals(widget.game.mapSeen);
   String? _hint;
   bool _confirmWipe = false;
 
@@ -102,13 +164,14 @@ class _WorldMapScreenState extends State<WorldMapScreen> with SingleTickerProvid
       if ((p - _pos(r)).distance > 52) continue;
       if (realmUnlocked(r, g.progress)) {
         g.openRealm(r);
-      } else {
-        setState(() => _hint = r.hidden
-            ? 'Something is hidden in the far north. Find all six Dawn Sigils.'
-            : 'Free ${realms[r.index - 1].name} first: defeat ${realms[r.index - 1].bossName}.');
+        return;
       }
-      return;
     }
+    // Anything else is still under the fog
+    final next = realms.where((r) => !r.hidden && !realmUnlocked(r, g.progress)).firstOrNull;
+    setState(() => _hint = next == null
+        ? 'Something still hides in the far north. Find all six Dawn Sigils.'
+        : 'The fog lifts when ${realms[next.index - 1].bossName} falls.');
   }
 
   @override
@@ -121,12 +184,12 @@ class _WorldMapScreenState extends State<WorldMapScreen> with SingleTickerProvid
         behavior: HitTestBehavior.opaque,
         onTapUp: (d) => _tap(d.localPosition),
         child: Stack(children: [
-          Positioned.fill(child: CustomPaint(painter: _WorldPainter(g, _area, _pulse))),
+          Positioned.fill(child: CustomPaint(painter: _WorldPainter(g, _area, _pulse, _reveals))),
           At(w / 2, 36, child: const OutlinedText('The Realm of the Dawnfire', size: 32, color: gold)),
           At(w - 30, 36, ax: 1, child: OutlinedText('Dawn Sigils  ${sigilCount(g.progress)} / 6', size: 18, color: const Color(0xff8ae0d8))),
           At(30, 36, ax: 0, child: OutlinedText('Lv ${g.state.level}  ·  ${g.state.gold} gold', size: 18)),
           At(w / 2, 505,
-              child: OutlinedText(_hint ?? 'Choose a realm. Free each realm to open the next.', size: 18, color: const Color(0xfff2e6c9))),
+              child: OutlinedText(_hint ?? 'Choose a realm. Defeat its boss and the fog lifts from the next.', size: 18, color: const Color(0xfff2e6c9))),
           At(w - 24, 512,
               ax: 1,
               child: GestureDetector(
@@ -150,10 +213,11 @@ class _WorldMapScreenState extends State<WorldMapScreen> with SingleTickerProvid
 }
 
 class _WorldPainter extends CustomPainter {
-  _WorldPainter(this.game, this.area, this.pulse) : super(repaint: pulse);
+  _WorldPainter(this.game, this.area, this.pulse, this.reveals) : super(repaint: pulse);
   final MeetRaGame game;
   final Rect area;
   final Animation<double> pulse;
+  final _Reveals reveals;
 
   Offset _p(double x, double y) => Offset(area.left + x * area.width, area.top + y * area.height);
 
@@ -182,42 +246,36 @@ class _WorldPainter extends CustomPainter {
       c.drawPath(s, sea);
       c.drawPath(s, coast);
     }
-    // Fog over the far north
-    c.drawCircle(_p(0.3, 0.08), area.height * 0.22,
-        Paint()..shader = RadialGradient(colors: [const Color(0x884a4658), const Color(0x004a4658)]).createShader(Rect.fromCircle(center: _p(0.3, 0.08), radius: area.height * 0.22)));
-    c.drawRect(area, _stroke(_goldDark, 3));
-
     final prog = game.progress;
-    // Route between realms, in unlock order
+    // Routes between the realms that are open; they run on into the fog
     for (var i = 0; i < 5; i++) {
       final a = realms[i], b = realms[i + 1];
+      if (!realmUnlocked(a, prog)) continue;
       final open = realmUnlocked(b, prog);
-      final p = _stroke(open ? const Color(Palette.red) : const Color(0x88553a20), 3);
-      _dashed(c, _p(a.mapX, a.mapY), _p(b.mapX, b.mapY), p, dash: open ? 14 : 6);
+      _dashed(c, _p(a.mapX, a.mapY), _p(b.mapX, b.mapY), _stroke(open ? const Color(Palette.red) : const Color(0x88553a20), 3), dash: open ? 14 : 6);
     }
 
+    // Only the realms Ra has opened are known; the rest of the world is fog
+    final open = [for (final r in realms) if (realmUnlocked(r, prog)) r];
+    final reveal = {for (final r in open) r: reveals.of('realm:${r.id}')};
+    _paintFog(c, area, [for (final r in open) (_p(r.mapX, r.mapY), 150.0, reveal[r]!)], reveals.now);
+    c.drawRect(area, _stroke(_goldDark, 3));
+
     final t = pulse.value;
-    for (final r in realms) {
-      final unlocked = realmUnlocked(r, prog);
-      if (r.hidden && !unlocked) {
-        final at = _p(r.mapX, r.mapY);
-        c.drawCircle(at, 34, _fill(const Color(0x664a4658)));
-        c.drawCircle(at, 34, _stroke(const Color(0x88f2e6c9), 1.5));
-        _label(c, '?', at - const Offset(0, 18), size: 30, color: const Color(0xfff2e6c9));
-        continue;
-      }
+    for (final r in open) {
+      final k = Curves.easeOut.transform(((reveal[r]! - 0.3) / 0.7).clamp(0.0, 1.0));
+      if (k <= 0) continue;
       final at = _p(r.mapX, r.mapY);
       final cleared = prog.isCleared(r.boss);
-      final color = unlocked ? Color(r.color) : const Color(0xff9a9080);
-      if (unlocked && !cleared) {
-        c.drawCircle(at, 44 + 8 * t, _stroke(gold.withValues(alpha: 1 - t), 3));
-      }
-      c.drawCircle(at, 42, _fill(color));
-      c.drawCircle(at, 42, _stroke(unlocked ? _goldDark : const Color(0xff6a6050), 4));
+      c.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, k));
+      if (!cleared) c.drawCircle(at, 44 + 8 * t, _stroke(gold.withValues(alpha: 1 - t), 3));
+      c.drawCircle(at, 42, _fill(Color(r.color)));
+      c.drawCircle(at, 42, _stroke(_goldDark, 4));
       c.drawCircle(at, 34, _stroke(const Color(0x99f6ecd2), 1.2));
-      _label(c, '${r.index + 1}', at - const Offset(0, 22), size: 30, color: unlocked ? const Color(0xfffbf3df) : const Color(0xffe8e0d0));
+      _label(c, '${r.index + 1}', at - const Offset(0, 22), size: 30, color: const Color(0xfffbf3df));
       _label(c, r.name, at + const Offset(0, 46), size: 16);
-      _label(c, unlocked ? '${clearedIn(r, prog)} / 20${cleared ? '  ✓' : ''}' : 'locked', at + const Offset(0, 66), size: 13, bold: false);
+      _label(c, '${clearedIn(r, prog)} / 20${cleared ? '  ✓' : ''}', at + const Offset(0, 66), size: 13, bold: false);
+      c.restore();
     }
   }
 
@@ -248,6 +306,7 @@ class RealmMapScreen extends StatefulWidget {
 
 class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProviderStateMixin {
   late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
+  late final _reveals = _Reveals(widget.game.mapSeen);
   Location? _selected;
   List<String> _message = const [];
 
@@ -268,9 +327,13 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
     super.dispose();
   }
 
+  // Places come out of the fog once a neighbouring place is cleared (the village is always known).
+  // Secret places stay hidden until Ra can actually open them.
   bool _visible(Location l) {
-    final g = widget.game;
-    return l.kind != LocKind.secret || g.progress.isCleared(l) || isOpen(l, g.progress, g.state);
+    final p = widget.game.progress;
+    if (p.isCleared(l) || l.id == p.lastLocation) return true;
+    if (l.kind == LocKind.secret) return isOpen(l, p, widget.game.state);
+    return l.index == 0 || l.links.any(p.isCleared);
   }
 
   void _tap(Offset p) {
@@ -303,7 +366,7 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
         behavior: HitTestBehavior.opaque,
         onTapUp: (d) => _tap(d.localPosition),
         child: Stack(children: [
-          Positioned.fill(child: CustomPaint(painter: _RealmPainter(g, r, _area, _pulse, _selected, _visible))),
+          Positioned.fill(child: CustomPaint(painter: _RealmPainter(g, r, _area, _pulse, _selected, _visible, _reveals))),
           At(w / 2, 32, child: OutlinedText(r.name, size: 30, color: gold)),
           At(w / 2, 60, child: OutlinedText(r.tagline, size: 15, color: const Color(0xffc8bca0))),
           At(w - 30, 36, ax: 1, child: OutlinedText('${clearedIn(r, g.progress)} / 20 explored', size: 18, color: const Color(0xff8ae0d8))),
@@ -317,7 +380,7 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
   Widget _panel(MeetRaGame g, double w) {
     final l = _selected;
     if (l == null) {
-      return const Center(child: OutlinedText('Tap a glowing place on the map.', size: 20));
+      return const Center(child: OutlinedText('Tap a glowing place. Clear it, and the fog lifts from the roads beyond.', size: 20));
     }
     final cleared = g.progress.isCleared(l);
     final open = isOpen(l, g.progress, g.state);
@@ -367,13 +430,14 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
 }
 
 class _RealmPainter extends CustomPainter {
-  _RealmPainter(this.game, this.realm, this.area, this.pulse, this.selected, this.visible) : super(repaint: pulse);
+  _RealmPainter(this.game, this.realm, this.area, this.pulse, this.selected, this.visible, this.reveals) : super(repaint: pulse);
   final MeetRaGame game;
   final Realm realm;
   final Rect area;
   final Animation<double> pulse;
   final Location? selected;
   final bool Function(Location) visible;
+  final _Reveals reveals;
 
   Offset _pos(Location l) => Offset(area.left + l.x * area.width, area.top + l.y * area.height);
 
@@ -392,10 +456,11 @@ class _RealmPainter extends CustomPainter {
     final s = game.state;
     final locs = realm.locations;
 
-    // Roads
+    // Roads; one leading into the fog is drawn too, and the fog hides where it goes
     for (final a in locs) {
       for (final b in a.links) {
-        if (b.index < a.index || !visible(a) || !visible(b)) continue;
+        if (b.index < a.index || (!visible(a) && !visible(b))) continue;
+        if ((a.kind == LocKind.secret && !visible(a)) || (b.kind == LocKind.secret && !visible(b))) continue;
         final done = prog.isCleared(a) && prog.isCleared(b);
         final reachable = prog.isCleared(a) || prog.isCleared(b);
         final pa = _pos(a), pb = _pos(b);
@@ -411,10 +476,18 @@ class _RealmPainter extends CustomPainter {
       }
     }
 
+    // Fog of war over everything Ra has not found yet
+    final known = [for (final l in locs) if (visible(l)) l];
+    final reveal = {for (final l in known) l: reveals.of(l.id)};
+    _paintFog(c, mapRect, [for (final l in known) (_pos(l), prog.isCleared(l) ? 92.0 : 62.0, reveal[l]!)], reveals.now, dark: dark);
+    c.drawRect(mapRect, _stroke(_goldDark, 3));
+
     // Locations
     final t = pulse.value;
-    for (final l in locs) {
-      if (!visible(l)) continue;
+    for (final l in known) {
+      final k = Curves.easeOut.transform(((reveal[l]! - 0.35) / 0.65).clamp(0.0, 1.0));
+      if (k <= 0) continue;
+      c.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, k));
       final p = _pos(l);
       final cleared = prog.isCleared(l);
       final open = isOpen(l, prog, s);
@@ -433,6 +506,7 @@ class _RealmPainter extends CustomPainter {
       if (open || cleared) {
         _label(c, l.name, p + Offset(0, r + 3), size: 12.5, color: dark ? const Color(0xfff2e6c9) : _inkBrown, maxW: 130);
       }
+      c.restore();
     }
 
     // Ra's marker
