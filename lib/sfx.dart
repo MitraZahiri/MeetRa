@@ -3,6 +3,7 @@
 // Real music and sound design arrive in M1.
 
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -174,9 +175,11 @@ class Sfx {
     try {
       final dir = await getTemporaryDirectory();
       final lowLatency = Platform.isAndroid;
+      // Synthesising every effect takes a while, so it runs off the UI thread
+      final waves = await Isolate.run(() => {for (final e in _effects.entries) e.key: _render(e.value)});
       for (final e in _effects.entries) {
         final file = File('${dir.path}/meetra_${e.key}.wav');
-        await file.writeAsBytes(_render(e.value), flush: true);
+        await file.writeAsBytes(waves[e.key]!, flush: true);
         _sources[e.key] = DeviceFileSource(file.path);
         final pool = <AudioPlayer>[];
         for (var i = 0; i < (e.key == 'coin' || e.key == 'hit' ? 4 : 2); i++) {
