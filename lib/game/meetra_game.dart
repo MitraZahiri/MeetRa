@@ -180,6 +180,8 @@ class MeetRaGame extends Game with KeyboardEvents {
   bool _snapCamera = true;
 
   bool get simPaused => !started || ui.screen.value != AppScreen.playing || ui.levelUps.value > 0;
+  // The map screens cover the whole level, so it is neither animated nor drawn behind them
+  bool get mapOpen => ui.screen.value == AppScreen.world || ui.screen.value == AppScreen.realm;
   double get uiScale => size.y / gameH;
   double get virtualW => size.x / uiScale;
 
@@ -288,6 +290,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     final dt = math.min(dtSeconds * 1000, 50.0);
     _drift += dt * 0.004;
     _realT += dt / 1000;
+    if (mapOpen) return;
     ambience.update(dt, _view, simPaused ? const [] : _pushers());
     if (simPaused) {
       state.flush();
@@ -939,6 +942,7 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   @override
   void render(Canvas c) {
+    if (mapOpen) return;
     final z = uiScale * zoom; // screen pixels per world pixel
     _renderBackground(c, z);
 

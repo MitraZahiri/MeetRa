@@ -58,10 +58,10 @@ class _HudState extends State<Hud> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final w = widget.w;
     return AnimatedBuilder(
-      animation: Listenable.merge([_clock, _hpPop, _goldPop, widget.game.state]),
+      // The clock is not listened to here: only the pieces that move with it rebuild every frame
+      animation: Listenable.merge([_hpPop, _goldPop, widget.game.state]),
       builder: (context, _) {
         final s = widget.game.state;
-        final t = _clock.value * 10;
         final nHearts = (s.maxHp / 2).ceil();
         final pop = 1 - _hpPop.value; // 1 right after a change, fading to 0
         final shake = _hurt ? math.sin(_hpPop.value * math.pi * 6) * 4 * pop : 0.0;
@@ -84,18 +84,24 @@ class _HudState extends State<Hud> with TickerProviderStateMixin {
             At(
               30 + i * 32.0 + shake,
               30,
-              child: Transform.scale(
-                scale: 3 * (1 + 0.25 * pop * (_hurt ? 0.6 : 1)) * (low && i == lastFull ? 1 + 0.14 * math.max(0, math.sin(t * 9)) : 1),
-                child: SheetFrame(widget.game.art.heart, _heartFrame(s.hp - i * 2)),
+              child: _ticking(
+                low && i == lastFull,
+                (t) => Transform.scale(
+                  scale: 3 * (1 + 0.25 * pop * (_hurt ? 0.6 : 1)) * (low && i == lastFull ? 1 + 0.14 * math.max(0, math.sin(t * 9)) : 1),
+                  child: SheetFrame(widget.game.art.heart, _heartFrame(s.hp - i * 2)),
+                ),
               ),
             ),
           At(
             w - 28,
             28,
-            child: Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.diagonal3Values(4 * math.max(0.3, math.cos(t * 2.4).abs()), 4, 1),
-              child: SheetFrame(widget.game.art.coin, 0),
+            child: _ticking(
+              true,
+              (t) => Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.diagonal3Values(4 * math.max(0.3, math.cos(t * 2.4).abs()), 4, 1),
+                child: SheetFrame(widget.game.art.coin, 0),
+              ),
             ),
           ),
           At(w - 48, 28, ax: 1,
@@ -104,12 +110,16 @@ class _HudState extends State<Hud> with TickerProviderStateMixin {
                   alignment: Alignment.centerRight,
                   child: OutlinedText('${s.gold}', size: 24, color: gold))),
           At(w - 24, 58, ax: 1, child: OutlinedText('Lv ${s.level}', size: 18)),
-          Positioned.fill(child: CustomPaint(painter: _Bars(s, w, t))),
+          Positioned.fill(child: CustomPaint(painter: _Bars(s, w, _clock))),
           if (s.hasFeather) At(24, 62, ax: 0, child: const OutlinedText('AURA', size: 13, color: gold)),
         ]);
       },
     );
   }
+
+  // Rebuilds [build] with the clock (in seconds) every frame when [live], once otherwise
+  Widget _ticking(bool live, Widget Function(double t) build) =>
+      live ? AnimatedBuilder(animation: _clock, builder: (context, _) => build(_clock.value * 10)) : build(_clock.value * 10);
 
   int _heartFrame(int v) => v >= 2 ? 0 : (v == 1 ? 1 : 2);
 }
@@ -142,12 +152,14 @@ void paintBar(Canvas c, Rect r, double frac, List<Color> fill, {double t = 0, Co
 }
 
 class _Bars extends CustomPainter {
-  _Bars(this.s, this.w, this.t);
+  _Bars(this.s, this.w, this.clock) : super(repaint: clock);
   final GameState s;
-  final double w, t;
+  final double w;
+  final Animation<double> clock;
 
   @override
   void paint(Canvas c, Size size) {
+    final t = clock.value * 10;
     paintBar(c, Rect.fromLTWH(w - 24 - 150, 72, 150, 10), s.xp / s.xpNext, const [Color(0xffc8fff8), Color(0xff4ab8b0)], t: t);
     // Aura bar: only shown once a spell is earned
     if (s.hasFeather) {

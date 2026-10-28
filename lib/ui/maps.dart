@@ -1,6 +1,9 @@
-// The world map (seven realms) and the realm map (twenty locations each).
+// The world map (seven realms) and the realm map (twenty locations each), drawn in ink on old paper.
+// Everything that does not move is drawn once into an image (baked) and reused every frame;
+// only the fog, the markers and Ra are painted live.
 
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -8,84 +11,114 @@ import '../config.dart';
 import '../game/meetra_game.dart';
 import '../world/world.dart';
 import 'common.dart';
+import 'ink.dart';
 
 const _lapis = Color(Palette.lapis);
 const _goldDark = Color(Palette.gold);
 const _turq = Color(Palette.turquoise);
-const _inkBrown = Color(0xff3b2a1a);
+const _redInk = Color(0xffa8321f);
 
 Paint _fill(Color c) => Paint()..color = c;
-Paint _stroke(Color c, double w) => Paint()
-  ..color = c
-  ..style = PaintingStyle.stroke
-  ..strokeWidth = w
-  ..strokeJoin = StrokeJoin.round
-  ..strokeCap = StrokeCap.round;
 
-void _parchment(Canvas c, Rect r, {bool dark = false}) {
-  final colors = dark ? const [Color(0xff2c2a3a), Color(0xff14121c)] : const [Color(0xfff6ecd2), Color(0xffd6bd8a)];
-  c.drawRect(r, Paint()..shader = RadialGradient(colors: colors, radius: 0.9).createShader(r));
+// Screen pixels per virtual pixel, so baked images are as sharp as the screen
+double _pixelScale(BuildContext context) =>
+    (MediaQuery.devicePixelRatioOf(context) * MediaQuery.sizeOf(context).height / gameH).clamp(1.0, 3.0);
+
+// Draws [draw] (in virtual coordinates, covering [area]) into an image once
+ui.Image _bake(Rect area, double px, void Function(Canvas c) draw) {
+  final rec = ui.PictureRecorder();
+  final c = Canvas(rec)
+    ..scale(px)
+    ..translate(-area.left, -area.top);
+  draw(c);
+  return rec.endRecording().toImageSync((area.width * px).ceil(), (area.height * px).ceil());
 }
 
-void _label(Canvas c, String text, Offset at, {double size = 15, Color color = _inkBrown, bool bold = true, double? maxW}) {
-  final tp = TextPainter(
-    text: TextSpan(
-      text: text,
-      style: TextStyle(
-        fontFamily: fontFamily,
-        fontSize: size,
-        color: color,
-        fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
-        shadows: const [Shadow(color: Color(0xccf6ecd2), blurRadius: 3)],
-      ),
-    ),
-    textAlign: TextAlign.center,
-    textDirection: TextDirection.ltr,
-  )..layout(maxWidth: maxW ?? 220);
-  tp.paint(c, at - Offset(tp.width / 2, 0));
+// Keeps one baked image until its key changes (screen size or what it shows)
+class _Baked {
+  ui.Image? _image;
+  Object? _key;
+
+  ui.Image get(Object key, ui.Image Function() make) {
+    if (_image == null || key != _key) {
+      _image?.dispose();
+      _image = make();
+      _key = key;
+    }
+    return _image!;
+  }
+
+  void dispose() => _image?.dispose();
 }
 
-// ---------- Shared bits ----------
+final _imagePaint = Paint()..filterQuality = FilterQuality.medium;
 
-// Fog of war: a drifting cloud layer over the map with soft holes cut around what Ra knows.
-// Each hole is (centre, radius, reveal 0..1); a new hole grows open when something is revealed.
-void _paintFog(Canvas c, Rect area, List<(Offset, double, double)> holes, double t, {bool dark = false}) {
-  c.save();
-  c.clipRect(area);
-  c.saveLayer(area, Paint());
-  c.drawRect(
-    area,
-    Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: dark ? const [Color(0xff1c1a26), Color(0xff2a2638)] : const [Color(0xff9a8f7c), Color(0xff7d7364)],
-      ).createShader(area),
-  );
-  // Slow clouds rolling through the fog
-  final rnd = math.Random(5);
-  for (var i = 0; i < 46; i++) {
-    final speed = 4 + rnd.nextDouble() * 10;
-    final r = 30 + rnd.nextDouble() * 60;
-    final span = area.width + r * 2;
-    final x = area.left - r + (rnd.nextDouble() * span + t * speed) % span;
-    final y = area.top + rnd.nextDouble() * area.height + math.sin(t * 0.3 + i) * 6;
-    final light = rnd.nextBool();
-    final col = dark ? (light ? const Color(0xff3a3650) : const Color(0xff12101a)) : (light ? const Color(0xffcfc4ac) : const Color(0xff5f574a));
-    c.drawCircle(
-        Offset(x, y), r, Paint()..shader = RadialGradient(colors: [col.withValues(alpha: 0.35), col.withValues(alpha: 0)]).createShader(Rect.fromCircle(center: Offset(x, y), radius: r)));
+void _drawBaked(Canvas c, ui.Image img, Rect area) =>
+    c.drawImageRect(img, Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()), area, _imagePaint);
+
+// ---------- Fog of war ----------
+
+// A hole in the fog: centre, radii and how far it has opened (0..1)
+typedef _Hole = (Offset centre, double rx, double ry, double reveal);
+
+// Uncharted paper with hand-drawn clouds drifting over it. The clouds are baked once and slid along;
+// soft holes are cut around everything Ra knows.
+class _Fog {
+  final _clouds = _Baked();
+
+  void paint(Canvas c, Rect area, List<_Hole> holes, double t, double px, {bool dark = false}) {
+    final clouds = _clouds.get((area, px, dark), () => _bake(area, px, (c) => _paintClouds(c, area, dark)));
+    c.save();
+    c.clipRect(area);
+    c.saveLayer(area, Paint());
+    c.drawRect(
+      area,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: dark ? const [Color(0xff24212f), Color(0xff1a1824)] : const [Color(0xffd9cbad), Color(0xffc6b692)],
+        ).createShader(area),
+    );
+    final drift = (t * 7) % area.width;
+    _drawBaked(c, clouds, area.shift(Offset(drift, 0)));
+    _drawBaked(c, clouds, area.shift(Offset(drift - area.width, 0)));
+    final cut = Paint()..blendMode = BlendMode.dstOut;
+    for (final (p, rx, ry, reveal) in holes) {
+      if (reveal <= 0) continue;
+      final r = ry * Curves.easeOutCubic.transform(reveal.clamp(0.0, 1.0));
+      if (r < 1) continue;
+      cut.shader = const RadialGradient(colors: [Color(0xff000000), Color(0xff000000), Color(0x00000000)], stops: [0, 0.6, 1])
+          .createShader(Rect.fromCircle(center: Offset.zero, radius: r));
+      c.save();
+      c.translate(p.dx, p.dy);
+      c.scale(rx / ry, 1);
+      c.drawCircle(Offset.zero, r, cut);
+      c.restore();
+    }
+    c.restore();
+    c.restore();
   }
-  final cut = Paint()..blendMode = BlendMode.dstOut;
-  for (final (p, radius, reveal) in holes) {
-    if (reveal <= 0) continue;
-    final r = radius * Curves.easeOutCubic.transform(reveal.clamp(0.0, 1.0));
-    if (r < 1) continue;
-    cut.shader = const RadialGradient(colors: [Color(0xff000000), Color(0xff000000), Color(0x00000000)], stops: [0, 0.55, 1])
-        .createShader(Rect.fromCircle(center: p, radius: r));
-    c.drawCircle(p, r, cut);
+
+  // Scalloped clouds, repeated one map-width to each side so the drift wraps without a seam
+  void _paintClouds(Canvas c, Rect area, bool dark) {
+    final rnd = math.Random(5);
+    final fill = _fill(dark ? const Color(0x553e3a52) : const Color(0x88efe4c8));
+    final edge = inkPen(1.1, dark ? const Color(0x449890b0) : const Color(0x445a4632));
+    for (var i = 0; i < 40; i++) {
+      final x = area.left + rnd.nextDouble() * area.width;
+      final y = area.top + rnd.nextDouble() * area.height;
+      final r = 16 + rnd.nextDouble() * 34;
+      final cloud = lumpy(Offset(x, y), r, 6 + rnd.nextInt(4), rnd.nextDouble() * 6, depth: 0.22);
+      for (final dx in [-area.width, 0.0, area.width]) {
+        final s = cloud.shift(Offset(dx, 0));
+        c.drawPath(s, fill);
+        c.drawPath(s, edge);
+      }
+    }
   }
-  c.restore();
-  c.restore();
+
+  void dispose() => _clouds.dispose();
 }
 
 // Remembers which places have already been shown, so only new ones play the reveal
@@ -130,9 +163,297 @@ class _TextButton extends StatelessWidget {
       );
 }
 
+// Lapis panel along the bottom of a map screen
+Widget _infoPanel({required List<Widget> lines, Widget? action}) => Container(
+      margin: const EdgeInsets.fromLTRB(40, 0, 40, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        color: _lapis.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _goldDark, width: 3),
+      ),
+      child: Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: lines)),
+        if (action != null) action,
+      ]),
+    );
+
+Widget _bodyText(String text) => Text(
+      text,
+      style: const TextStyle(fontFamily: fontFamily, fontSize: 16, color: parch, decoration: TextDecoration.none),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+
 // ============================================================
 // World map
 // ============================================================
+
+// Size of each realm's land (radii as fractions of the map), by realm index
+const _realmShape = [(0.11, 0.24), (0.10, 0.26), (0.13, 0.20), (0.12, 0.18), (0.11, 0.22), (0.07, 0.24), (0.10, 0.13)];
+
+// Land that joins the realms into one continent, then small islands: (x, y, rx, ry)
+const _bridges = [(0.52, 0.62, 0.05, 0.12), (0.35, 0.36, 0.05, 0.12)];
+const _islets = [(0.04, 0.12, 0.02, 0.05), (0.97, 0.45, 0.015, 0.04), (0.15, 0.95, 0.015, 0.035), (0.98, 0.75, 0.012, 0.035)];
+
+// The Frost River runs from the Sky Spine down to the southern sea
+const _riverPts = [(0.53, 0.33), (0.55, 0.45), (0.53, 0.58), (0.55, 0.7), (0.53, 0.84), (0.54, 1.0)];
+
+enum _Mark { castle, darkCastle, village, ruin, lighthouse, pyramid, oasis, lake, peak, tents, spires, lantern, cave }
+
+// The landmarks drawn on each realm: what, where (in units of the realm's radii) and which place it names
+const _landmarks = <List<(_Mark, double, double, int?)>>[
+  [(_Mark.village, -0.5, -0.3, 0), (_Mark.lake, -0.45, 0.5, 1), (_Mark.ruin, 0.45, 0.45, 13)],
+  [(_Mark.castle, 0.05, -0.32, 0), (_Mark.lake, -0.4, 0.5, null), (_Mark.spires, 0.42, 0.55, 13)],
+  [(_Mark.oasis, 0.5, -0.4, 0), (_Mark.pyramid, -0.68, 0.35, 14), (_Mark.darkCastle, 0.35, 0.68, 13)],
+  [(_Mark.village, -0.6, 0.5, 0), (_Mark.peak, 0.78, 0.35, 19), (_Mark.cave, 0.25, 0.75, 13)],
+  [(_Mark.tents, -0.45, -0.5, 0), (_Mark.castle, 0.6, 0.4, 12), (_Mark.lake, -0.4, 0.55, 13)],
+  [(_Mark.lighthouse, 0.2, -0.72, 0), (_Mark.ruin, -0.35, -0.32, 8), (_Mark.spires, 0.1, 0.62, 13)],
+  [(_Mark.lantern, -0.62, 0.45, 0), (_Mark.darkCastle, 0.62, 0.55, 13)],
+];
+
+// Where everything on the world map sits, worked out once for a given map rectangle
+class _WorldLayout {
+  _WorldLayout(this.area) {
+    for (final r in realms) {
+      final (rx, ry) = _realmShape[r.index];
+      centre.add(_p(r.mapX, r.mapY));
+      radii.add((rx * area.width, ry * area.height));
+    }
+    final blobs = <Path>[], grown = <Path>[];
+    void add(Offset c, double rx, double ry, int seed) {
+      blobs.add(wobblyBlob(c, rx, ry, seed));
+      grown.add(wobblyBlob(c, rx, ry, seed, grow: 9));
+    }
+
+    for (final r in realms) {
+      add(centre[r.index], radii[r.index].$1, radii[r.index].$2, 100 + r.index);
+    }
+    for (final (i, (x, y, rx, ry)) in [..._bridges, ..._islets].indexed) {
+      add(_p(x, y), rx * area.width, ry * area.height, 200 + i);
+    }
+    land = blobs.reduce((a, b) => Path.combine(PathOperation.union, a, b));
+    coastDash = grown.reduce((a, b) => Path.combine(PathOperation.union, a, b));
+    for (final r in realms) {
+      final (rx, ry) = radii[r.index];
+      final name = inkMeasure(r.name, size: 15, bold: true, maxW: 170);
+      nameRect.add(Rect.fromCenter(center: centre[r.index], width: name.width, height: name.height));
+      for (final (mark, dx, dy, place) in _landmarks[r.index]) {
+        final at = centre[r.index] + Offset(dx * rx, dy * ry);
+        marks.add((r, mark, at, place == null ? null : r.locations[place].name));
+        if (place == bossIndex) bossAt[r.index] = at;
+        if (place == 0) townAt[r.index] = at;
+      }
+      outline.add(wobblyBlob(centre[r.index], rx, ry, 100 + r.index, grow: 7).computeMetrics().toList());
+    }
+  }
+
+  final Rect area;
+  final centre = <Offset>[];
+  final radii = <(double, double)>[];
+  final nameRect = <Rect>[];
+  final marks = <(Realm, _Mark, Offset, String?)>[];
+  final bossAt = <int, Offset>{}, townAt = <int, Offset>{};
+  final outline = <List<ui.PathMetric>>[]; // each realm's shore, for the selection
+  late final Path land, coastDash;
+
+  Offset _p(double x, double y) => Offset(area.left + x * area.width, area.top + y * area.height);
+
+  // How far inside a realm's oval a point is: below 1 is inside
+  double reach(Realm r, Offset p) {
+    final (rx, ry) = radii[r.index];
+    final d = p - centre[r.index];
+    return math.sqrt(d.dx * d.dx / (rx * rx) + d.dy * d.dy / (ry * ry));
+  }
+
+  Realm nearest(Offset p) => realms.reduce((a, b) => reach(a, p) <= reach(b, p) ? a : b);
+
+  // ---------- The drawing ----------
+
+  void paint(Canvas c) {
+    paperSheet(c, area, seed: 3);
+    _sea(c);
+    dashedPath(c, coastDash, inkPen(1), dash: 4, gap: 4);
+    _cliffs(c);
+    c.save();
+    c.clipPath(land);
+    c.drawRect(area, _fill(const Color(0x40fbf4e2)));
+    for (final r in realms) {
+      final (rx, ry) = radii[r.index];
+      final o = centre[r.index];
+      c.drawOval(
+        Rect.fromCenter(center: o, width: rx * 2.2, height: ry * 2.2),
+        Paint()
+          ..shader = RadialGradient(colors: [Color(r.color).withValues(alpha: 0.2), Color(r.color).withValues(alpha: 0)])
+              .createShader(Rect.fromCenter(center: o, width: rx * 2.2, height: ry * 2.2)),
+      );
+    }
+    _river(c);
+    c.restore();
+    c.drawPath(land, inkPen(2.2));
+    _features(c);
+    for (final r in realms) {
+      inkText(c, r.name, nameRect[r.index].topCenter, size: 15, bold: true, maxW: 170);
+    }
+    c.drawRect(area.deflate(1.5), inkPen(2.5));
+    c.drawRect(area.deflate(6), inkPen(0.8));
+  }
+
+  // Waves, a whirlpool, a sea serpent, ships and the compass
+  void _sea(Canvas c) {
+    final rnd = math.Random(11);
+    final placed = <Offset>[];
+    for (var i = 0; i < 160 && placed.length < 34; i++) {
+      final p = _p(0.03 + rnd.nextDouble() * 0.94, 0.05 + rnd.nextDouble() * 0.9);
+      if (coastDash.contains(p) || coastDash.contains(p + const Offset(0, 14)) || placed.any((q) => (q - p).distance < 60)) continue;
+      if ([_whirlpool, _serpent, _ship1, _ship2, compassAt, bannerAt].any((q) => (q - p).distance < 70)) continue;
+      placed.add(p);
+      inkWave(c, p, 0.9 + rnd.nextDouble() * 0.3);
+    }
+    inkWhirlpool(c, _whirlpool, 20);
+    inkSerpent(c, _serpent, 1.1);
+    inkShip(c, _ship1, 1.1);
+    inkShip(c, _ship2, 0.9);
+  }
+
+  Offset get _whirlpool => _p(0.21, 0.78);
+  Offset get _serpent => _p(0.9, 0.9);
+  Offset get _ship1 => _p(0.61, 0.08);
+  Offset get _ship2 => _p(0.26, 0.9);
+  Offset get compassAt => _p(0.96, 0.17);
+  Offset get bannerAt => _p(0.68, 0.925);
+
+  // The compass and the title ribbon sit on top of the fog
+  void paintCartouche(Canvas c) {
+    inkCompass(c, compassAt, 28);
+    inkBanner(c, bannerAt, 'The Realm of the Dawnfire', size: 16);
+  }
+
+  // Cliffs: short strokes hanging below every south-facing shore
+  void _cliffs(Canvas c) {
+    final pen = inkPen(0.9);
+    for (final m in land.computeMetrics()) {
+      for (var d = 0.0; d < m.length; d += 2.6) {
+        final tan = m.getTangentForOffset(d)!;
+        var n = Offset(-tan.vector.dy, tan.vector.dx);
+        if (land.contains(tan.position + n * 3)) n = -n;
+        if (n.dy < 0.45) continue;
+        c.drawLine(tan.position, tan.position + Offset(0, 3 + 7 * n.dy), pen);
+      }
+    }
+  }
+
+  void _river(Canvas c) {
+    final river = Path();
+    final pts = [for (final (x, y) in _riverPts) _p(x, y)];
+    river.moveTo(pts[0].dx, pts[0].dy);
+    for (var i = 1; i < pts.length; i++) {
+      final a = pts[i - 1], b = pts[i];
+      final mid = (a + b) / 2 + Offset(i.isEven ? 10 : -10, 0);
+      river.quadraticBezierTo(mid.dx, mid.dy, b.dx, b.dy);
+    }
+    c.drawPath(river, inkPen(5));
+    c.drawPath(river, inkPen(3, paperColor));
+    inkText(c, 'Frost River', _p(0.575, 0.47), size: 9, italic: true);
+  }
+
+  // Landmarks, then filler (trees, peaks, dunes...) around them; drawn from the back to the front
+  void _features(Canvas c) {
+    final items = <(double, void Function())>[]; // (foot y, draw)
+    final taken = <Rect>[...nameRect.map((r) => r.inflate(4))];
+    for (final (r, mark, at, label) in marks) {
+      taken.add(Rect.fromLTRB(at.dx - 18, at.dy - 26, at.dx + 18, at.dy + (label == null ? 2 : 16)));
+      items.add((at.dy, () => _mark(c, mark, at, r.index)));
+      if (label != null) items.add((1e9, () => inkText(c, label, at + const Offset(0, 2), size: 9.5, italic: true, maxW: 110)));
+    }
+    final rnd = math.Random(7);
+    for (final r in realms) {
+      final (rx, ry) = radii[r.index];
+      final spots = <Offset>[];
+      for (var i = 0; i < 260 && spots.length < (rx * ry / 260).round(); i++) {
+        final a = rnd.nextDouble() * math.pi * 2, k = math.sqrt(rnd.nextDouble()) * 0.95;
+        final p = centre[r.index] + Offset(math.cos(a) * rx * k, math.sin(a) * ry * k);
+        final box = Rect.fromLTRB(p.dx - 7, p.dy - 16, p.dx + 7, p.dy);
+        if (!land.contains(p) || !land.contains(p + const Offset(0, 6)) || nearest(p) != r) continue;
+        if (taken.any((t) => t.overlaps(box)) || spots.any((q) => (q - p).distance < 14)) continue;
+        if (_riverPts.any((q) => (_p(q.$1, q.$2) - p).distance < 22)) continue; // keep the river clear
+        spots.add(p);
+        final v = rnd.nextDouble(), ph = rnd.nextDouble() * 6;
+        items.add((p.dy, () => _filler(c, r.theme, p, v, ph)));
+      }
+    }
+    items.sort((a, b) => a.$1.compareTo(b.$1));
+    for (final (_, draw) in items) {
+      draw();
+    }
+  }
+
+  void _filler(Canvas c, RealmTheme theme, Offset p, double v, double ph) {
+    switch (theme) {
+      case RealmTheme.vale:
+        v < 0.75 ? inkTree(c, p, 1, ph) : inkGrass(c, p, 1.2);
+      case RealmTheme.city:
+        v < 0.5 ? inkTree(c, p, 0.95, ph) : (v < 0.75 ? inkHouse(c, p, 0.9) : inkGrass(c, p, 1.1));
+      case RealmTheme.desert:
+        v < 0.65 ? inkDune(c, p, 0.8) : inkPalm(c, p, 0.8, ph / 6);
+      case RealmTheme.mountain:
+        v < 0.7 ? inkMountain(c, p, 0.75, ph / 6, snow: true) : inkPine(c, p, 0.95);
+      case RealmTheme.steppe:
+        v < 0.55 ? inkGrass(c, p, 1.2) : (v < 0.85 ? inkTree(c, p, 0.85, ph) : inkTent(c, p, 0.8));
+      case RealmTheme.coast:
+        v < 0.55 ? inkTree(c, p, 0.8, ph) : (v < 0.8 ? inkGrass(c, p, 1.1) : inkHouse(c, p, 0.8));
+      case RealmTheme.dark:
+        v < 0.55 ? inkDeadTree(c, p, 0.95, ph / 6) : (v < 0.85 ? inkSpire(c, p, 0.7, ph / 6) : inkGrass(c, p, 1));
+    }
+  }
+
+  void _mark(Canvas c, _Mark m, Offset p, int seed) {
+    switch (m) {
+      case _Mark.castle:
+        inkCastle(c, p, 0.95);
+      case _Mark.darkCastle:
+        inkCastle(c, p, 0.85, dark: true);
+      case _Mark.village:
+        inkHouse(c, p + const Offset(-8, -5), 1);
+        inkHouse(c, p + const Offset(7, -3), 1.1);
+        inkHouse(c, p, 1.2);
+      case _Mark.ruin:
+        inkRuin(c, p, 1);
+      case _Mark.lighthouse:
+        inkLighthouse(c, p, 0.9);
+      case _Mark.pyramid:
+        inkPyramid(c, p + const Offset(5, -3), 0.8);
+        inkPyramid(c, p, 1);
+      case _Mark.oasis:
+        inkLake(c, p - const Offset(0, 4), 11, 5, seed);
+        inkPalm(c, p + const Offset(-10, -2), 0.85, 0.2);
+        inkPalm(c, p + const Offset(9, 0), 0.9, 0.8);
+      case _Mark.lake:
+        inkLake(c, p - const Offset(0, 7), 17, 8, seed + 40);
+      case _Mark.peak:
+        inkMountain(c, p, 1.4, 0.8, snow: true);
+      case _Mark.tents:
+        inkTent(c, p + const Offset(-8, -4), 0.9);
+        inkTent(c, p + const Offset(8, -2), 0.9);
+        inkTent(c, p, 1);
+      case _Mark.spires:
+        inkSpire(c, p + const Offset(-7, -2), 0.8, 0.3);
+        inkSpire(c, p + const Offset(7, -1), 0.9, 0.6);
+        inkSpire(c, p, 1.1, 1);
+      case _Mark.lantern:
+        inkLighthouse(c, p, 0.8);
+        inkDeadTree(c, p + const Offset(-12, 0), 0.8, 0.2);
+      case _Mark.cave:
+        inkMountain(c, p, 1.1, 0.3, snow: true);
+        final mouth = Path()
+          ..moveTo(p.dx - 4, p.dy)
+          ..quadraticBezierTo(p.dx - 3, p.dy - 7, p.dx + 1, p.dy - 7)
+          ..quadraticBezierTo(p.dx + 4, p.dy - 6, p.dx + 4, p.dy)
+          ..close();
+        c.drawPath(mouth, _fill(inkColor));
+    }
+  }
+}
 
 class WorldMapScreen extends StatefulWidget {
   const WorldMapScreen(this.game, {super.key, required this.w});
@@ -146,58 +467,82 @@ class WorldMapScreen extends StatefulWidget {
 class _WorldMapScreenState extends State<WorldMapScreen> with SingleTickerProviderStateMixin {
   late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
   late final _reveals = _Reveals(widget.game.mapSeen);
+  final _art = _Baked();
+  final _fog = _Fog();
+  static _WorldLayout? _layoutCache; // kept between visits: the geometry takes a moment to work out
+  late Realm? _selected = _openAt(widget.game.progress.realm);
   String? _hint;
   bool _confirmWipe = false;
+
+  Rect get _area => Rect.fromLTRB(16, 62, widget.w - 16, 436);
+
+  _WorldLayout get _layout {
+    final l = _layoutCache;
+    if (l != null && l.area == _area) return l;
+    return _layoutCache = _WorldLayout(_area);
+  }
+
+  Realm? _openAt(int i) => realmUnlocked(realms[i], widget.game.progress) ? realms[i] : null;
 
   @override
   void dispose() {
     _pulse.dispose();
+    _art.dispose();
+    _fog.dispose();
     super.dispose();
   }
 
-  Rect get _area => Rect.fromLTRB(40, 70, widget.w - 40, 470);
-  Offset _pos(Realm r) => Offset(_area.left + r.mapX * _area.width, _area.top + r.mapY * _area.height);
-
+  // Tap a known realm to read about it, tap it again (or Enter) to go there
   void _tap(Offset p) {
     final g = widget.game;
-    for (final r in realms) {
-      if ((p - _pos(r)).distance > 52) continue;
-      if (realmUnlocked(r, g.progress)) {
+    final l = _layout;
+    if (!l.area.contains(p)) return;
+    final r = l.nearest(p);
+    if (l.reach(r, p) < 1.15 && realmUnlocked(r, g.progress)) {
+      if (_selected == r) {
         g.openRealm(r);
         return;
       }
+      setState(() {
+        _selected = r;
+        _hint = null;
+      });
+      return;
     }
     // Anything else is still under the fog
     final next = realms.where((r) => !r.hidden && !realmUnlocked(r, g.progress)).firstOrNull;
-    setState(() => _hint = next == null
-        ? 'Something still hides in the far north. Find all six Dawn Sigils.'
-        : 'The fog lifts when ${realms[next.index - 1].bossName} falls.');
+    setState(() {
+      _selected = null;
+      _hint = next == null
+          ? 'Something still hides in the far north. Find all six Dawn Sigils.'
+          : 'Uncharted. The fog lifts when ${realms[next.index - 1].bossName} falls.';
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final g = widget.game;
     final w = widget.w;
+    final px = _pixelScale(context);
     return ListenableBuilder(
       listenable: g.progress,
       builder: (context, _) => GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapUp: (d) => _tap(d.localPosition),
         child: Stack(children: [
-          Positioned.fill(child: CustomPaint(painter: _WorldPainter(g, _area, _pulse, _reveals))),
-          At(w / 2, 36, child: const OutlinedText('The Realm of the Dawnfire', size: 32, color: gold)),
-          At(w - 30, 36, ax: 1, child: OutlinedText('Dawn Sigils  ${sigilCount(g.progress)} / 6', size: 18, color: const Color(0xff8ae0d8))),
-          At(30, 36, ax: 0, child: OutlinedText('Lv ${g.state.level}  ·  ${g.state.gold} gold', size: 18)),
-          At(w / 2, 505,
-              child: OutlinedText(_hint ?? 'Choose a realm. Defeat its boss and the fog lifts from the next.', size: 18, color: const Color(0xfff2e6c9))),
-          At(w - 24, 512,
-              ax: 1,
+          Positioned.fill(
+            child: RepaintBoundary(child: CustomPaint(painter: _WorldPainter(g, _layout, _art, _fog, px, _pulse, _reveals, _selected))),
+          ),
+          At(w - 30, 32, ax: 1, child: OutlinedText('Dawn Sigils  ${sigilCount(g.progress)} / 6', size: 18, color: const Color(0xff8ae0d8))),
+          At(30, 32, ax: 0, child: OutlinedText('Lv ${g.state.level}  ·  ${g.state.gold} gold', size: 18)),
+          At(w / 2, 32,
               child: GestureDetector(
                 onTap: () {
                   if (_confirmWipe) {
                     g.newGame();
                     setState(() {
                       _confirmWipe = false;
+                      _selected = realms.first;
                       _hint = 'A new saga begins.';
                     });
                   } else {
@@ -206,84 +551,132 @@ class _WorldMapScreenState extends State<WorldMapScreen> with SingleTickerProvid
                 },
                 child: OutlinedText(_confirmWipe ? 'Tap again to erase your save' : 'New game', size: 14, color: const Color(0xffc8bca0)),
               )),
+          Positioned(left: 0, right: 0, top: 444, bottom: 0, child: _panel(g)),
         ]),
       ),
+    );
+  }
+
+  Widget _panel(MeetRaGame g) {
+    final r = _selected;
+    if (r == null || _hint != null) {
+      return Center(child: OutlinedText(_hint ?? 'Tap a realm on the map.', size: 19, color: parch));
+    }
+    final cleared = g.progress.isCleared(r.boss);
+    return _infoPanel(
+      lines: [
+        Row(children: [
+          OutlinedText(r.name, size: 24, color: gold),
+          const SizedBox(width: 12),
+          OutlinedText(
+            '${clearedIn(r, g.progress)} / 20 explored  ·  ${cleared ? '${r.bossName} defeated' : 'Boss: ${r.bossName}'}',
+            size: 15,
+            color: cleared ? const Color(0xff8ae0d8) : const Color(0xffc8bca0),
+          ),
+        ]),
+        const SizedBox(height: 4),
+        _bodyText(r.lore),
+      ],
+      action: _TextButton('Enter', () => g.openRealm(r)),
     );
   }
 }
 
 class _WorldPainter extends CustomPainter {
-  _WorldPainter(this.game, this.area, this.pulse, this.reveals) : super(repaint: pulse);
+  _WorldPainter(this.game, this.layout, this.art, this.fog, this.px, this.pulse, this.reveals, this.selected) : super(repaint: pulse);
   final MeetRaGame game;
-  final Rect area;
+  final _WorldLayout layout;
+  final _Baked art;
+  final _Fog fog;
+  final double px;
   final Animation<double> pulse;
   final _Reveals reveals;
-
-  Offset _p(double x, double y) => Offset(area.left + x * area.width, area.top + y * area.height);
+  final Realm? selected;
 
   @override
   void paint(Canvas c, Size size) {
+    final area = layout.area;
     c.drawRect(Offset.zero & size, _fill(const Color(0xff0d1233)));
-    _parchment(c, area);
-    // Seas
-    final sea = _fill(const Color(0xff9cc3c0));
-    final coast = _stroke(_inkBrown, 2);
-    final inner = Path()..addOval(Rect.fromCenter(center: _p(0.52, 0.1), width: area.width * 0.16, height: area.height * 0.22));
-    final west = Path()
-      ..moveTo(area.left, area.top + area.height * 0.18)
-      ..quadraticBezierTo(_p(0.2, 0.2).dx, _p(0.2, 0.2).dy, _p(0.22, 0.4).dx, _p(0.22, 0.4).dy)
-      ..quadraticBezierTo(_p(0.2, 0.58).dx, _p(0.2, 0.58).dy, area.left, area.top + area.height * 0.62)
-      ..close();
-    final south = Path()
-      ..moveTo(area.left, area.bottom)
-      ..lineTo(area.left, area.top + area.height * 0.92)
-      ..quadraticBezierTo(_p(0.3, 0.86).dx, _p(0.3, 0.86).dy, _p(0.46, 0.8).dx, _p(0.46, 0.8).dy)
-      ..quadraticBezierTo(_p(0.6, 0.97).dx, _p(0.6, 0.97).dy, _p(0.85, 0.9).dx, _p(0.85, 0.9).dy)
-      ..lineTo(area.right, area.top + area.height * 0.88)
-      ..lineTo(area.right, area.bottom)
-      ..close();
-    for (final s in [inner, west, south]) {
-      c.drawPath(s, sea);
-      c.drawPath(s, coast);
-    }
+    _drawBaked(c, art.get((area, px), () => _bake(area, px, layout.paint)), area);
+
     final prog = game.progress;
-    // Routes between the realms that are open; they run on into the fog
+    final t = pulse.value;
+    // Red ink roads from each fallen boss to the next realm's first town; one runs on into the fog
     for (var i = 0; i < 5; i++) {
       final a = realms[i], b = realms[i + 1];
       if (!realmUnlocked(a, prog)) continue;
-      final open = realmUnlocked(b, prog);
-      _dashed(c, _p(a.mapX, a.mapY), _p(b.mapX, b.mapY), _stroke(open ? const Color(Palette.red) : const Color(0x88553a20), 3), dash: open ? 14 : 6);
+      _route(c, layout.bossAt[a.index]! + const Offset(0, -6), layout.townAt[b.index]! + const Offset(0, -6), realmUnlocked(b, prog));
     }
 
-    // Only the realms Ra has opened are known; the rest of the world is fog
+    // Only the realms Ra has opened are known; the rest of the world is uncharted
     final open = [for (final r in realms) if (realmUnlocked(r, prog)) r];
     final reveal = {for (final r in open) r: reveals.of('realm:${r.id}')};
-    _paintFog(c, area, [for (final r in open) (_p(r.mapX, r.mapY), 150.0, reveal[r]!)], reveals.now);
-    c.drawRect(area, _stroke(_goldDark, 3));
+    fog.paint(
+      c,
+      area,
+      [for (final r in open) (layout.centre[r.index], layout.radii[r.index].$1 * 1.35, layout.radii[r.index].$2 * 1.35, reveal[r]!)],
+      reveals.now,
+      px,
+    );
+    c.drawRect(area.deflate(1.5), inkPen(2.5));
+    layout.paintCartouche(c);
 
-    final t = pulse.value;
     for (final r in open) {
       final k = Curves.easeOut.transform(((reveal[r]! - 0.3) / 0.7).clamp(0.0, 1.0));
       if (k <= 0) continue;
-      final at = _p(r.mapX, r.mapY);
+      final name = layout.nameRect[r.index];
       final cleared = prog.isCleared(r.boss);
-      c.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, k));
-      if (!cleared) c.drawCircle(at, 44 + 8 * t, _stroke(gold.withValues(alpha: 1 - t), 3));
-      c.drawCircle(at, 42, _fill(Color(r.color)));
-      c.drawCircle(at, 42, _stroke(_goldDark, 4));
-      c.drawCircle(at, 34, _stroke(const Color(0x99f6ecd2), 1.2));
-      _label(c, '${r.index + 1}', at - const Offset(0, 22), size: 30, color: const Color(0xfffbf3df));
-      _label(c, r.name, at + const Offset(0, 46), size: 16);
-      _label(c, '${clearedIn(r, prog)} / 20${cleared ? '  ✓' : ''}', at + const Offset(0, 66), size: 13, bold: false);
-      c.restore();
+      inkText(c, '${clearedIn(r, prog)} / 20', name.bottomCenter + const Offset(0, 1), size: 11, color: inkColor.withValues(alpha: k));
+      // The boss lair: a red X while it stands, a seal once it falls
+      final x = layout.bossAt[r.index]! + const Offset(16, -16);
+      final red = inkPen(2.4, _redInk.withValues(alpha: k));
+      if (cleared) {
+        c.drawCircle(x, 7, _fill(_redInk.withValues(alpha: 0.9 * k)));
+        c.drawPath(
+            Path()
+              ..moveTo(x.dx - 3.5, x.dy)
+              ..lineTo(x.dx - 1, x.dy + 3)
+              ..lineTo(x.dx + 4, x.dy - 3),
+            inkPen(1.6, paperColor.withValues(alpha: k)));
+      } else {
+        c.drawLine(x + const Offset(-5, -5), x + const Offset(5, 5), red);
+        c.drawLine(x + const Offset(5, -5), x + const Offset(-5, 5), red);
+        c.drawCircle(x, 9 + 9 * t, inkPen(1.5, _redInk.withValues(alpha: (1 - t) * k)));
+      }
+    }
+
+    // Marching ants around the chosen realm's shore
+    final sel = selected;
+    if (sel != null && realmUnlocked(sel, prog)) {
+      final ants = inkPen(1.8, _redInk);
+      for (final m in layout.outline[sel.index]) {
+        for (var d = -(t * 18) % 18; d < m.length; d += 18) {
+          c.drawPath(m.extractPath(math.max(0, d), math.min(m.length, d + 9)), ants);
+        }
+      }
+    }
+
+    // Ra stands on the realm of the last journey
+    final here = realms[prog.realm];
+    if (realmUnlocked(here, prog)) {
+      final sheet = game.art.hero;
+      final foot = layout.nameRect[here.index].topCenter - const Offset(0, 2);
+      final bob = math.sin(t * math.pi * 2) * 1.5;
+      const scale = 1.8;
+      final dst = Rect.fromLTWH(foot.dx - sheet.frameW * scale / 2, foot.dy - sheet.frameH * scale + bob, sheet.frameW * scale, sheet.frameH * scale);
+      c.drawImageRect(sheet.image, sheet.src(0), dst, Paint()..filterQuality = FilterQuality.none);
     }
   }
 
-  void _dashed(Canvas c, Offset a, Offset b, Paint p, {double dash = 10}) {
+  void _route(Canvas c, Offset a, Offset b, bool open) {
+    final pen = inkPen(2.2, open ? _redInk : _redInk.withValues(alpha: 0.5));
     final d = (b - a).distance;
     final dir = (b - a) / d;
-    for (var s = 0.0; s < d; s += dash * 1.8) {
-      c.drawLine(a + dir * s, a + dir * math.min(d, s + dash), p);
+    final bend = Offset(-dir.dy, dir.dx) * 18;
+    for (var s = 0.0; s < d; s += 11) {
+      final t0 = s / d, t1 = math.min(1.0, (s + 5) / d);
+      Offset at(double t) => a + (b - a) * t + bend * math.sin(t * math.pi);
+      c.drawLine(at(t0), at(t1), pen);
     }
   }
 
@@ -307,6 +700,8 @@ class RealmMapScreen extends StatefulWidget {
 class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProviderStateMixin {
   late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
   late final _reveals = _Reveals(widget.game.mapSeen);
+  final _art = _Baked();
+  final _fog = _Fog();
   Location? _selected;
   List<String> _message = const [];
 
@@ -324,6 +719,8 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
   @override
   void dispose() {
     _pulse.dispose();
+    _art.dispose();
+    _fog.dispose();
     super.dispose();
   }
 
@@ -360,24 +757,27 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
     final g = widget.game;
     final w = widget.w;
     final r = realm;
+    final px = _pixelScale(context);
     return ListenableBuilder(
       listenable: g.progress,
       builder: (context, _) => GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapUp: (d) => _tap(d.localPosition),
         child: Stack(children: [
-          Positioned.fill(child: CustomPaint(painter: _RealmPainter(g, r, _area, _pulse, _selected, _visible, _reveals))),
+          Positioned.fill(
+            child: RepaintBoundary(child: CustomPaint(painter: _RealmPainter(g, r, _area, _art, _fog, px, _pulse, _selected, _visible, _reveals))),
+          ),
           At(w / 2, 32, child: OutlinedText(r.name, size: 30, color: gold)),
           At(w / 2, 60, child: OutlinedText(r.tagline, size: 15, color: const Color(0xffc8bca0))),
           At(w - 30, 36, ax: 1, child: OutlinedText('${clearedIn(r, g.progress)} / 20 explored', size: 18, color: const Color(0xff8ae0d8))),
           At(30, 36, ax: 0, child: _TextButton('‹  World', g.openWorld, size: 16)),
-          Positioned(left: 0, right: 0, top: 404, bottom: 0, child: _panel(g, w)),
+          Positioned(left: 0, right: 0, top: 428, bottom: 0, child: _panel(g)),
         ]),
       ),
     );
   }
 
-  Widget _panel(MeetRaGame g, double w) {
+  Widget _panel(MeetRaGame g) {
     final l = _selected;
     if (l == null) {
       return const Center(child: OutlinedText('Tap a glowing place. Clear it, and the fog lifts from the roads beyond.', size: 20));
@@ -391,70 +791,56 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
         : l.kind.playable
             ? (cleared ? 'Replay' : 'Enter')
             : 'Rest';
-    return Container(
-      margin: const EdgeInsets.fromLTRB(40, 0, 40, 12),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: _lapis.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _goldDark, width: 3),
-      ),
-      child: Row(children: [
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-            Row(children: [
-              OutlinedText(l.name, size: 24, color: gold),
-              const SizedBox(width: 12),
-              OutlinedText('${l.kind.label}  ·  $status', size: 15, color: statusColor),
-            ]),
-            const SizedBox(height: 6),
-            Text(
-              _message.isNotEmpty ? _message.join('  ') : l.desc,
-              style: const TextStyle(fontFamily: fontFamily, fontSize: 17, color: parch, decoration: TextDecoration.none),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ]),
-        ),
-        if (action != null)
-          _TextButton(action, () {
-            if (l.kind.playable) {
-              g.enterLocation(l);
-            } else {
-              setState(() => _message = g.visit(l));
-            }
-          }),
-      ]),
+    return _infoPanel(
+      lines: [
+        Row(children: [
+          OutlinedText(l.name, size: 24, color: gold),
+          const SizedBox(width: 12),
+          OutlinedText('${l.kind.label}  ·  $status', size: 15, color: statusColor),
+        ]),
+        const SizedBox(height: 6),
+        _bodyText(_message.isNotEmpty ? _message.join('  ') : l.desc),
+      ],
+      action: action == null
+          ? null
+          : _TextButton(action, () {
+              if (l.kind.playable) {
+                g.enterLocation(l);
+              } else {
+                setState(() => _message = g.visit(l));
+              }
+            }),
     );
   }
 }
 
 class _RealmPainter extends CustomPainter {
-  _RealmPainter(this.game, this.realm, this.area, this.pulse, this.selected, this.visible, this.reveals) : super(repaint: pulse);
+  _RealmPainter(this.game, this.realm, this.area, this.art, this.fog, this.px, this.pulse, this.selected, this.visible, this.reveals)
+      : super(repaint: pulse);
   final MeetRaGame game;
   final Realm realm;
   final Rect area;
+  final _Baked art;
+  final _Fog fog;
+  final double px;
   final Animation<double> pulse;
   final Location? selected;
   final bool Function(Location) visible;
   final _Reveals reveals;
 
+  bool get dark => realm.theme == RealmTheme.dark;
+  Rect get mapRect => area.inflate(30);
   Offset _pos(Location l) => Offset(area.left + l.x * area.width, area.top + l.y * area.height);
 
   @override
   void paint(Canvas c, Size size) {
-    final dark = realm.theme == RealmTheme.dark;
     c.drawRect(Offset.zero & size, _fill(const Color(0xff0d1233)));
-    final mapRect = area.inflate(30);
-    _parchment(c, mapRect, dark: dark);
-    c.drawRect(mapRect, _fill(Color(realm.color).withValues(alpha: 0.12)));
-    _decorate(c, mapRect);
-    c.drawRect(mapRect, _stroke(_goldDark, 3));
-    c.drawRect(mapRect.deflate(6), _stroke(_lapis, 1));
+    _drawBaked(c, art.get((mapRect, px, realm.id), () => _bake(mapRect, px, _paintBackground)), mapRect);
 
     final prog = game.progress;
     final s = game.state;
     final locs = realm.locations;
+    final faint = dark ? const Color(0x66f2e6c9) : const Color(0x66553a20);
 
     // Roads; one leading into the fog is drawn too, and the fog hides where it goes
     for (final a in locs) {
@@ -469,9 +855,9 @@ class _RealmPainter extends CustomPainter {
           ..moveTo(pa.dx, pa.dy)
           ..quadraticBezierTo(mid.dx, mid.dy, pb.dx, pb.dy);
         if (done) {
-          c.drawPath(path, _stroke(_goldDark, 4));
+          c.drawPath(path, inkPen(3.5, dark ? parch : inkColor));
         } else {
-          _dashedPath(c, path, _stroke(reachable ? const Color(Palette.red) : (dark ? const Color(0x66f2e6c9) : const Color(0x66553a20)), 2.5));
+          dashedPath(c, path, inkPen(2.5, reachable ? _redInk : faint), dash: 7, gap: 6);
         }
       }
     }
@@ -479,34 +865,36 @@ class _RealmPainter extends CustomPainter {
     // Fog of war over everything Ra has not found yet
     final known = [for (final l in locs) if (visible(l)) l];
     final reveal = {for (final l in known) l: reveals.of(l.id)};
-    _paintFog(c, mapRect, [for (final l in known) (_pos(l), prog.isCleared(l) ? 92.0 : 62.0, reveal[l]!)], reveals.now, dark: dark);
-    c.drawRect(mapRect, _stroke(_goldDark, 3));
+    fog.paint(c, mapRect, [for (final l in known) (_pos(l), prog.isCleared(l) ? 92.0 : 62.0, prog.isCleared(l) ? 92.0 : 62.0, reveal[l]!)], reveals.now, px,
+        dark: dark);
+    c.drawRect(mapRect.deflate(1.5), inkPen(2.5, dark ? parch : inkColor));
 
     // Locations
     final t = pulse.value;
     for (final l in known) {
       final k = Curves.easeOut.transform(((reveal[l]! - 0.35) / 0.65).clamp(0.0, 1.0));
       if (k <= 0) continue;
-      c.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, k));
+      // Only places still fading in need their own layer
+      if (k < 1) c.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, k));
       final p = _pos(l);
       final cleared = prog.isCleared(l);
       final open = isOpen(l, prog, s);
       final big = l.kind == LocKind.boss || l.kind == LocKind.town;
       final r = big ? 22.0 : 17.0;
-      if (open && !cleared) c.drawCircle(p, r + 3 + 8 * t, _stroke(gold.withValues(alpha: 1 - t), 3));
-      if (l == selected) c.drawCircle(p, r + 6, _stroke(const Color(0xffffffff), 2.5));
+      if (open && !cleared) c.drawCircle(p, r + 3 + 8 * t, inkPen(3, _redInk.withValues(alpha: 1 - t)));
+      if (l == selected) c.drawCircle(p, r + 6, inkPen(2.5, dark ? parch : _lapis));
       final fill = cleared
           ? _turq
           : open
               ? const Color(0xfffbf3df)
               : (dark ? const Color(0xff3a3848) : const Color(0xffcfc3a6));
       c.drawCircle(p, r, _fill(fill));
-      c.drawCircle(p, r, _stroke(cleared || open ? _goldDark : const Color(0xff8a7a60), l.kind == LocKind.boss ? 3.5 : 2.5));
+      c.drawCircle(p, r, inkPen(l.kind == LocKind.boss ? 3.5 : 2.5, cleared || open ? inkColor : const Color(0xff8a7a60)));
       _icon(c, l.kind, p, r * 0.55, cleared ? const Color(0xfffbf3df) : (open ? _lapis : const Color(0xff8a7a60)));
       if (open || cleared) {
-        _label(c, l.name, p + Offset(0, r + 3), size: 12.5, color: dark ? const Color(0xfff2e6c9) : _inkBrown, maxW: 130);
+        inkText(c, l.name, p + Offset(0, r + 3), size: 12.5, bold: true, color: dark ? parch : inkColor, halo: !dark, maxW: 130);
       }
-      c.restore();
+      if (k < 1) c.restore();
     }
 
     // Ra's marker
@@ -519,82 +907,54 @@ class _RealmPainter extends CustomPainter {
     c.drawImageRect(sheet.image, sheet.src(0), dst, Paint()..filterQuality = FilterQuality.none);
   }
 
-  void _dashedPath(Canvas c, Path path, Paint p) {
-    for (final m in path.computeMetrics()) {
-      for (var d = 0.0; d < m.length; d += 14) {
-        c.drawPath(m.extractPath(d, math.min(m.length, d + 8)), p);
-      }
+  // Paper, a wash of the realm's color and ink motifs kept away from the places (baked once)
+  void _paintBackground(Canvas c) {
+    final r = mapRect;
+    if (dark) {
+      c.drawRect(r, Paint()..shader = const RadialGradient(colors: [Color(0xff2c2a3a), Color(0xff14121c)], radius: 0.9).createShader(r));
+    } else {
+      paperSheet(c, r, seed: realm.index + 20);
     }
-  }
-
-  // A few theme motifs scattered on the map, kept away from the locations
-  void _decorate(Canvas c, Rect r) {
+    c.drawRect(r, _fill(Color(realm.color).withValues(alpha: 0.1)));
     final rnd = math.Random(realm.index * 97 + 13);
     final nodes = realm.locations.map(_pos).toList();
-    for (var i = 0; i < 70; i++) {
-      final p = Offset(r.left + 14 + rnd.nextDouble() * (r.width - 28), r.top + 14 + rnd.nextDouble() * (r.height - 28));
-      if (nodes.any((n) => (n - p).distance < 42)) continue;
-      final s = 0.7 + rnd.nextDouble() * 0.6;
+    final spots = <Offset>[];
+    for (var i = 0; i < 260 && spots.length < 70; i++) {
+      final p = Offset(r.left + 20 + rnd.nextDouble() * (r.width - 40), r.top + 30 + rnd.nextDouble() * (r.height - 40));
+      if (nodes.any((n) => (n - p).distance < 44) || spots.any((q) => (q - p).distance < 22)) continue;
+      spots.add(p);
+    }
+    spots.sort((a, b) => a.dy.compareTo(b.dy));
+    for (final p in spots) {
+      final v = rnd.nextDouble(), ph = rnd.nextDouble() * 6;
       switch (realm.theme) {
         case RealmTheme.vale:
-          _cypress(c, p, s);
+          v < 0.8 ? inkTree(c, p, 1.3, ph) : inkGrass(c, p, 1.5);
         case RealmTheme.city:
-          rnd.nextBool() ? _arch(c, p, s) : _cypress(c, p, s * 0.8);
+          v < 0.45 ? inkTree(c, p, 1.2, ph) : (v < 0.8 ? inkHouse(c, p, 1.2) : inkGrass(c, p, 1.4));
         case RealmTheme.desert:
-          c.drawArc(Rect.fromCenter(center: p, width: 30 * s, height: 14 * s), math.pi, math.pi, false, _stroke(const Color(0x99a0783c), 1.6));
+          v < 0.7 ? inkDune(c, p, 1.1) : inkPalm(c, p, 1.1, ph / 6);
         case RealmTheme.mountain:
-          _peak(c, p, s, snow: true);
+          v < 0.65 ? inkMountain(c, p, 1.05, ph / 6, snow: true) : inkPine(c, p, 1.2);
         case RealmTheme.steppe:
-          for (var k = -1; k <= 1; k++) {
-            c.drawLine(p, p + Offset(k * 5.0 * s, -10 * s), _stroke(const Color(0x997a6a3a), 1.4));
-          }
+          v < 0.6 ? inkGrass(c, p, 1.5) : (v < 0.88 ? inkTree(c, p, 1.1, ph) : inkTent(c, p, 1.1));
         case RealmTheme.coast:
-          final w = Path()
-            ..moveTo(p.dx - 12 * s, p.dy)
-            ..quadraticBezierTo(p.dx - 6 * s, p.dy - 6 * s, p.dx, p.dy)
-            ..quadraticBezierTo(p.dx + 6 * s, p.dy + 6 * s, p.dx + 12 * s, p.dy);
-          c.drawPath(w, _stroke(const Color(0x995f908d), 1.6));
+          v < 0.4 ? inkWave(c, p, 1.2) : (v < 0.8 ? inkTree(c, p, 1.05, ph) : inkRuin(c, p, 0.9));
         case RealmTheme.dark:
-          c.drawCircle(p, 1.2 * s, _fill(Color.fromRGBO(242, 230, 201, 0.3 + rnd.nextDouble() * 0.5)));
+          // Pale stars and dead trees drawn in light ink on the dark ground
+          c.drawCircle(p, 1.3, _fill(Color.fromRGBO(242, 230, 201, 0.3 + v * 0.5)));
+          if (v < 0.3) inkSpire(c, p, 0.9, ph / 6);
       }
     }
-  }
-
-  void _cypress(Canvas c, Offset p, double s) {
-    final path = Path()
-      ..moveTo(p.dx, p.dy - 22 * s)
-      ..quadraticBezierTo(p.dx + 8 * s, p.dy - 8 * s, p.dx, p.dy)
-      ..quadraticBezierTo(p.dx - 8 * s, p.dy - 8 * s, p.dx, p.dy - 22 * s);
-    c.drawPath(path, _fill(const Color(0xaa3e6b4a)));
-  }
-
-  void _arch(Canvas c, Offset p, double s) {
-    final rect = Rect.fromCenter(center: p, width: 16 * s, height: 18 * s);
-    c.drawRect(rect, _fill(const Color(0x881b2a6b)));
-    c.drawOval(Rect.fromCenter(center: rect.topCenter, width: 16 * s, height: 12 * s), _fill(const Color(0x88d4a845)));
-  }
-
-  void _peak(Canvas c, Offset p, double s, {bool snow = false}) {
-    final m = Path()
-      ..moveTo(p.dx - 16 * s, p.dy)
-      ..lineTo(p.dx, p.dy - 20 * s)
-      ..lineTo(p.dx + 16 * s, p.dy)
-      ..close();
-    c.drawPath(m, _fill(const Color(0x99b4935c)));
-    if (snow) {
-      final cap = Path()
-        ..moveTo(p.dx - 5 * s, p.dy - 14 * s)
-        ..lineTo(p.dx, p.dy - 20 * s)
-        ..lineTo(p.dx + 5 * s, p.dy - 14 * s)
-        ..close();
-      c.drawPath(cap, _fill(const Color(0xccfbf7ee)));
-    }
+    final frame = dark ? parch : inkColor;
+    c.drawRect(r.deflate(1.5), inkPen(2.5, frame));
+    c.drawRect(r.deflate(6), inkPen(0.8, frame));
   }
 
   // Small symbol for each kind of place
   void _icon(Canvas c, LocKind k, Offset p, double s, Color col) {
     final f = _fill(col);
-    final st = _stroke(col, 2);
+    final st = inkPen(2, col);
     switch (k) {
       case LocKind.town:
         final h = Path()

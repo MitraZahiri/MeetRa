@@ -3,6 +3,7 @@
 // glowing lights, and darkness in caves and the Lightless Land.
 
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui';
 
 import '../art/pixel.dart' show rng, hex;
@@ -23,7 +24,7 @@ typedef Pusher = (double x, double y, double vx);
 class _Blade {
   _Blade(this.dx, this.h, this.color, this.flower);
   final double dx, h;
-  final Color color;
+  final int color; // index into the realm's grass colors
   final Color? flower;
 }
 
@@ -77,6 +78,7 @@ class Ambience {
   final _tufts = <_Tuft>[];
   final _motes = <_Mote>[];
   final _r = math.Random(5);
+  late final _grassColors = _look.grass.map(hex).toList();
   double t = 0;
 
   bool get dark => theme == RealmTheme.dark || cave;
@@ -86,7 +88,6 @@ class Ambience {
   // A few tufts on every grass tile with open air above it; the level width seeds the layout
   void _plantGrass() {
     final r = rng(level.cols * 31 + level.rows);
-    final colors = _look.grass.map(hex).toList();
     final flowers = _look.flowers.map(hex).toList();
     for (var ty = 1; ty < level.rows; ty++) {
       for (var tx = 0; tx < level.cols; tx++) {
@@ -97,7 +98,7 @@ class Ambience {
           final count = 2 + (r() * 3).floor();
           for (var b = 0; b < count; b++) {
             final flower = flowers.isNotEmpty && r() < 0.12 ? flowers[(r() * flowers.length).floor()] : null;
-            blades.add(_Blade(b - count / 2 + r() * 0.8, 2 + r() * (cave ? 2 : 4), colors[(r() * colors.length).floor()], flower));
+            blades.add(_Blade(b - count / 2 + r() * 0.8, 2 + r() * (cave ? 2 : 4), (r() * _grassColors.length).floor(), flower));
           }
           _tufts.add(_Tuft(tx * tile + 2 + r() * 12, ty * tile.toDouble(), blades, r() * 6));
         }
@@ -227,22 +228,34 @@ class Ambience {
     ..isAntiAlias = false
     ..strokeWidth = 1
     ..strokeCap = StrokeCap.square;
+  late final _bladeLines = [for (final _ in _look.grass) <double>[]];
+  final _flowerDots = <(Offset, Color)>[];
 
+  // All blades of one color go to the GPU in a single call
   void renderGrass(Canvas c, Rect view) {
-    final dot = Paint()..isAntiAlias = false;
+    for (final l in _bladeLines) {
+      l.clear();
+    }
+    _flowerDots.clear();
     for (final g in _tufts) {
       if (g.x < view.left - 6 || g.x > view.right + 6 || g.y < view.top || g.y > view.bottom + 8) continue;
       for (final b in g.blades) {
         final x0 = g.x + b.dx;
         final lean = g.bend * (0.8 + b.h * 0.06);
-        final tip = Offset(x0 + math.sin(lean) * b.h, g.y - math.cos(lean) * b.h);
-        _blade.color = b.color;
-        c.drawLine(Offset(x0, g.y), tip, _blade);
-        if (b.flower != null) {
-          dot.color = b.flower!;
-          c.drawRect(Rect.fromCenter(center: tip, width: 1.4, height: 1.4), dot);
-        }
+        final tx = x0 + math.sin(lean) * b.h, ty = g.y - math.cos(lean) * b.h;
+        _bladeLines[b.color].addAll([x0, g.y, tx, ty]);
+        if (b.flower != null) _flowerDots.add((Offset(tx, ty), b.flower!));
       }
+    }
+    for (var i = 0; i < _bladeLines.length; i++) {
+      if (_bladeLines[i].isEmpty) continue;
+      _blade.color = _grassColors[i];
+      c.drawRawPoints(PointMode.lines, Float32List.fromList(_bladeLines[i]), _blade);
+    }
+    final dot = Paint()..isAntiAlias = false;
+    for (final (p, color) in _flowerDots) {
+      dot.color = color;
+      c.drawRect(Rect.fromCenter(center: p, width: 1.4, height: 1.4), dot);
     }
   }
 
@@ -288,6 +301,7 @@ class Ambience {
       final cut = Paint()..blendMode = BlendMode.dstOut;
       for (final l in lights) {
         final r = l.r * 1.6;
+        if (!view.inflate(r).contains(Offset(l.x, l.y))) continue;
         cut.shader = Gradient.radial(Offset(l.x, l.y), r, [Color.fromRGBO(0, 0, 0, l.intensity.clamp(0.0, 1.0)), const Color(0x00000000)]);
         c.drawCircle(Offset(l.x, l.y), r, cut);
       }

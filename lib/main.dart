@@ -61,7 +61,7 @@ class GameScreen extends StatelessWidget {
                 child: ValueListenableBuilder(
                   valueListenable: game.ui.session,
                   builder: (context, session, _) => Stack(key: ValueKey(session), children: [
-                    Positioned.fill(child: IgnorePointer(child: Hud(game, w: w))),
+                    _when(game.ui.screen, (s) => s == AppScreen.playing, (_) => IgnorePointer(child: Hud(game, w: w))),
                     Positioned.fill(child: IgnorePointer(child: SignBox(game, w: w))),
                     Positioned.fill(child: IgnorePointer(child: BannerView(game, w: w))),
                     Positioned.fill(child: IgnorePointer(child: BossBar(game, w: w))),

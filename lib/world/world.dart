@@ -51,6 +51,7 @@ class Realm {
     required this.id,
     required this.name,
     required this.tagline,
+    required this.lore,
     required this.theme,
     required this.color,
     required this.bossName,
@@ -64,6 +65,7 @@ class Realm {
   final String id;
   final String name;
   final String tagline;
+  final String lore; // one or two sentences for the world map
   final RealmTheme theme;
   final int color; // ARGB, used for the map medallion and to tint the level sky
   final String bossName;
@@ -250,20 +252,27 @@ final List<Realm> realms = _buildRealms();
 
 List<Realm> _buildRealms() {
   final list = [
-    Realm(index: 0, id: 'hearthvale', name: 'Hearthvale', tagline: 'Home of Ra', theme: RealmTheme.vale,
-        color: 0xff4f9a5a, bossName: 'The White Elephant', bossTitle: 'Terror of the Vale', mapX: 0.74, mapY: 0.70),
-    Realm(index: 1, id: 'crownhold', name: 'Crownhold', tagline: 'The heartland', theme: RealmTheme.city,
-        color: 0xff2a4a9a, bossName: 'The Black Hollow', bossTitle: 'The First Darkness', mapX: 0.50, mapY: 0.56),
-    Realm(index: 2, id: 'sands', name: 'The Serpent Sands', tagline: 'Land of the Twin-Serpent King', theme: RealmTheme.desert,
-        color: 0xffc8913a, bossName: 'Vexar', bossTitle: 'The Twin-Serpent King', mapX: 0.27, mapY: 0.74),
-    Realm(index: 3, id: 'skyspine', name: 'Sky Spine & Frostwood', tagline: 'Mountains of ice', theme: RealmTheme.mountain,
-        color: 0xff7fa9c8, bossName: 'The Pale Giant', bossTitle: 'Thief of the Dawnfire', mapX: 0.52, mapY: 0.28),
-    Realm(index: 4, id: 'duskland', name: 'The Duskland', tagline: 'Realm of the Dusk Khan', theme: RealmTheme.steppe,
-        color: 0xff7a4a8e, bossName: 'Varak', bossTitle: 'The Dusk Khan', mapX: 0.80, mapY: 0.30),
-    Realm(index: 5, id: 'marble', name: 'The Marble West', tagline: 'White cities by the sea', theme: RealmTheme.coast,
-        color: 0xff2bb3a8, bossName: 'The Cliff Dragon', bossTitle: 'Lord of the Western Rocks', mapX: 0.15, mapY: 0.40),
-    Realm(index: 6, id: 'lightless', name: 'The Lightless Land', tagline: 'Where the Water of Life is hidden', theme: RealmTheme.dark,
-        color: 0xff4a4658, bossName: 'The Mirror of Ra', bossTitle: 'Your own shadow', mapX: 0.30, mapY: 0.14, hidden: true),
+    Realm(index: 0, id: 'hearthvale', name: 'Hearthvale', tagline: 'Home of Ra',
+        lore: "Green hills and reed marshes around Ra's home. The hearth fires burn here first.", theme: RealmTheme.vale,
+        color: 0xff4f9a5a, bossName: 'The White Elephant', bossTitle: 'Terror of the Vale', mapX: 0.82, mapY: 0.60),
+    Realm(index: 1, id: 'crownhold', name: 'Crownhold', tagline: 'The heartland',
+        lore: "The walled capital of the blinded king. Hollows creep through its streets and vaults.", theme: RealmTheme.city,
+        color: 0xff2a4a9a, bossName: 'The Black Hollow', bossTitle: 'The First Darkness', mapX: 0.62, mapY: 0.50),
+    Realm(index: 2, id: 'sands', name: 'The Serpent Sands', tagline: 'Land of the Twin-Serpent King',
+        lore: "Dunes, dry wells and the court of a king with a serpent on each shoulder.", theme: RealmTheme.desert,
+        color: 0xffc8913a, bossName: 'Vexar', bossTitle: 'The Twin-Serpent King', mapX: 0.44, mapY: 0.74),
+    Realm(index: 3, id: 'skyspine', name: 'Sky Spine & Frostwood', tagline: 'Mountains of ice',
+        lore: "Ice-capped peaks and frozen woods. The Pale Giant hides the stolen Dawnfire up here.", theme: RealmTheme.mountain,
+        color: 0xff7fa9c8, bossName: 'The Pale Giant', bossTitle: 'Thief of the Dawnfire', mapX: 0.47, mapY: 0.26),
+    Realm(index: 4, id: 'duskland', name: 'The Duskland', tagline: 'Realm of the Dusk Khan',
+        lore: "Endless grass beyond the Ashen River, ruled by the Dusk Khan from his lake.", theme: RealmTheme.steppe,
+        color: 0xff7a4a8e, bossName: 'Varak', bossTitle: 'The Dusk Khan', mapX: 0.25, mapY: 0.30),
+    Realm(index: 5, id: 'marble', name: 'The Marble West', tagline: 'White cities by the sea',
+        lore: "White harbors, olive groves and sea cliffs where the Cliff Dragon nests.", theme: RealmTheme.coast,
+        color: 0xff2bb3a8, bossName: 'The Cliff Dragon', bossTitle: 'Lord of the Western Rocks', mapX: 0.08, mapY: 0.66),
+    Realm(index: 6, id: 'lightless', name: 'The Lightless Land', tagline: 'Where the Water of Life is hidden',
+        lore: "A land without sun at the edge of the world. The Water of Life waits in its dark.", theme: RealmTheme.dark,
+        color: 0xff4a4658, bossName: 'The Mirror of Ra', bossTitle: 'Your own shadow', mapX: 0.80, mapY: 0.16, hidden: true),
   ];
   for (final r in list) {
     final places = _places[r.id]!;
