@@ -241,9 +241,9 @@ class MeetRaGame extends Game with KeyboardEvents {
         case 'S':
           signs.add(Sign(o.x, o.y, def.signs[signIndex++]));
         case 'D':
-          enemies.add(Imp(this, o.x, o.y)..hp += def.enemyBonus);
+          enemies.add(Demon(this, o.x, o.y)..hp += def.enemyBonus);
         case 'V':
-          enemies.add(Bat(this, o.x, o.y - 40)..hp += def.enemyBonus);
+          enemies.add(Fly(this, o.x, o.y - 40)..hp += def.enemyBonus);
         case 'v':
           breakables.add(Breakable(o.x, o.y, 'vase', art.vase));
         case '*':
@@ -1066,7 +1066,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     // Soft shadows ground everything that moves
     if (!player.dead) _shadow(c, player.x, player.y, 10);
     for (final e in enemies) {
-      _shadow(c, e.x, e.y, e is Bat ? 8 : 12);
+      _shadow(c, e.x, e.y, e is Fly ? 9 : 14);
     }
     if (lion != null && lion!.state != LionState.dead) _shadow(c, lion!.x, lion!.y, 44);
     // depth 6-7: feather pickup, coins, hearts

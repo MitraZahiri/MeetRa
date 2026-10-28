@@ -18,7 +18,7 @@ const level1 = LevelDef(
       '########################',
       '########################',
     ],
-    // First pit and first imp
+    // First pit and first demon
     [
       '.............====...........',
       '............................',
@@ -28,7 +28,7 @@ const level1 = LevelDef(
       '####.......#################',
       '####.......#################',
     ],
-    // Steps, a bat and a high chest
+    // Steps, a carrion fly and a high chest
     [
       '....................C.........',
       '..................=====.......',

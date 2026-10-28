@@ -28,6 +28,7 @@ abstract class Enemy {
   double get y => body.y;
   Sheet get sheet;
   Anim get anim;
+  int get frame => anim.frame;
 
   void update(double dt);
 
@@ -76,22 +77,28 @@ abstract class Enemy {
   void render(Canvas c) {
     final k = _squash / 160;
     final (px, py) = pose;
-    drawFrame(c, sheet, anim.frame, x.roundToDouble(), y.roundToDouble(),
+    drawFrame(c, sheet, frame, x.roundToDouble(), y.roundToDouble(),
         flipX: flipX, scaleX: px * (1 + 0.3 * k), scaleY: py * (1 - 0.25 * k), tintFill: _flash > 0 ? 0xffffffff : null);
   }
 }
 
-class Imp extends Enemy {
-  Imp(MeetRaGame game, double x, double y)
-      : super(game, Body(x, y, 10, 14), hp: 3, contactDamage: 1, xpValue: 6, goldValue: 3, colors: [0xff4a8a3a, 0xff2e5a26, 0xffe8dcc0]);
+// The horned demon: patrols, charges when it sees Ra, and up close raises its club and lunges
+class Demon extends Enemy {
+  Demon(MeetRaGame game, double x, double y)
+      : super(game, Body(x, y, 12, 18), hp: 3, contactDamage: 1, xpValue: 6, goldValue: 3, colors: [0xff3d4f8a, 0xffc8602a, 0xffe8dcc0]);
 
   double dir = -1;
   bool _aggro = false;
   double _t = rand.nextDouble() * 10;
+  double _windup = 0; // ms the club is held high before the lunge
+  double _lunge = 0;
+  double _rest = 0; // ms before it may lunge again
   @override
-  final anim = Anim([0, 1], 6);
+  final anim = Anim([0, 1, 2, 3], 7);
   @override
-  Sheet get sheet => game.art.imp;
+  Sheet get sheet => game.art.demon;
+  @override
+  int get frame => _windup > 0 ? 4 : anim.frame;
 
   @override
   (double, double) get pose {
@@ -109,10 +116,28 @@ class Imp extends Enemy {
     }
     if (stun > 0) {
       stun -= dt;
+      _windup = _lunge = 0;
       return;
     }
     final p = game.player;
     final dx = p.x - x;
+    final b = body;
+    _rest = math.max(0, _rest - dt);
+    if (_windup > 0) {
+      b.vx = 0;
+      _windup -= dt;
+      if (_windup <= 0) {
+        _lunge = 220;
+        game.particles.dust(x - dir * 4, y);
+      }
+      return;
+    }
+    if (_lunge > 0) {
+      _lunge -= dt;
+      b.vx = dir * 170;
+      if (_lunge <= 0) _rest = 900;
+      return;
+    }
     final aggro = !p.dead && dx.abs() < 90 && (p.y - y).abs() < 24;
     // Spotting Ra: a '!' and a little hop of surprise
     if (aggro && !_aggro) {
@@ -121,8 +146,13 @@ class Imp extends Enemy {
     }
     _aggro = aggro;
     if (aggro && dx != 0) dir = dx.sign;
+    flipX = dir > 0;
+    if (aggro && dx.abs() < 34 && _rest <= 0 && b.blockedDown) {
+      _windup = 380;
+      b.vx = 0;
+      return;
+    }
 
-    final b = body;
     if ((dir < 0 && b.blockedLeft) || (dir > 0 && b.blockedRight)) dir *= -1;
     // Turn around at ledges
     if (b.blockedDown && game.level.tileAtWorld(x + dir * 8, y + 4) < 0) dir *= -1;
@@ -132,20 +162,20 @@ class Imp extends Enemy {
   }
 }
 
-class Bat extends Enemy {
-  Bat(MeetRaGame game, double x, double y)
-      : super(game, Body(x, y, 10, 6)..allowGravity = false,
-            hp: 2, contactDamage: 1, xpValue: 4, goldValue: 2, colors: [0xff4b2a5e, 0xff7a4a8e]) {
-    anim.timeScale = 0.3;
+// The carrion fly: hovers lazily until Ra comes near, then buzzes after Ra in a zigzag
+class Fly extends Enemy {
+  Fly(MeetRaGame game, double x, double y)
+      : super(game, Body(x, y, 12, 8)..allowGravity = false,
+            hp: 2, contactDamage: 1, xpValue: 4, goldValue: 2, colors: [0xff3a7a5a, 0xffc8302a, 0xffd8eef0]) {
+    anim.timeScale = 0.35;
   }
 
   bool awake = false;
   double t = rand.nextDouble() * 10;
-  double _zzz = rand.nextDouble() * 1400;
   @override
-  final anim = Anim([0, 1], 8);
+  final anim = Anim([0, 1], 24);
   @override
-  Sheet get sheet => game.art.bat;
+  Sheet get sheet => game.art.fly;
 
   @override
   (double, double) get pose => awake ? (1, 1) : (1 + math.sin(t * 2) * 0.04, 1 - math.sin(t * 2) * 0.04);
@@ -171,21 +201,18 @@ class Bat extends Enemy {
       game.floatText(x, y - 10, '!', const Color(0xffff6a50), size: 10, rise: 6, duration: 700);
     }
     if (!awake) {
-      // Sleeping: drifting z's
-      _zzz -= dt;
-      if (_zzz <= 0) {
-        _zzz = 1400;
-        game.floatText(x + 4, y - 8, 'z', const Color(0xffd8d0f0), size: 7, rise: 14, duration: 1400, drift: 6);
-      }
+      // Idle: a slow figure-of-eight in the air
       body
-        ..vx = 0
-        ..vy = math.sin(t * 2) * 8;
+        ..vx = math.cos(t * 1.3) * 10
+        ..vy = math.sin(t * 2.6) * 8;
       return;
     }
+    // Hunting: darts at Ra with sudden sideways jinks, like a fly at a window
     final dd = d == 0 ? 1 : d;
+    final jink = math.sin(t * 9) * 55;
     body
-      ..vx = (dx / dd) * 60
-      ..vy = (dy / dd) * 60 + math.sin(t * 6) * 40;
+      ..vx = (dx / dd) * 64 - (dy / dd) * jink
+      ..vy = (dy / dd) * 64 + (dx / dd) * jink * 0.6;
     flipX = dx > 0;
   }
 }

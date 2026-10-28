@@ -70,7 +70,7 @@ class Level {
 //   #  ground (grass on top, dirt below)   =  one-way platform
 //   B  stone brick   ^  thorns
 //   P  player        A  hearth (checkpoint)   S  signpost
-//   D  imp           V  bat      v  vase     *  bush     C  chest
+//   D  demon         V  fly      v  vase     *  bush     C  chest
 //   F  Saena's feather   L  lion boss   [ ]  boss arena walls   G  exit gate
 Level buildLevel(LevelDef def) {
   final height = def.rows;

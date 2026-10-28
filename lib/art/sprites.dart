@@ -37,47 +37,105 @@ const _legs = {
   'jump': ['....oo.oo...', '...ll..ll...', '...nn...nn..', '............'],
 };
 
-// ---------- Hollow imp ----------
-const _impPal = {'G': '#4a8a3a', 'H': '#2e5a26', 'h': '#e8dcc0', 'y': '#ffd23a', 'R': '#9a1a1a', 'n': '#6a3a1a'};
-const _impTop = [
-  '..h........h..',
-  '..hh......hh..',
-  '...hHGGGGHh...',
-  '...GGGGGGGG...',
-  '..GGyGGGGyGG..',
-  '..GGGGGGGGGG..',
-  '..GGRhRRhRGG..',
-  '...GGGGGGGG...',
-  '.GGGGGGGGGGGG.',
-  'GG.GGGGGGGG.GG',
-  'G..GGGGGGGG..G',
-  '...nnnnnnnn...',
-];
-const _impF1 = [..._impTop, '...GGG..GGG...', '...GG....GG...', '..HHH....HHH..', '..............'];
-const _impF2 = [..._impTop, '....GGG.GG....', '....GG..GG....', '...HHH..HHH...', '..............'];
+// ---------- Hollows: creatures of the darkness, out of old Persian lore ----------
 
-// ---------- Bat ----------
-const _batPal = {'p': '#4b2a5e', 'P': '#7a4a8e', 'y': '#ff4040'};
-const _batF1 = [
-  'P............P',
-  'PP....pp....PP',
-  '.PPP.pppp.PPP.',
-  '..PPpyppypPP..',
-  '....pppppp....',
-  '.....pppp.....',
-  '......pp......',
-  '..............',
-];
-const _batF2 = [
-  '..............',
-  '......pp......',
-  '.....pppp.....',
-  '....pyppyp....',
-  '..PPpppppPP...',
-  '.PPP.pppp.PPP.',
-  'PP....pp....PP',
-  'P............P',
-];
+// The horned demon of the old miniatures: spotted indigo hide, horns, tusks, bulging eyes,
+// a leopard-skin skirt, gold rings on arms and ankles, and a knotted club. Faces left.
+// Frames 0-3 walk; frame 4 raises the club.
+void _drawDemon(Canvas c, int f) {
+  const body = Color(0xff3d4f8a), shade = Color(0xff28335a), belly = Color(0xff6478b4), spot = Color(0xffe8e0d0);
+  const horn = Color(0xffe8dcc0), hornTip = Color(0xffb8a888), gold = Color(0xffd4a845), skirt = Color(0xffc8602a);
+  const skirtSpot = Color(0xff5a2a10), eye = Color(0xffffd23a), mouth = Color(0xff9a1a1a), wood = Color(0xff6a4420), dark = Color(0xff1a1020);
+  final raise = f == 4;
+  final ph = (f % 4) * math.pi / 2;
+  final front = raise ? 0.0 : (math.sin(ph) * 2).roundToDouble();
+  final bob = raise ? 0.0 : (f.isOdd ? 1.0 : 0.0);
+
+  // Back leg and back arm sit behind everything
+  pxRect(c, shade, 13 - front, 20, 3, 5);
+  pxRect(c, dark, 12 - front, 24, 5, 1);
+  pxRect(c, gold, 13 - front, 22, 3, 1);
+  pxRect(c, shade, 16, 12 + bob, 3, 6);
+  // Front leg
+  pxRect(c, body, 9 + front, 20, 3, 5);
+  pxRect(c, dark, 8 + front, 24, 5, 1);
+  pxRect(c, gold, 9 + front, 22, 3, 1);
+  // Leopard skirt with a gold belt
+  pxPoly(c, skirt, [Offset(7, 17 + bob), Offset(18, 17 + bob), Offset(19, 21), Offset(6, 21)]);
+  for (final (x, y) in [(8.0, 18.0), (11.0, 19.0), (14.0, 18.0), (16.0, 20.0), (9.0, 20.0)]) {
+    pxRect(c, skirtSpot, x, y + (y < 20 ? bob : 0), 1, 1);
+  }
+  pxRect(c, gold, 7, 17 + bob, 11, 1);
+  // Torso: a barrel chest, lighter belly and pale spots
+  pxOval(c, body, 5, 9 + bob, 14, 9);
+  pxOval(c, belly, 7, 12 + bob, 7, 5);
+  for (final (x, y) in [(15.0, 11.0), (17.0, 14.0), (9.0, 10.0), (13.0, 15.0)]) {
+    pxRect(c, spot, x, y + bob, 1, 1);
+  }
+  // Horns curl up from the brow
+  pxPoly(c, horn, [Offset(5, 6 + bob), Offset(2, 2 + bob), Offset(2, 0 + bob), Offset(4, 1 + bob), Offset(7, 5 + bob)]);
+  pxRect(c, hornTip, 2, 0 + bob, 1, 2);
+  pxPoly(c, horn, [Offset(11, 5 + bob), Offset(13, 1 + bob), Offset(15, 0 + bob), Offset(15, 2 + bob), Offset(13, 6 + bob)]);
+  pxRect(c, hornTip, 14, 0 + bob, 1, 2);
+  // Head, set forward on the shoulders
+  pxOval(c, body, 3, 4 + bob, 11, 8);
+  pxRect(c, dark, 4, 5 + bob, 3, 1);
+  pxRect(c, dark, 8, 5 + bob, 3, 1);
+  pxRect(c, eye, 4, 6 + bob, 2, 2);
+  pxRect(c, eye, 8, 6 + bob, 2, 2);
+  pxRect(c, dark, 4, 7 + bob, 1, 1);
+  pxRect(c, dark, 8, 7 + bob, 1, 1);
+  pxRect(c, mouth, 4, 10 + bob, 6, 1);
+  pxRect(c, spot, 4, 9 + bob, 1, 1);
+  pxRect(c, spot, 9, 9 + bob, 1, 1);
+  // Front arm and the club: swinging with the stride, or raised high before a blow
+  final hand = raise ? Offset(4, 9 + bob) : Offset(4, 15 + bob);
+  final top = raise ? const Offset(9, 0) : Offset(2.5, 6 + bob + front * 0.5);
+  pxPoly(c, body, [Offset(8, 11 + bob), Offset(10, 12 + bob), hand + const Offset(1, 1), hand + const Offset(-1, 0)]);
+  pxRect(c, gold, (8 + hand.dx) / 2 - 1, (11 + bob + hand.dy) / 2, 2, 1);
+  final dir = top - hand;
+  final n = Offset(-dir.dy, dir.dx) / dir.distance;
+  pxPoly(c, wood, [hand + n * 0.8, hand - n * 0.8, top - n * 1.8, top + n * 1.8]);
+  pxRect(c, gold, (hand.dx + top.dx) / 2, (hand.dy + top.dy) / 2, 2, 1);
+  pxRect(c, spot, top.dx - 1, top.dy, 1, 1);
+}
+
+// The carrion fly: the corpse demon of the old tales comes as a fly the size of a dog.
+// Metallic body, banded abdomen, huge red eyes, dangling legs. Faces left. Frames: wings up, wings down.
+void _drawFly(Canvas c, int f) {
+  const wing = Color(0xccd8eef0), vein = Color(0xff9ab8c0), thorax = Color(0xff2a4a4a), abdomen = Color(0xff3a7a5a);
+  const band = Color(0xff1f3a30), shine = Color(0xff8ad0a0), eye = Color(0xffc8302a), eyeShine = Color(0xffff9a7a), dark = Color(0xff1a1020);
+  // Legs dangle below
+  for (final (x, lean) in [(5.0, -1.0), (8.0, 0.0), (11.0, 1.0)]) {
+    pxRect(c, dark, x, 10, 1, 3);
+    pxRect(c, dark, x + lean, 13, 1, 1);
+  }
+  // Far wing behind the body
+  if (f == 0) {
+    pxOval(c, wing, 9, 0, 6, 6);
+  } else {
+    pxOval(c, wing, 10, 6, 7, 4);
+  }
+  // Abdomen with dark bands, thorax, head
+  pxOval(c, abdomen, 9, 5, 9, 7);
+  for (final x in [11.0, 13.0, 15.0]) {
+    pxRect(c, band, x, 6, 1, 5);
+  }
+  pxRect(c, shine, 10, 6, 1, 1);
+  pxOval(c, thorax, 5, 4, 7, 7);
+  pxRect(c, shine, 7, 5, 2, 1);
+  pxOval(c, eye, 1, 4, 6, 6);
+  pxRect(c, eyeShine, 2, 5, 2, 1);
+  pxRect(c, dark, 2, 10, 1, 3);
+  // Near wing over the body: raised, or swept back and down
+  if (f == 0) {
+    pxPoly(c, wing, [const Offset(8, 5), const Offset(9, 0), const Offset(14, 0), const Offset(13, 3)]);
+    pxRect(c, vein, 10, 1, 3, 1);
+  } else {
+    pxPoly(c, wing, [const Offset(9, 6), const Offset(17, 4), const Offset(18, 7), const Offset(11, 8)]);
+    pxRect(c, vein, 12, 6, 4, 1);
+  }
+}
 
 // ---------- The Reed Lion (boss) ----------
 const _lionPal = {'y': '#d9a441', 'Y': '#f0c870', 'm': '#8a4a1a', 'M': '#5a2a0e', 'k': '#1a1010', 'w': '#ffffff', 'r': '#a01818'};
@@ -194,7 +252,7 @@ const _white = Color(0xffffffff);
 class Art {
   Art._();
 
-  late Sheet hero, imp, bat, lion, coin, heart, vase, bush, feather, sign, chest, altar, flame;
+  late Sheet hero, demon, fly, lion, coin, heart, vase, bush, feather, sign, chest, altar, flame;
   late Sheet px, xp, slash, tiles, wall, gate, gateGlow;
   late Sheet bgSky, bgClouds, bgMountains, bgHills;
 
@@ -207,8 +265,8 @@ class Art {
       [..._heroTop, ..._legs['jump']!],
       [..._heroAttackTop, ..._legs['run1']!],
     ], _heroPal);
-    a.imp = await pixelSheet([_impF1, _impF2], _impPal);
-    a.bat = await pixelSheet([_batF1, _batF2], _batPal);
+    a.demon = await outlinedSheet(22, 26, 5, _drawDemon);
+    a.fly = await outlinedSheet(20, 16, 2, _drawFly);
     a.lion = await pixelSheet([_lionF1, _lionF2], _lionPal);
     a.coin = await pixelSheet([_coin], _coinPal);
     a.heart = await pixelSheet([_heart, _toEmpty(_heart, 5), _toEmpty(_heart, 0)], _heartPal);
@@ -263,6 +321,7 @@ Future<Sheet> _drawTiles() => canvasTexture(16 * 5, 16, (c, w, h) {
       _rect(c, hex('#8ad06a'), 0, 0, 16, 1);
       for (var x = 0; x < 16; x += 2) {
         _rect(c, hex('#3f7a34'), x.toDouble(), 5, 1, x % 4 == 0 ? 2 : 1);
+        _rect(c, hex('#2a5424'), x + 1.0, 5, 1, 1);
       }
       _rect(c, hex('#e85a7a'), 4, 1, 1, 1);
       _rect(c, hex('#f0d060'), 11, 1, 1, 1);
@@ -284,6 +343,12 @@ Future<Sheet> _drawTiles() => canvasTexture(16 * 5, 16, (c, w, h) {
       _rect(c, hex('#d0b48a'), 49, 1, 14, 1);
       _rect(c, hex('#d0b48a'), 48, 9, 6, 1);
       _rect(c, hex('#d0b48a'), 56, 9, 8, 1);
+      // Glazed tile: a lapis diamond with a turquoise heart, like the old mosque walls
+      for (final (dx, dy, w) in [(0.0, -2.0, 2.0), (-2.0, 0.0, 6.0), (-1.0, -1.0, 4.0), (-1.0, 1.0, 4.0), (0.0, 2.0, 2.0)]) {
+        _rect(c, hex('#1b2a6b'), 55 + dx, 4 + dy, w, 1);
+      }
+      _rect(c, hex('#2bb3a8'), 55, 3, 2, 3);
+      _rect(c, hex('#8ae0d8'), 55, 3, 1, 1);
       // 4: thorn bush (transparent background)
       for (var i = 0; i < 4; i++) {
         final bx = 64.0 + i * 4;
@@ -429,32 +494,46 @@ Future<void> _drawBackgrounds(Art a) async {
     }
   });
 
-  // Stylized violet mountains
+  // Rocks as the old miniatures paint them: domes of stone nested inside each other,
+  // each layer paler than the one below, with a dark contour and scalloped tops
   a.bgMountains = await canvasTexture(iw, ih, (c, W, H) {
     final r = rng(21);
-    final pts = <List<double>>[];
-    for (var x = 0.0; x <= W; x += 24) {
-      pts.add([x, 140 + r() * 60]);
+    void layer(double cx, double base, double w, double h, Color fill, Color edge, Color light) {
+      for (final dx in [-W, 0.0, W]) {
+        final x0 = cx + dx;
+        double top(double x) => base - h * math.pow(math.max(0.0, 1 - math.pow((x - x0) / w, 2)), 0.6);
+        final p = Path()..moveTo(x0 - w, base);
+        const bump = 9.0;
+        for (var x = x0 - w; x < x0 + w - 0.1; x += bump) {
+          final nx = math.min(x0 + w, x + bump);
+          p.quadraticBezierTo((x + nx) / 2, math.min(top(x), top(nx)) - bump * 0.55, nx, top(nx));
+        }
+        p.close();
+        c.drawPath(p, Paint()..color = fill);
+        c.drawPath(p, _stroke(edge, 1.2));
+        // A pale rim on the sunlit left of each dome
+        c.save();
+        c.clipPath(p);
+        c.drawPath(p.shift(const Offset(2, 2)), _stroke(light, 1.5));
+        c.restore();
+      }
     }
-    pts.last[1] = pts.first[1];
-    final body = Path()..moveTo(0, H);
-    for (final p in pts) {
-      body.lineTo(p[0], p[1]);
+
+    void rock(double cx, double base, double w, double h, List<String> pal) {
+      for (var k = 0; k < 4; k++) {
+        layer(cx + (k.isEven ? -1 : 1) * w * 0.08 * k, base + k * 2, w * (1 - 0.2 * k), h * (1 - 0.22 * k),
+            hex(pal[k]), hex(pal[4]), hex(pal[5]));
+      }
     }
-    body
-      ..lineTo(W, H)
-      ..close();
-    c.drawPath(body, Paint()..color = hex('#5a4a8a'));
-    final ridge = Path()..moveTo(pts[0][0], pts[0][1]);
-    for (final p in pts.skip(1)) {
-      ridge.lineTo(p[0], p[1]);
+
+    const far = ['#7a6aa8', '#8a7ab8', '#9a8cc6', '#ac9ed2', '#4a3a6a', '#c8bce8'];
+    const near = ['#a8708a', '#b8829a', '#c896aa', '#d8aabb', '#5a2e48', '#f0d0dc'];
+    const ochre = ['#a8804a', '#ba9458', '#cca86a', '#dcbc80', '#5a3e1e', '#f4dca8'];
+    for (var i = 0; i < 6; i++) {
+      rock(i * 80 + r() * 30, 250, 34 + r() * 20, 95 + r() * 40, far);
     }
-    c.drawPath(ridge, _stroke(hex('#9a8ac8'), 2));
-    final dots = Paint()..color = hex('#7a6aa8');
-    for (var i = 0; i < 30; i++) {
-      final x = r() * W;
-      final y = 190 + r() * 70;
-      c.drawCircle(Offset(x, y), 3 + r() * 5, dots);
+    for (var i = 0; i < 5; i++) {
+      rock(i * 96 + 40 + r() * 30, 262, 30 + r() * 18, 70 + r() * 30, i.isEven ? near : ochre);
     }
   });
 
@@ -483,6 +562,29 @@ Future<void> _drawBackgrounds(Art a) async {
     for (var i = 0; i < 9; i++) {
       final x = i * 53 + r() * 20;
       cypress(x, 212 - math.sin((x / W) * math.pi * 4 + 0.5) * 14, 22 + r() * 16);
+    }
+    // Plane trees with round crowns and slim poplars between the cypresses
+    void plane(double x, double y, double s) {
+      for (final dx in [-W, 0.0, W]) {
+        c.drawRect(Rect.fromLTWH(x + dx - 1, y - 8 * s, 2, 8 * s), Paint()..color = hex('#3a2a1a'));
+        for (final (ox, oy, rr) in [(0.0, -14.0, 7.0), (-6.0, -10.0, 5.0), (6.0, -10.0, 5.0), (0.0, -19.0, 5.0)]) {
+          c.drawCircle(Offset(x + dx + ox * s, y + oy * s), rr * s, Paint()..color = hex('#2f6e3e'));
+        }
+        c.drawCircle(Offset(x + dx - 2 * s, y - 16 * s), 3 * s, Paint()..color = hex('#4a9a52'));
+      }
+    }
+
+    void poplar(double x, double y, double hgt) {
+      for (final dx in [-W, 0.0, W]) {
+        c.drawOval(Rect.fromCenter(center: Offset(x + dx, y - hgt / 2), width: 5, height: hgt), Paint()..color = hex('#5a8a3a'));
+        c.drawOval(Rect.fromCenter(center: Offset(x + dx - 1, y - hgt / 2 - 1), width: 2, height: hgt - 6), Paint()..color = hex('#8ab85a'));
+      }
+    }
+
+    for (var i = 0; i < 6; i++) {
+      final x = i * 80 + 30 + r() * 30;
+      final y = 220 - math.sin((x / W) * math.pi * 4 + 0.5) * 6;
+      r() < 0.5 ? plane(x, y, 0.9 + r() * 0.3) : poplar(x, y, 26 + r() * 10);
     }
     hill('#1f6a5c', 228, 8, 3, 1.7);
   });

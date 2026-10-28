@@ -1,7 +1,7 @@
 // Builds a level for every playable location from hand-made ASCII chunks.
 // The location id seeds the random choices, so a place always has the same layout.
 // See build.dart for the map legend. Lowercase markers are optional:
-//   d  maybe an imp   b  maybe a bat   x  maybe a vase   +  maybe a bush   c  maybe a chest
+//   d  maybe a demon  b  maybe a fly   x  maybe a vase   +  maybe a bush   c  maybe a chest
 
 import 'dart:math' as math;
 

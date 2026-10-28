@@ -50,6 +50,40 @@ Future<Sheet> canvasTexture(int w, int h, void Function(Canvas c, double w, doub
   return Sheet(img, w / frames, h.toDouble(), frames);
 }
 
+// Frames drawn with shapes (no anti-aliasing), then given a one-pixel dark outline all round.
+// [draw] paints frame [i] into a w x h box; keep a pixel free at the edges for the outline.
+Future<Sheet> outlinedSheet(int w, int h, int frames, void Function(Canvas c, int i) draw, {Color outline = const Color(0xff1a1020)}) async {
+  final raw = await _toImage(w * frames, h, (c) {
+    for (var i = 0; i < frames; i++) {
+      c.save();
+      c.translate(i * w.toDouble(), 0);
+      c.clipRect(Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()));
+      draw(c, i);
+      c.restore();
+    }
+  });
+  final img = await _toImage(w * frames, h, (c) {
+    final ink = Paint()..colorFilter = ColorFilter.mode(outline, BlendMode.srcIn);
+    for (final d in const [Offset(1, 0), Offset(-1, 0), Offset(0, 1), Offset(0, -1)]) {
+      c.drawImage(raw, d, ink);
+    }
+    c.drawImage(raw, Offset.zero, Paint());
+  });
+  raw.dispose();
+  return Sheet(img, w.toDouble(), h.toDouble(), frames);
+}
+
+// Shape helpers for outlinedSheet: hard-edged fills in whole pixels
+Paint pxPaint(Color c) => Paint()
+  ..color = c
+  ..isAntiAlias = false;
+
+void pxRect(Canvas c, Color col, double x, double y, double w, double h) => c.drawRect(Rect.fromLTWH(x, y, w, h), pxPaint(col));
+
+void pxOval(Canvas c, Color col, double x, double y, double w, double h) => c.drawOval(Rect.fromLTWH(x, y, w, h), pxPaint(col));
+
+void pxPoly(Canvas c, Color col, List<Offset> pts) => c.drawPath(Path()..addPolygon(pts, true), pxPaint(col));
+
 // Seeded random generator (mulberry32) so generated art is identical on every load
 double Function() rng(int seed) {
   var s = seed;

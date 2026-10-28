@@ -95,9 +95,9 @@ const _places = <String, List<(String, String)>>{
   'hearthvale': [
     ('Hearthvale Village', "Ra's home. Old Mehr keeps the village hearth burning."),
     ('The Reed Marsh', 'The First Trial. A lion stalks the reeds at the edge of the vale.'),
-    ('Willow Ford', 'Shallow water and slippery stones. Imps nest in the willows.'),
+    ('Willow Ford', 'Shallow water and slippery stones. Horned demons lurk in the willows.'),
     ('Riverside Hearth', 'A fire on the riverbank. Rest and remember the way.'),
-    ('The Salt Road', 'Caravans once carried salt here. Now bandit imps wait in the hills.'),
+    ('The Salt Road', 'Caravans once carried salt here. Now horned demons wait in the hills.'),
     ('Sepand Watch', 'The fortress Ra once entered hidden in a salt caravan.'),
     ('Wild Horse Meadow', 'Where Ember was tamed. Something fierce guards the meadow now.'),
     ('Orchard Hearth', 'A hearth among pomegranate trees.'),
