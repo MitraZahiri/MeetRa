@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import '../world/world.dart';
 import 'build.dart';
 import 'level1.dart';
+import 'rooms.dart';
 
 const _g = '########################################';
 
@@ -96,6 +97,9 @@ final _arena = [
   ..._ground('[......................L.......]'),
 ];
 
+// The arena of a trial: no lion, waves of the realm's creatures instead
+final _trial = [for (final row in _arena) row.replaceAll('L', 'W')];
+
 // What stands on a ground enemy spot. Small scorpions everywhere; ghouls buried in the ground
 // from the Serpent Sands on; the big man-eater from the Sky Spine on.
 String _foe(int tier, double roll) {
@@ -153,13 +157,36 @@ LevelDef levelFor(Location loc) {
       break;
   }
 
+  // Everywhere but the fights: a winding network of rooms to explore, sealed until the Sun Key is found
+  final fight = loc.kind == LocKind.arena || loc.kind == LocKind.boss;
+  if (!fight) {
+    final plan = switch (loc.kind) {
+      LocKind.cave => RoomPlan(cols: 4, rows: 4, downward: true, underground: 'B'),
+      LocKind.ruin => RoomPlan(cols: 4, rows: 3, underground: 'B', chests: 2),
+      LocKind.shrine => const RoomPlan(cols: 3, rows: 2),
+      LocKind.secret => RoomPlan(cols: 5, rows: 3, underground: 'B', chests: 2),
+      _ => RoomPlan(cols: 4 + tier ~/ 3, rows: 2 + rnd.nextInt(2)),
+    };
+    return LevelDef(
+      id: loc.id,
+      title: loc.name,
+      subtitle: r.name,
+      rows: plan.rows * roomH,
+      chunks: [buildRooms(plan, rnd, enemyChance: enemyChance, foe: (roll) => _foe(tier, roll))],
+      signs: [loc.desc, 'The gate is sealed by the sun. Find the Sun Key hidden somewhere in this place.'],
+      boss: const BossDef('', ''),
+      enemyBonus: tier,
+      skyTint: r.color,
+      sealed: true,
+    );
+  }
+
   final chunks = <List<String>>[_start];
   for (var i = 0; i < middle; i++) {
     if (i == middle ~/ 2 && middle >= 4) chunks.add(_hearth);
     chunks.add(pool[rnd.nextInt(pool.length)]);
   }
-  final fight = loc.kind == LocKind.arena || loc.kind == LocKind.boss;
-  if (fight) chunks.addAll([_hearth, _arena]);
+  chunks.addAll([_hearth, loc.kind == LocKind.arena ? _trial : _arena]);
   chunks.add(_end);
 
   String resolve(String row) {
@@ -179,7 +206,7 @@ LevelDef levelFor(Location loc) {
 
   final boss = switch (loc.kind) {
     LocKind.boss => BossDef(r.bossName, r.bossTitle, hp: 30 + tier * 10),
-    LocKind.arena => BossDef('${r.name} Champion', loc.name, hp: 18 + tier * 6),
+    LocKind.arena => BossDef('Trial of ${r.name}', 'Wave 1 of 3', hp: 18 + tier * 6),
     _ => const BossDef('', ''),
   };
 

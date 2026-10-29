@@ -30,6 +30,7 @@ class LevelDef {
     required this.boss,
     this.enemyBonus = 0,
     this.skyTint,
+    this.sealed = false,
   });
 
   final String id;
@@ -41,6 +42,7 @@ class LevelDef {
   final BossDef boss;
   final int enemyBonus; // extra health for every enemy in later realms
   final int? skyTint; // ARGB wash over the background, per realm
+  final bool sealed; // the exit gate stays shut until Ra finds the Sun Key
 }
 
 class Level {
@@ -72,7 +74,8 @@ class Level {
 //   P  player        A  hearth (checkpoint)   S  signpost
 //   D  demon         V  fly      U  ghoul    K  scorpion pair    M  manticore
 //   v  vase     *  bush     C  chest
-//   F  Saena's feather   L  lion boss   [ ]  boss arena walls   G  exit gate
+//   F  Saena's feather   L  lion boss   W  trial of waves   [ ]  arena walls   G  exit gate
+//   O  the Sun Key that unseals the gate
 Level buildLevel(LevelDef def) {
   final height = def.rows;
   final rows = List.filled(height, '');

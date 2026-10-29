@@ -165,6 +165,13 @@ class MeetRaGame extends Game with KeyboardEvents {
   Sign? activeSign;
   double? arenaLeft, arenaRight;
   Offset? lionSpawn;
+  Offset? waveSpawn; // a trial of waves instead of the lion
+  Offset? sunKey; // where the Sun Key waits, until Ra takes it
+  bool keyFound = false;
+  int wave = 0;
+  bool _waveComing = false;
+  final _waveFoes = <Enemy>[];
+  double _sealedHint = 0;
   Wall? leftWall, rightWall;
   Lion? lion;
   bool bossStarted = false;
@@ -200,7 +207,11 @@ class MeetRaGame extends Game with KeyboardEvents {
     gate = null;
     activeSign = null;
     arenaLeft = arenaRight = null;
-    lionSpawn = null;
+    lionSpawn = waveSpawn = sunKey = null;
+    keyFound = _waveComing = false;
+    wave = 0;
+    _waveFoes.clear();
+    _sealedHint = 0;
     leftWall = rightWall = null;
     lion = null;
     bossStarted = bossDefeated = victory = false;
@@ -241,19 +252,12 @@ class MeetRaGame extends Game with KeyboardEvents {
           altars.add(Altar(o.x, o.y));
         case 'S':
           signs.add(Sign(o.x, o.y, def.signs[signIndex++]));
-        case 'D':
-          enemies.add(Demon(this, o.x, o.y)..hp += def.enemyBonus);
-        case 'V':
-          enemies.add(Fly(this, o.x, o.y - 40)..hp += def.enemyBonus);
-        case 'U':
-          enemies.add(Ghoul(this, o.x, o.y)..hp += def.enemyBonus);
-        case 'K':
-          // Scorpions come in pairs
-          for (final dx in [-7.0, 7.0]) {
-            enemies.add(Scorpion(this, o.x + dx, o.y)..hp += def.enemyBonus ~/ 2);
-          }
-        case 'M':
-          enemies.add(Manticore(this, o.x, o.y)..hp += def.enemyBonus * 2);
+        case 'D' || 'V' || 'U' || 'K' || 'M':
+          enemies.addAll(_foes(o.type, o.x, o.y));
+        case 'W':
+          waveSpawn = Offset(o.x, o.y);
+        case 'O':
+          sunKey = Offset(o.x, o.y - 6);
         case 'v':
           breakables.add(Breakable(o.x, o.y, 'vase', art.vase));
         case '*':
@@ -277,11 +281,24 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     player = p!;
     checkpoint = Offset(player.x, player.y);
-    // Levels without a boss have their exit gate open from the start
-    if (lionSpawn == null) {
+    // Levels without a fight have their exit gate open from the start, unless it is sealed
+    if (lionSpawn == null && waveSpawn == null) {
       bossDefeated = true;
-      gate?.opening = true;
+      gate?.opening = !def.sealed;
     }
+  }
+
+  // The creatures a map letter stands for (scorpions come in pairs)
+  List<Enemy> _foes(String type, double x, double y) {
+    final bonus = def.enemyBonus;
+    return switch (type) {
+      'D' => [Demon(this, x, y)..hp += bonus],
+      'V' => [Fly(this, x, y - 40)..hp += bonus],
+      'U' => [Ghoul(this, x, y)..hp += bonus],
+      'K' => [for (final dx in [-7.0, 7.0]) Scorpion(this, x + dx, y)..hp += bonus ~/ 2],
+      'M' => [Manticore(this, x, y)..hp += bonus * 2],
+      _ => const [],
+    };
   }
 
   // ---------- Input ----------
@@ -348,9 +365,23 @@ class MeetRaGame extends Game with KeyboardEvents {
     // Boss arena trigger
     if (!bossStarted && !bossDefeated && arenaLeft != null && P.x > arenaLeft! + tile * 3) _startBoss();
 
-    // Exit gate
+    _updateWaves();
+
+    // The Sun Key
+    final k = sunKey;
+    if (k != null && !keyFound && !P.dead && overlaps(pr, Rect.fromCenter(center: k, width: 14, height: 14))) _takeKey(k);
+
+    // Exit gate: open, or sealed until the Sun Key is found
     final g = gate;
-    if (g != null && bossDefeated && !victory && (P.x - g.x).abs() < 10 && P.body.blockedDown) _win();
+    _sealedHint = math.max(0, _sealedHint - dt);
+    if (g != null && !victory && (P.x - g.x).abs() < 10 && P.body.blockedDown) {
+      if (g.opening) {
+        _win();
+      } else if (def.sealed && _sealedHint <= 0) {
+        _sealedHint = 4000;
+        ui.banner.value = BannerMsg('The gate is sealed', 'Find the Sun Key hidden in this place');
+      }
+    }
 
     _updateEffects(dt);
     enemies.removeWhere((e) => e.removed);
@@ -737,13 +768,84 @@ class MeetRaGame extends Game with KeyboardEvents {
       ..bounds = Rect.fromLTRB(arenaLeft!, 0, arenaRight!, level.height)
       ..shake(400, 0.008);
     sfx.roar();
-    lion = Lion(this, lionSpawn!.dx, lionSpawn!.dy, maxHp: def.boss.hp);
     ui.bossFrac.value = 1;
-    ui.boss.value = def.boss;
     ui.sign.value = null;
+    if (waveSpawn != null) {
+      wave = 0;
+      _spawnWave();
+      return;
+    }
+    lion = Lion(this, lionSpawn!.dx, lionSpawn!.dy, maxHp: def.boss.hp);
+    ui.boss.value = def.boss;
   }
 
-  void onBossDefeated(double x, double y) {
+  // ---------- Trial of waves ----------
+
+  static const waves = 3;
+
+  // Each wave brings more of the realm's creatures, rising out of puffs of dust; later realms send
+  // ghouls, and from the Sky Spine on the last wave brings a man-eater
+  void _spawnWave() {
+    final tier = location?.realm.index ?? 0;
+    final kinds = ['D', 'K', if (tier >= 1) 'V', if (tier >= 2) 'U'];
+    final types = [
+      for (var i = 0; i < 2 + wave + tier ~/ 3; i++) kinds[rand.nextInt(kinds.length)],
+      if (wave == waves - 1) tier >= 3 ? 'M' : 'D',
+    ];
+    final left = arenaLeft! + tile * 3, right = arenaRight! - tile * 3;
+    for (final t in types) {
+      final x = left + rand.nextDouble() * (right - left);
+      final foes = _foes(t, x, waveSpawn!.dy);
+      for (final e in foes) {
+        if (e is Ghoul) e.wake();
+      }
+      enemies.addAll(foes);
+      _waveFoes.addAll(foes);
+      burst(x, waveSpawn!.dy - 8, [0xffa88a60, 0xff5a4a38, 0xff9a7ab8], 12, 110);
+      particles.ring(x, waveSpawn!.dy - 10, 0xff9a7ab8, r1: 22, life: 380);
+    }
+    ui.boss.value = BossDef(def.boss.name, 'Wave ${wave + 1} of $waves');
+    ui.bossFrac.value = 1;
+    camera.shake(200, 0.004);
+    sfx.roar();
+  }
+
+  void _updateWaves() {
+    if (waveSpawn == null || !bossStarted || bossDefeated || _waveComing) return;
+    final alive = _waveFoes.where((e) => !e.dying && !e.removed).length;
+    ui.bossFrac.value = _waveFoes.isEmpty ? 0 : alive / _waveFoes.length;
+    if (alive > 0) return;
+    final last = _waveFoes.last;
+    _waveFoes.clear();
+    if (wave == waves - 1) {
+      onBossDefeated(last.x, last.y, won: 'The trial is won!');
+      return;
+    }
+    _waveComing = true;
+    ui.banner.value = BannerMsg('Wave ${wave + 2} of $waves', 'More are coming');
+    timers.after(1400, () {
+      _waveComing = false;
+      if (!bossStarted || bossDefeated || player.dead) return;
+      wave++;
+      _spawnWave();
+    });
+  }
+
+  // ---------- The Sun Key ----------
+
+  void _takeKey(Offset k) {
+    keyFound = true;
+    sfx.altar();
+    camera.flash(0xfffff0b0, 0.35, 700);
+    particles
+      ..ring(k.dx, k.dy, 0xfffff0c0, r1: 40, life: 700, width: 3)
+      ..spark(k.dx, k.dy, size: 16);
+    burst(k.dx, k.dy, [0xfff7d774, 0xffd4a845, 0xfffff4c0], 18, 140);
+    gate?.opening = true;
+    ui.banner.value = BannerMsg('The Sun Key!', 'The gate is open');
+  }
+
+  void onBossDefeated(double x, double y, {String? won}) {
     bossDefeated = true;
     spawnGold(x, y - 16, 25);
     spawnXp(x, y - 16, 60);
@@ -761,13 +863,19 @@ class MeetRaGame extends Game with KeyboardEvents {
       ..ring(x, y - 14, 0xffffc060, r1: 44, life: 700, width: 3);
     music.play(Track.explore);
     ui.boss.value = null;
-    ui.banner.value = BannerMsg('${def.boss.name} falls!', 'The way out is open');
+    ui.banner.value = BannerMsg(won ?? '${def.boss.name} falls!', 'The way out is open');
     gate?.opening = true;
   }
 
   void _resetBoss() {
     if (!bossStarted || bossDefeated) return;
     lion = null;
+    for (final e in _waveFoes) {
+      e.removed = true;
+    }
+    _waveFoes.clear();
+    wave = 0;
+    _waveComing = false;
     if (leftWall != null) physics.walls.remove(leftWall);
     leftWall = null;
     bossStarted = false;
@@ -975,7 +1083,9 @@ class MeetRaGame extends Game with KeyboardEvents {
   // Parallax layers: each one scrolls at its own fraction of the camera's speed
   void _renderBackground(Canvas c, double z) {
     final viewH = size.y / z;
-    final double y = camera.scrollY.clamp(0.0, math.max(0.0, 270 - viewH)).toDouble();
+    // However tall the level, the backdrop scrolls only its own height, top to bottom
+    final travel = math.max(1.0, level.height - viewH);
+    final double y = (camera.scrollY / travel).clamp(0.0, 1.0) * math.max(0.0, 270 - viewH);
     final rect = Offset.zero & Size(size.x, size.y);
     final layers = [(art.bgSky, 0.0), (art.bgClouds, 0.06), (art.bgMountains, 0.15), (art.bgHills, 0.35)];
     for (var i = 0; i < layers.length; i++) {
@@ -1000,6 +1110,9 @@ class MeetRaGame extends Game with KeyboardEvents {
       final dark = location?.realm.theme == RealmTheme.dark;
       c.drawRect(rect, Paint()..color = Color(tint).withValues(alpha: dark ? 0.7 : 0.22));
     }
+    // Below the surface rooms the sky gives way to the dark of the earth
+    final depth = ((camera.scrollY + viewH / 2 - tile * 11) / (tile * 11)).clamp(0.0, 1.0);
+    if (def.sealed && depth > 0) c.drawRect(rect, Paint()..color = Color.fromRGBO(30, 20, 18, 0.88 * depth));
   }
 
   double _eyeOpen = 1;
@@ -1043,6 +1156,7 @@ class MeetRaGame extends Game with KeyboardEvents {
             ? Light(a.x, a.y - 16, 48 + math.sin(t * 13 + a.x) * 2 + math.sin(t * 7.3) * 2, 0xffffa040)
             : Light(a.x, a.y - 13, 12 + math.sin(t * 3) * 2, 0xffff6020, 0.6),
       if (featherPickup != null) Light(featherPickup!.x, featherPickup!.y, 32, 0xff8ae0d8),
+      if (sunKey != null && !keyFound) Light(sunKey!.dx, sunKey!.dy, 40 + math.sin(t * 2) * 4, 0xfff7d774),
       for (final f in feathers) Light(f.body.x, f.body.centerY, 24, 0xff8ae0d8),
       for (final o in orbs) Light(o.x, o.y, 12, 0xff8ae0d8, 0.8),
       for (final co in coins) Light(co.body.x, co.body.y - 3, 9, 0xffffd060, 0.5),
@@ -1132,6 +1246,14 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     for (final fe in feathers) {
       drawFrame(c, a.feather, 0, fe.body.x, fe.body.centerY, oy: 0.5, flipX: fe.dir < 0);
+    }
+    // The Sun Key: a little sun bobbing in the air, its eye on Ra
+    final k = sunKey;
+    if (k != null && !keyFound && seen(k.dx, k.dy)) {
+      final at = k + Offset(0, math.sin(_realT * 2.2) * 2);
+      final to = Offset(player.x, player.y - 8) - at;
+      paintSunDisc(c, at, 0.24);
+      paintSunEye(c, at, 0.24, look: to / math.max(1.0, to.distance), open: sunBlink(_realT + 1.7));
     }
     lion?.render(c, a.lion);
     for (final o in orbs) {

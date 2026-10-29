@@ -246,7 +246,8 @@ class Ghoul extends Enemy {
   @override
   int get frame => buried ? 0 : _rise > 0 ? 1 : _pouncing ? 6 : anim.frame;
 
-  void _wake() {
+  // Bursts out of the sand (also used when a trial calls it up)
+  void wake() {
     buried = false;
     _rise = 420;
     _lost = 0;
@@ -256,7 +257,7 @@ class Ghoul extends Enemy {
 
   @override
   void hurt(int dmg, double dir, [double knock = 1]) {
-    if (buried) _wake();
+    if (buried) wake();
     super.hurt(dmg, dir, knock);
   }
 
@@ -273,7 +274,7 @@ class Ghoul extends Enemy {
     final near = !p.dead && dx.abs() < 64 && (p.y - y).abs() < 40;
     if (buried) {
       b.vx = 0;
-      if (near) _wake();
+      if (near) wake();
       return;
     }
     if (_rise > 0) {
