@@ -201,10 +201,12 @@ class FloatText {
     c.translate(x + drift * k, y - up);
     c.scale(scale);
     final pos = Offset(-painter.width / 2, -painter.height / 2);
-    c.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, alpha));
+    // Outline and fill overlap, so they fade as one group: a small layer, and only while fading
+    final fading = alpha < 1;
+    if (fading) c.saveLayer((pos & painter.size).inflate(2), Paint()..color = Color.fromRGBO(0, 0, 0, alpha));
     painter.paint(c, pos);
     fill.paint(c, pos);
-    c.restore();
+    if (fading) c.restore();
     c.restore();
   }
 }
@@ -220,11 +222,17 @@ class Slash {
   void render(Canvas c, Sheet s) {
     final k = t / duration;
     final a = 1 - k;
-    // A soft glow under the crisp arc
-    c.saveLayer(null, Paint()..blendMode = BlendMode.plus);
+    // A soft glow under the crisp arc, added straight onto the scene (no offscreen layer)
     drawFrame(c, s, 0, x, y,
-        oy: 0.5, flipX: flipX, flipY: flipY, scaleX: scale * 1.2, scaleY: scale * 1.2, angle: angle, tint: tint ?? 0xffffe8b0, alpha: a * 0.45);
-    c.restore();
+        oy: 0.5,
+        flipX: flipX,
+        flipY: flipY,
+        scaleX: scale * 1.2,
+        scaleY: scale * 1.2,
+        angle: angle,
+        tint: tint ?? 0xffffe8b0,
+        alpha: a * 0.45,
+        blend: BlendMode.plus);
     drawFrame(c, s, 0, x, y,
         oy: 0.5, flipX: flipX, flipY: flipY, scaleX: scale * (1 + 0.1 * k), scaleY: scale * (1 + 0.1 * k), angle: angle, tint: tint, alpha: a);
   }

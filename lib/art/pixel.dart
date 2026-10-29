@@ -119,6 +119,7 @@ void drawFrame(
   double alpha = 1,
   int? tint, // multiply
   int? tintFill, // solid colour
+  BlendMode blend = BlendMode.srcOver,
 }) {
   if (alpha <= 0) return;
   c.save();
@@ -126,7 +127,9 @@ void drawFrame(
   if (angle != 0) c.rotate(angle * 3.141592653589793 / 180);
   c.scale(flipX ? -scaleX : scaleX, flipY ? -scaleY : scaleY);
   final dst = Rect.fromLTWH(-s.frameW * ox, -s.frameH * oy, s.frameW, s.frameH);
-  _paint.color = Color.fromRGBO(255, 255, 255, alpha.clamp(0, 1));
+  _paint
+    ..color = Color.fromRGBO(255, 255, 255, alpha.clamp(0, 1))
+    ..blendMode = blend;
   if (tintFill != null) {
     _paint.colorFilter = ColorFilter.mode(Color(tintFill).withValues(alpha: alpha.clamp(0, 1)), BlendMode.srcIn);
   } else if (tint != null) {
