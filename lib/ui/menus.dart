@@ -42,7 +42,13 @@ class _Rays extends CustomPainter {
 
 // Repaints every frame for as long as it is on screen
 mixin _Clock<T extends StatefulWidget> on SingleTickerProviderStateMixin<T> {
-  late final clock = AnimationController(vsync: this, duration: const Duration(seconds: 60))..repeat();
+  late final AnimationController clock;
+
+  @override
+  void initState() {
+    super.initState();
+    clock = AnimationController(vsync: this, duration: const Duration(seconds: 60))..repeat();
+  }
   double get seconds => clock.value * 60;
 
   @override

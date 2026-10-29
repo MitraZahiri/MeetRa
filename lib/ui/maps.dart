@@ -465,7 +465,7 @@ class WorldMapScreen extends StatefulWidget {
 }
 
 class _WorldMapScreenState extends State<WorldMapScreen> with SingleTickerProviderStateMixin {
-  late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
+  late final AnimationController _pulse;
   late final _reveals = _Reveals(widget.game.mapSeen);
   final _art = _Baked();
   final _fog = _Fog();
@@ -483,6 +483,12 @@ class _WorldMapScreenState extends State<WorldMapScreen> with SingleTickerProvid
   }
 
   Realm? _openAt(int i) => realmUnlocked(realms[i], widget.game.progress) ? realms[i] : null;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
+  }
 
   @override
   void dispose() {
@@ -698,7 +704,7 @@ class RealmMapScreen extends StatefulWidget {
 }
 
 class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProviderStateMixin {
-  late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
+  late final AnimationController _pulse;
   late final _reveals = _Reveals(widget.game.mapSeen);
   final _art = _Baked();
   final _fog = _Fog();
@@ -712,6 +718,7 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
+    _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
     final last = widget.game.progress.lastLocation;
     _selected = realm.locations.where((l) => l.id == last).firstOrNull;
   }

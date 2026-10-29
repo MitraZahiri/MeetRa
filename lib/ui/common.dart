@@ -156,7 +156,13 @@ class FloatingMotes extends StatefulWidget {
 }
 
 class _FloatingMotesState extends State<FloatingMotes> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(seconds: 30))..repeat();
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(seconds: 30))..repeat();
+  }
 
   @override
   void dispose() {

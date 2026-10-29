@@ -19,14 +19,14 @@ class Hud extends StatefulWidget {
 }
 
 class _HudState extends State<Hud> with TickerProviderStateMixin {
-  late final _clock = AnimationController(vsync: this, duration: const Duration(seconds: 10))..repeat();
-  late final AnimationController _hpPop, _goldPop;
+  late final AnimationController _clock, _hpPop, _goldPop;
   late int _hp, _gold;
   bool _hurt = false;
 
   @override
   void initState() {
     super.initState();
+    _clock = AnimationController(vsync: this, duration: const Duration(seconds: 10))..repeat();
     _hpPop = AnimationController(vsync: this, duration: const Duration(milliseconds: 380));
     _goldPop = AnimationController(vsync: this, duration: const Duration(milliseconds: 260));
     _hp = widget.game.state.hp;
@@ -360,8 +360,14 @@ class BossBar extends StatefulWidget {
 }
 
 class _BossBarState extends State<BossBar> with SingleTickerProviderStateMixin {
-  late final _ticker = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat();
+  late final AnimationController _ticker;
   double _trail = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat();
+  }
 
   @override
   void dispose() {
