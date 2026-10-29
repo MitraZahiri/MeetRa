@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'pixel.dart';
+import 'sun_eye.dart';
 
 // Placeholder art for the prototype. Final hand-drawn sprites arrive in M1.
 
@@ -547,21 +548,8 @@ Future<void> _drawBackgrounds(Art a) async {
     for (var i = 0; i < 40; i++) {
       _rect(c, const Color.fromRGBO(255, 245, 210, 0.8), (r() * W).floorToDouble(), (r() * 90).floorToDouble(), 1, 1);
     }
-    // ornamental golden sun
-    final gold = Paint()..color = hex('#d4a845');
-    for (var i = 0; i < 16; i++) {
-      final ang = (i / 16) * math.pi * 2;
-      c.drawPath(
-        Path()
-          ..moveTo(360 + math.cos(ang - 0.12) * 24, 80 + math.sin(ang - 0.12) * 24)
-          ..lineTo(360 + math.cos(ang) * 34, 80 + math.sin(ang) * 34)
-          ..lineTo(360 + math.cos(ang + 0.12) * 24, 80 + math.sin(ang + 0.12) * 24)
-          ..close(),
-        gold,
-      );
-    }
-    c.drawCircle(const Offset(360, 80), 22, Paint()..color = hex('#f7d774'));
-    c.drawCircle(const Offset(360, 80), 17, _stroke(hex('#d4a845'), 2));
+    // The ornamental golden sun; its eye is drawn live over it, so it can follow Ra
+    paintSunDisc(c, const Offset(360, 80), 1);
   });
 
   // Curly ribbon clouds

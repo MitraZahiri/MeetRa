@@ -11,6 +11,7 @@ import 'package:flame/input.dart' show KeyboardEvents;
 
 import '../art/pixel.dart';
 import '../art/sprites.dart';
+import '../art/sun_eye.dart';
 import '../config.dart';
 import '../entities/enemy.dart';
 import '../entities/lion.dart';
@@ -980,7 +981,11 @@ class MeetRaGame extends Game with KeyboardEvents {
         ..shader = ImageShader(sheet.image, TileMode.repeated, TileMode.repeated, m.storage, filterQuality: FilterQuality.none);
       c.drawRect(rect, paint);
       // Sun rays fan out from the painted sun, behind the clouds and mountains
-      if (i == 0) paintSunRays(c, Offset(360 * z, (80 - y) * z), z, _realT, ambience.rays, ambience.rayColor);
+      if (i == 0) {
+        final sun = Offset(360 * z, (80 - y) * z);
+        paintSunRays(c, sun, z, _realT, ambience.rays, ambience.rayColor);
+        _paintWatcher(c, sun, z);
+      }
     }
     // Each realm washes the sky in its own color; the Lightless Land is almost dark
     final tint = def.skyTint;
@@ -988,6 +993,20 @@ class MeetRaGame extends Game with KeyboardEvents {
       final dark = location?.realm.theme == RealmTheme.dark;
       c.drawRect(rect, Paint()..color = Color(tint).withValues(alpha: dark ? 0.7 : 0.22));
     }
+  }
+
+  double _eyeOpen = 1;
+
+  // The Eye of Ra in the sun follows Ra across the level, blinks now and then,
+  // and slowly closes when Ra falls
+  void _paintWatcher(Canvas c, Offset sun, double z) {
+    final ra = Offset(player.x - camera.scrollX, player.y - camera.scrollY) * z;
+    final to = ra - sun;
+    final d = to.distance;
+    final look = d < 1 ? Offset.zero : to / d * math.min(1.0, d / (140 * z));
+    final target = player.dead ? 0.0 : 1.0;
+    _eyeOpen += (target - _eyeOpen) * (player.dead ? 0.03 : 0.12);
+    paintSunEye(c, sun, z, look: look, open: _eyeOpen * sunBlink(_realT));
   }
 
   // The top of the nearest floor below a point, for drop shadows

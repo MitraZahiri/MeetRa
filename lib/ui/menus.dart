@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../art/sun_eye.dart';
 import '../config.dart';
 import '../game/meetra_game.dart';
 import 'common.dart';
@@ -116,7 +117,7 @@ class _TitleScreenState extends State<TitleScreen> with SingleTickerProviderStat
                   final t = seconds;
                   final breathe = 1 + math.sin(t * 1.4) * 0.015;
                   return CustomPaint(
-                    painter: _Rays(Offset(w / 2, 190), t, radius: 520, alpha: 0.12),
+                    painter: _WatchingSun(Offset(w / 2, 78), t),
                     foregroundPainter: const FramePainter(),
                     child: Stack(children: [
                       const Positioned.fill(child: FloatingMotes(count: 46)),
@@ -140,6 +141,25 @@ class _TitleScreenState extends State<TitleScreen> with SingleTickerProviderStat
       ]),
     );
   }
+}
+
+// The sun over the title, its eye wandering about the screen
+class _WatchingSun extends CustomPainter {
+  _WatchingSun(this.center, this.t);
+  final Offset center;
+  final double t;
+
+  @override
+  void paint(Canvas c, Size size) {
+    _Rays(center, t, radius: 560, alpha: 0.12).paint(c, size);
+    c.drawCircle(center, 80, Paint()..shader = const RadialGradient(colors: [Color(0x55f7d774), Color(0x00f7d774)]).createShader(Rect.fromCircle(center: center, radius: 80)));
+    paintSunDisc(c, center, 1.4);
+    final look = Offset(math.sin(t * 0.6) * 0.8, 0.5 + math.cos(t * 0.43) * 0.4);
+    paintSunEye(c, center, 1.4, look: look, open: sunBlink(t));
+  }
+
+  @override
+  bool shouldRepaint(_WatchingSun old) => true;
 }
 
 // ---------- Level up ----------
