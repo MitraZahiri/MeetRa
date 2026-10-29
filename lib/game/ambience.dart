@@ -114,7 +114,7 @@ class Ambience {
     // Grass: a damped spring towards the wind, shoved aside by anything walking through it
     final near = view.inflate(20);
     for (final g in _tufts) {
-      if (g.x < near.left || g.x > near.right) continue;
+      if (g.x < near.left || g.x > near.right || g.y < near.top || g.y > near.bottom) continue;
       var target = _wind(g.x + g.phase);
       for (final (px, py, vx) in pushers) {
         final dx = g.x - px;

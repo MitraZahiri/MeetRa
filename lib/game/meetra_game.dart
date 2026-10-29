@@ -330,8 +330,11 @@ class MeetRaGame extends Game with KeyboardEvents {
     final P = player;
     P.update(c, dt);
     lion?.update(timeNow, dt);
+    // Like the old consoles: creatures far off screen sleep until Ra comes near again
+    final awake = _view.inflate(160);
     for (final e in enemies) {
-      e.tick(dt);
+      e.asleep = !awake.contains(Offset(e.x, e.y)) && !_waveFoes.contains(e);
+      if (!e.asleep) e.tick(dt);
     }
 
     if (_hitstop > 0) {
@@ -415,7 +418,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     physics.step(P.body, s, skipPlatforms: P.dropTimer > 0, onTile: (t) => spikes |= t == T.spikes);
     if (spikes) P.fallHurt();
     for (final e in enemies) {
-      physics.step(e.body, s);
+      if (!e.asleep) physics.step(e.body, s);
     }
     for (final c in [...coins, ...hearts]) {
       physics.step(c.body, s, useWalls: false);

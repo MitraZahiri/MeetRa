@@ -23,6 +23,7 @@ abstract class Enemy {
   double _flash = 0;
   double _squash = 0;
   bool flipX = false;
+  bool asleep = false; // far off screen: neither thinks nor moves
 
   double get x => body.x;
   double get y => body.y;
