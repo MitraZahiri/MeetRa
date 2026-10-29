@@ -244,6 +244,8 @@ class MeetRaGame extends Game with KeyboardEvents {
           enemies.add(Demon(this, o.x, o.y)..hp += def.enemyBonus);
         case 'V':
           enemies.add(Fly(this, o.x, o.y - 40)..hp += def.enemyBonus);
+        case 'U':
+          enemies.add(Ghoul(this, o.x, o.y)..hp += def.enemyBonus);
         case 'v':
           breakables.add(Breakable(o.x, o.y, 'vase', art.vase));
         case '*':
@@ -390,7 +392,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     final pr = P.body.rect;
     if (P.body.collides) {
       for (final e in enemies) {
-        if (!e.dying && overlaps(pr, e.body.rect)) P.hurt(e.contactDamage, e.x);
+        if (!e.dying && !e.harmless && overlaps(pr, e.body.rect)) P.hurt(e.contactDamage, e.x);
       }
       for (final c in coins) {
         if (!c.removed && overlaps(pr, c.body.rect)) _collectCoin(c);
@@ -1066,7 +1068,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     // Soft shadows ground everything that moves
     if (!player.dead) _shadow(c, player.x, player.y, 10);
     for (final e in enemies) {
-      _shadow(c, e.x, e.y, e is Fly ? 9 : 14);
+      if (!(e is Ghoul && e.buried)) _shadow(c, e.x, e.y, e is Fly ? 9 : 14);
     }
     if (lion != null && lion!.state != LionState.dead) _shadow(c, lion!.x, lion!.y, 44);
     // depth 6-7: feather pickup, coins, hearts

@@ -137,6 +137,106 @@ void _drawFly(Canvas c, int f) {
   }
 }
 
+// The ghoul of the waste: an ash-grey shape-shifter with a wild white mane, green eyes and
+// the hooves of a donkey, which lies buried in the sand for travellers. Faces left.
+// Frames: 0 buried, 1 rising, 2-5 loping run, 6 pounce.
+void _drawGhoul(Canvas c, int f) {
+  const skin = Color(0xff9a9078), shade = Color(0xff6a6250), hair = Color(0xffe8e4d8), hairShade = Color(0xffb8b4a8);
+  const eye = Color(0xff9aff6a), mouth = Color(0xff7a1a1a), hoof = Color(0xff3a2a20), rags = Color(0xff7a5a3a);
+  const sand = Color(0xffd8b878), sandShade = Color(0xffb08a50), dark = Color(0xff1a1020);
+
+  void mound(double y) {
+    pxOval(c, sandShade, 1, y, 22, 20 - y + 1);
+    pxOval(c, sand, 3, y, 18, (20 - y) * 0.6);
+    for (final (x, gy) in [(5.0, 2.0), (12.0, 1.0), (17.0, 3.0)]) {
+      pxRect(c, sandShade, x, y + gy, 1, 1);
+    }
+  }
+
+  if (f == 0) {
+    // Only a heap of sand, a tuft of white hair and two eyes in the dark
+    mound(14);
+    pxRect(c, hair, 13, 12, 4, 2);
+    pxRect(c, hairShade, 15, 11, 2, 1);
+    pxRect(c, dark, 7, 15, 6, 1);
+    pxRect(c, eye, 8, 15, 1, 1);
+    pxRect(c, eye, 11, 15, 1, 1);
+    return;
+  }
+  if (f == 1) {
+    // Head and shoulders break out of the heap
+    pxOval(c, skin, 7, 9, 12, 9);
+    pxPoly(c, hair, [const Offset(6, 6), const Offset(11, 5), const Offset(19, 9), const Offset(20, 14), const Offset(14, 11), const Offset(8, 10)]);
+    pxOval(c, skin, 4, 7, 8, 7);
+    pxRect(c, dark, 5, 9, 4, 1);
+    pxRect(c, eye, 5, 10, 1, 1);
+    pxRect(c, eye, 8, 10, 1, 1);
+    pxRect(c, mouth, 5, 12, 4, 1);
+    mound(15);
+    return;
+  }
+
+  final leap = f == 6;
+  final ph = (f - 2) * math.pi / 2;
+  final stride = leap ? 0.0 : (math.sin(ph) * 2).roundToDouble();
+  final bob = leap ? -2.0 : (f.isOdd ? 1.0 : 0.0);
+
+  // A donkey's leg: thigh, a backward-bent shin and a hoof. Trailing straight out in the pounce.
+  void leg(Color col, double s) {
+    if (leap) {
+      pxRect(c, col, 15, 11 + s, 5, 3);
+      pxRect(c, hoof, 20, 11 + s, 2, 3);
+      return;
+    }
+    pxRect(c, col, 14 + s, 12 + bob, 4, 3);
+    pxRect(c, col, 16 + s, 15 + bob, 2, 4 - bob);
+    pxRect(c, hoof, 15 + s, 19, 3, 2);
+  }
+
+  void arm(Color col, Offset hand) {
+    final sh = Offset(9, 10 + bob);
+    pxPoly(c, col, [sh + const Offset(-1, -1), sh + const Offset(2, 0), hand + const Offset(1, 0), hand + const Offset(-1, 0)]);
+  }
+
+  // Far leg and far arm behind everything
+  leg(shade, leap ? 0 : -stride);
+  arm(shade, leap ? const Offset(4, 12) : Offset(7 + stride, 19));
+  leg(skin, leap ? 3 : stride);
+  // Ragged loincloth
+  pxPoly(c, rags, [Offset(13, 11 + bob), Offset(19, 10 + bob), Offset(19, 14 + bob), Offset(17, 15 + bob), Offset(16, 13 + bob), Offset(14, 15 + bob)]);
+  // Hunched, starved body: ribs show along the flank, the spine ridges along the back
+  pxOval(c, skin, 6, 6 + bob, 14, 8);
+  pxRect(c, shade, 11, 13 + bob, 6, 1);
+  for (final x in [10.0, 12.0, 14.0]) {
+    pxRect(c, shade, x, 9 + bob, 1, 3);
+  }
+  for (final x in [15.0, 17.0]) {
+    pxRect(c, shade, x, 6 + bob, 1, 1);
+  }
+  // A wild white mane falls from the crown down the neck
+  final tail = leap ? 2.0 : stride.abs() * 0.5;
+  pxPoly(c, hair, [Offset(2, 4 + bob), Offset(7, 2 + bob), Offset(12, 4 + bob), Offset(15 + tail, 8 + bob), Offset(11, 8 + bob), Offset(5, 6 + bob)]);
+  pxRect(c, hairShade, 8, 4 + bob, 3, 1);
+  pxRect(c, hairShade, 11, 6 + bob, 2, 1);
+  // Head thrust low and forward, with a pointed ear
+  pxOval(c, skin, 1, 5 + bob, 9, 7);
+  pxPoly(c, skin, [Offset(7, 6 + bob), Offset(10, 3 + bob), Offset(9, 7 + bob)]);
+  pxRect(c, dark, 2, 7 + bob, 5, 1);
+  pxRect(c, eye, 2, 8 + bob, 2, 1);
+  pxRect(c, eye, 5, 8 + bob, 1, 1);
+  pxRect(c, mouth, 1, 10 + bob, 5, 1);
+  pxRect(c, hair, 2, 11 + bob, 1, 1);
+  pxRect(c, hair, 4, 11 + bob, 1, 1);
+  // Long near arm: clawing at the ground, or reaching out in the pounce
+  final hand = leap ? const Offset(2, 9) : Offset(3 - stride, 19);
+  arm(skin, hand);
+  if (leap) {
+    pxRect(c, hair, 1, 8, 1, 3);
+  } else {
+    pxRect(c, hair, math.max(1, hand.dx - 2), 20, 3, 1);
+  }
+}
+
 // ---------- The Reed Lion (boss) ----------
 const _lionPal = {'y': '#d9a441', 'Y': '#f0c870', 'm': '#8a4a1a', 'M': '#5a2a0e', 'k': '#1a1010', 'w': '#ffffff', 'r': '#a01818'};
 const _lionTop = [
@@ -252,7 +352,7 @@ const _white = Color(0xffffffff);
 class Art {
   Art._();
 
-  late Sheet hero, demon, fly, lion, coin, heart, vase, bush, feather, sign, chest, altar, flame;
+  late Sheet hero, demon, fly, ghoul, lion, coin, heart, vase, bush, feather, sign, chest, altar, flame;
   late Sheet px, xp, slash, tiles, wall, gate, gateGlow;
   late Sheet bgSky, bgClouds, bgMountains, bgHills;
 
@@ -267,6 +367,7 @@ class Art {
     ], _heroPal);
     a.demon = await outlinedSheet(22, 26, 5, _drawDemon);
     a.fly = await outlinedSheet(20, 16, 2, _drawFly);
+    a.ghoul = await outlinedSheet(24, 22, 7, _drawGhoul);
     a.lion = await pixelSheet([_lionF1, _lionF2], _lionPal);
     a.coin = await pixelSheet([_coin], _coinPal);
     a.heart = await pixelSheet([_heart, _toEmpty(_heart, 5), _toEmpty(_heart, 0)], _heartPal);

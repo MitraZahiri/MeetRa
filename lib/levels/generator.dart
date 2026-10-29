@@ -1,7 +1,7 @@
 // Builds a level for every playable location from hand-made ASCII chunks.
 // The location id seeds the random choices, so a place always has the same layout.
 // See build.dart for the map legend. Lowercase markers are optional:
-//   d  maybe a demon  b  maybe a fly   x  maybe a vase   +  maybe a bush   c  maybe a chest
+//   d  maybe a demon (or a ghoul)  b  maybe a fly   x  maybe a vase   +  maybe a bush   c  maybe a chest
 
 import 'dart:math' as math;
 
@@ -157,7 +157,8 @@ LevelDef levelFor(Location loc) {
     final b = StringBuffer();
     for (final ch in row.split('')) {
       b.write(switch (ch) {
-        'd' => rnd.nextDouble() < enemyChance ? 'D' : '.',
+        // From the Serpent Sands on, some demons are ghouls buried in the ground
+        'd' => rnd.nextDouble() < enemyChance ? (tier >= 2 && rnd.nextDouble() < 0.4 ? 'U' : 'D') : '.',
         'b' => rnd.nextDouble() < enemyChance * 0.8 ? 'V' : '.',
         'x' => rnd.nextDouble() < vaseChance ? 'v' : '.',
         '+' => rnd.nextDouble() < 0.7 ? '*' : '.',

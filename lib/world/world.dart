@@ -259,7 +259,7 @@ List<Realm> _buildRealms() {
         lore: "The walled capital of the blinded king. Hollows creep through its streets and vaults.", theme: RealmTheme.city,
         color: 0xff2a4a9a, bossName: 'The Black Hollow', bossTitle: 'The First Darkness', mapX: 0.62, mapY: 0.50),
     Realm(index: 2, id: 'sands', name: 'The Serpent Sands', tagline: 'Land of the Twin-Serpent King',
-        lore: "Dunes, dry wells and the court of a king with a serpent on each shoulder.", theme: RealmTheme.desert,
+        lore: "Dunes, dry wells and ghouls buried in the sand, below the court of a king with a serpent on each shoulder.", theme: RealmTheme.desert,
         color: 0xffc8913a, bossName: 'Vexar', bossTitle: 'The Twin-Serpent King', mapX: 0.44, mapY: 0.74),
     Realm(index: 3, id: 'skyspine', name: 'Sky Spine & Frostwood', tagline: 'Mountains of ice',
         lore: "Ice-capped peaks and frozen woods. The Pale Giant hides the stolen Dawnfire up here.", theme: RealmTheme.mountain,

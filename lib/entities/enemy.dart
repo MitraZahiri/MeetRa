@@ -29,6 +29,8 @@ abstract class Enemy {
   Sheet get sheet;
   Anim get anim;
   int get frame => anim.frame;
+  // True while it cannot hurt Ra by touch (a ghoul still buried in the sand)
+  bool get harmless => false;
 
   void update(double dt);
 
@@ -214,5 +216,110 @@ class Fly extends Enemy {
       ..vx = (dx / dd) * 64 - (dy / dd) * jink
       ..vy = (dy / dd) * 64 + (dx / dd) * jink * 0.6;
     flipX = dx > 0;
+  }
+}
+
+// The ghoul of the waste: lies buried as a heap of sand until Ra walks close, bursts out,
+// lopes after Ra on all fours and pounces. If Ra gets away it sinks back into the sand.
+class Ghoul extends Enemy {
+  Ghoul(MeetRaGame game, double x, double y)
+      : super(game, Body(x, y, 14, 14), hp: 4, contactDamage: 1, xpValue: 8, goldValue: 4, colors: [0xff9a9078, 0xffe8e4d8, 0xffd8b878]);
+
+  double dir = -1;
+  bool buried = true;
+  double _rise = 0; // ms left of climbing out of the sand
+  double _lost = 0; // ms since Ra was last in reach
+  double _rest = 0; // ms before it may pounce again
+  bool _pouncing = false;
+  @override
+  final anim = Anim([2, 3, 4, 5], 9);
+  @override
+  Sheet get sheet => game.art.ghoul;
+  @override
+  bool get harmless => buried || _rise > 0;
+  @override
+  int get frame => buried ? 0 : _rise > 0 ? 1 : _pouncing ? 6 : anim.frame;
+
+  void _wake() {
+    buried = false;
+    _rise = 420;
+    _lost = 0;
+    game.burst(x, y - 4, const [0xffd8b878, 0xffb08a50], 10, 90);
+    game.particles.dust(x, y);
+  }
+
+  @override
+  void hurt(int dmg, double dir, [double knock = 1]) {
+    if (buried) _wake();
+    super.hurt(dmg, dir, knock);
+  }
+
+  @override
+  void update(double dt) {
+    if (dying) return;
+    if (y > game.level.height + 60) {
+      removed = true;
+      return;
+    }
+    final p = game.player;
+    final dx = p.x - x;
+    final b = body;
+    final near = !p.dead && dx.abs() < 64 && (p.y - y).abs() < 40;
+    if (buried) {
+      b.vx = 0;
+      if (near) _wake();
+      return;
+    }
+    if (_rise > 0) {
+      _rise -= dt;
+      b.vx = 0;
+      if (_rise <= 0) game.floatText(x, y - 22, '!', const Color(0xffff6a50), size: 10, rise: 6, duration: 700);
+      return;
+    }
+    if (stun > 0) {
+      stun -= dt;
+      _pouncing = false;
+      return;
+    }
+    _rest = math.max(0, _rest - dt);
+    if (_pouncing) {
+      if (b.blockedDown && b.vy >= 0) {
+        _pouncing = false;
+        _rest = 700;
+        b.vx = 0;
+        game.particles.dust(x, y);
+      }
+      return;
+    }
+    // Ra slipped away: wait a little, then sink back into the sand
+    final chasing = !p.dead && dx.abs() < 200 && (p.y - y).abs() < 60;
+    _lost = chasing ? 0 : _lost + dt;
+    if (_lost > 2500 && b.blockedDown) {
+      buried = true;
+      b.vx = 0;
+      game.particles.dust(x, y);
+      return;
+    }
+    if (chasing && dx != 0) dir = dx.sign;
+    if (chasing && dx.abs() < 56 && dx.abs() > 16 && _rest <= 0 && b.blockedDown) {
+      _pouncing = true;
+      b
+        ..vx = dir * 150
+        ..vy = -190;
+      flipX = dir > 0;
+      return;
+    }
+    if ((dir < 0 && b.blockedLeft) || (dir > 0 && b.blockedRight)) dir *= -1;
+    if (b.blockedDown && game.level.tileAtWorld(x + dir * 9, y + 4) < 0) {
+      // A chasing ghoul leaps over the gap after Ra; a wandering one turns back
+      if (chasing && (p.x - x).sign == dir) {
+        b.vy = -230;
+      } else {
+        dir *= -1;
+      }
+    }
+    b.vx = dir * (chasing ? 88 : 24);
+    flipX = dir > 0;
+    anim.timeScale = chasing ? 1.6 : 0.6;
   }
 }

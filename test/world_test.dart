@@ -46,6 +46,15 @@ void main() {
     }
   });
 
+  test('ghouls lurk from the Serpent Sands on, never in the first two realms', () {
+    int ghouls(Realm r) => [
+          for (final l in r.locations.where((l) => l.kind.playable))
+            ...buildLevel(levelFor(l)).objects.where((o) => o.type == 'U'),
+        ].length;
+    expect(ghouls(realms[0]) + ghouls(realms[1]), 0);
+    expect(ghouls(realms[2]), greaterThan(0));
+  });
+
   test('levels are the same every time a place is generated', () {
     final l = realms[3].locations[8];
     expect(levelFor(l).chunks, levelFor(l).chunks);
