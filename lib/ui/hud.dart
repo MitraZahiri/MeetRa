@@ -20,15 +20,17 @@ class Hud extends StatefulWidget {
 
 class _HudState extends State<Hud> with TickerProviderStateMixin {
   late final _clock = AnimationController(vsync: this, duration: const Duration(seconds: 10))..repeat();
-  late final _hpPop = AnimationController(vsync: this, duration: const Duration(milliseconds: 380));
-  late final _goldPop = AnimationController(vsync: this, duration: const Duration(milliseconds: 260));
-  late int _hp = widget.game.state.hp;
-  late int _gold = widget.game.state.gold;
+  late final AnimationController _hpPop, _goldPop;
+  late int _hp, _gold;
   bool _hurt = false;
 
   @override
   void initState() {
     super.initState();
+    _hpPop = AnimationController(vsync: this, duration: const Duration(milliseconds: 380));
+    _goldPop = AnimationController(vsync: this, duration: const Duration(milliseconds: 260));
+    _hp = widget.game.state.hp;
+    _gold = widget.game.state.gold;
     widget.game.state.addListener(_changed);
   }
 
@@ -182,12 +184,13 @@ class SignBox extends StatefulWidget {
 }
 
 class _SignBoxState extends State<SignBox> with SingleTickerProviderStateMixin {
-  late final _anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 220));
+  late final AnimationController _anim;
   String? _text;
 
   @override
   void initState() {
     super.initState();
+    _anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 220));
     widget.game.ui.sign.addListener(_changed);
   }
 
@@ -264,12 +267,13 @@ class BannerView extends StatefulWidget {
 }
 
 class _BannerViewState extends State<BannerView> with SingleTickerProviderStateMixin {
-  late final _anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 3100));
+  late final AnimationController _anim;
   BannerMsg? _msg;
 
   @override
   void initState() {
     super.initState();
+    _anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 3100));
     widget.game.ui.banner.addListener(_changed);
   }
 
