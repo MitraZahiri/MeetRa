@@ -31,6 +31,8 @@ abstract class Enemy {
   int get frame => anim.frame;
   // True while it cannot hurt Ra by touch (a ghoul still buried in the sand)
   bool get harmless => false;
+  // Width of the drop shadow; 0 for none
+  double get shadowW => 14;
 
   void update(double dt);
 
@@ -178,6 +180,8 @@ class Fly extends Enemy {
   final anim = Anim([0, 1], 24);
   @override
   Sheet get sheet => game.art.fly;
+  @override
+  double get shadowW => 9;
 
   @override
   (double, double) get pose => awake ? (1, 1) : (1 + math.sin(t * 2) * 0.04, 1 - math.sin(t * 2) * 0.04);
@@ -237,6 +241,8 @@ class Ghoul extends Enemy {
   Sheet get sheet => game.art.ghoul;
   @override
   bool get harmless => buried || _rise > 0;
+  @override
+  double get shadowW => buried ? 0 : 16;
   @override
   int get frame => buried ? 0 : _rise > 0 ? 1 : _pouncing ? 6 : anim.frame;
 
@@ -321,5 +327,156 @@ class Ghoul extends Enemy {
     b.vx = dir * (chasing ? 88 : 24);
     flipX = dir > 0;
     anim.timeScale = chasing ? 1.6 : 0.6;
+  }
+}
+
+// The scorpion, one of the noxious creatures the dark spirit set loose on the world.
+// Small, low and quick: it scuttles in fits and starts, then darts in with its sting raised.
+// They come in pairs.
+class Scorpion extends Enemy {
+  Scorpion(MeetRaGame game, double x, double y)
+      : super(game, Body(x, y, 12, 7), hp: 1, contactDamage: 1, xpValue: 3, goldValue: 1, colors: [0xffb8762a, 0xffe8b060, 0xffd83a2a]);
+
+  double dir = rand.nextBool() ? 1 : -1;
+  double _t = rand.nextDouble() * 2000; // ms into its scuttle-and-stop rhythm
+  double _windup = 0;
+  double _dart = 0;
+  double _rest = 0;
+  @override
+  final anim = Anim([0, 1], 14);
+  @override
+  Sheet get sheet => game.art.scorpion;
+  @override
+  int get frame => _windup > 0 || _dart > 0 ? 2 : anim.frame;
+  @override
+  double get shadowW => 11;
+
+  @override
+  void update(double dt) {
+    if (dying) return;
+    if (y > game.level.height + 60) {
+      removed = true;
+      return;
+    }
+    final b = body;
+    if (stun > 0) {
+      stun -= dt;
+      _windup = _dart = 0;
+      return;
+    }
+    _t += dt;
+    _rest = math.max(0, _rest - dt);
+    if (_windup > 0) {
+      b.vx = 0;
+      _windup -= dt;
+      if (_windup <= 0) _dart = 160;
+      return;
+    }
+    if (_dart > 0) {
+      _dart -= dt;
+      b.vx = dir * 150;
+      if (_dart <= 0) _rest = 700;
+      return;
+    }
+    final p = game.player;
+    final dx = p.x - x;
+    if (!p.dead && dx.abs() < 46 && (p.y - y).abs() < 18 && _rest <= 0 && b.blockedDown) {
+      dir = dx.sign == 0 ? dir : dx.sign;
+      flipX = dir > 0;
+      _windup = 260;
+      return;
+    }
+    if ((dir < 0 && b.blockedLeft) || (dir > 0 && b.blockedRight)) dir *= -1;
+    if (b.blockedDown && game.level.tileAtWorld(x + dir * 7, y + 4) < 0) dir *= -1;
+    // Scuttle for a moment, freeze, scuttle again
+    final moving = _t % 1000 < 620;
+    b.vx = moving ? dir * 46 : 0;
+    anim.timeScale = moving ? 1 : 0;
+    flipX = dir > 0;
+  }
+}
+
+// The man-eater: a red lion with a bearded man's face, three rows of teeth and a scorpion's tail.
+// Big and heavy: it paces, roars when it sees Ra, then charges until it passes Ra or hits a wall.
+// Blows barely push it back.
+class Manticore extends Enemy {
+  Manticore(MeetRaGame game, double x, double y)
+      : super(game, Body(x, y, 30, 22), hp: 10, contactDamage: 2, xpValue: 24, goldValue: 12, colors: [0xffb8442a, 0xff5a2a1a, 0xffd8a070]);
+
+  double dir = -1;
+  double _roar = 0; // ms of standing and roaring before the charge
+  double _charge = 0; // ms the charge may still last
+  double _rest = 0;
+  @override
+  final anim = Anim([0, 1, 2, 3], 6);
+  @override
+  Sheet get sheet => game.art.manticore;
+  @override
+  int get frame => _roar > 0 ? 4 : _charge > 0 ? 5 : anim.frame;
+  @override
+  double get shadowW => 36;
+
+  @override
+  void hurt(int dmg, double dir, [double knock = 1]) {
+    super.hurt(dmg, dir, knock);
+    if (dying) return;
+    // Too heavy to be thrown about, and only a blink of a stagger
+    body
+      ..vx *= 0.2
+      ..vy = 0;
+    stun = 120;
+  }
+
+  void _stop() {
+    _charge = 0;
+    _rest = 1000;
+    body.vx = 0;
+    game.particles.dust(x + dir * 14, y);
+  }
+
+  @override
+  void update(double dt) {
+    if (dying) return;
+    if (y > game.level.height + 60) {
+      removed = true;
+      return;
+    }
+    final b = body;
+    if (stun > 0) {
+      stun -= dt;
+      return;
+    }
+    final p = game.player;
+    final dx = p.x - x;
+    _rest = math.max(0, _rest - dt);
+    if (_roar > 0) {
+      b.vx = 0;
+      _roar -= dt;
+      if (_roar <= 0) _charge = 1500;
+      return;
+    }
+    if (_charge > 0) {
+      _charge -= dt;
+      b.vx = dir * 175;
+      anim.timeScale = 2.5;
+      if (rand.nextDouble() < 0.15) game.particles.dust(x - dir * 12, y);
+      final passed = dx.sign != dir && dx.abs() > 70;
+      final ledge = b.blockedDown && game.level.tileAtWorld(x + dir * 18, y + 4) < 0;
+      if (_charge <= 0 || passed || ledge || (dir < 0 && b.blockedLeft) || (dir > 0 && b.blockedRight)) _stop();
+      return;
+    }
+    if (!p.dead && dx.abs() < 170 && (p.y - y).abs() < 40 && _rest <= 0 && b.blockedDown) {
+      dir = dx.sign == 0 ? dir : dx.sign;
+      flipX = dir > 0;
+      _roar = 650;
+      game.camera.shake(250, 0.004);
+      game.particles.ring(x - dir * 14, y - 16, 0xfff0d8a8, r1: 26, life: 400);
+      return;
+    }
+    if ((dir < 0 && b.blockedLeft) || (dir > 0 && b.blockedRight)) dir *= -1;
+    if (b.blockedDown && game.level.tileAtWorld(x + dir * 18, y + 4) < 0) dir *= -1;
+    b.vx = dir * 22;
+    anim.timeScale = 1;
+    flipX = dir > 0;
   }
 }

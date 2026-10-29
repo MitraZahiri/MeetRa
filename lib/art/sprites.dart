@@ -238,6 +238,106 @@ void _drawGhoul(Canvas c, int f) {
   }
 }
 
+// The scorpion: amber armour, raised pincers, a curled tail with a red sting. Faces left.
+// Frames: 0-1 scuttle, 2 sting thrust forward over the head.
+void _drawScorpion(Canvas c, int f) {
+  const shell = Color(0xffb8762a), shade = Color(0xff7a4a18), light = Color(0xffe8b060);
+  const sting = Color(0xffd83a2a), eye = Color(0xff1a1020), leg = Color(0xff5a3410);
+  final strike = f == 2;
+  // Four pairs of legs, stepping in turn
+  for (var i = 0; i < 4; i++) {
+    final step = (i + f).isEven ? 0.0 : 1.0;
+    pxRect(c, leg, 5 + i * 2 - step, 9, 1, 2);
+  }
+  // Pincers on short arms
+  pxRect(c, shade, 3, 7, 3, 1);
+  pxOval(c, shell, 0, strike ? 5 : 6, 4, 3);
+  pxRect(c, shade, 0, strike ? 6 : 7, 1, 1);
+  // Segmented body
+  pxOval(c, shell, 4, 5, 9, 5);
+  pxRect(c, light, 5, 6, 3, 1);
+  for (final x in [8.0, 10.0]) {
+    pxRect(c, shade, x, 5, 1, 4);
+  }
+  pxRect(c, eye, 5, 6, 1, 1);
+  // The tail: curled up over the back, or thrown forward over the head
+  final segs = strike
+      ? const [Offset(12, 5), Offset(13, 2), Offset(11, 0.5), Offset(8, 0.5)]
+      : const [Offset(12, 6), Offset(14, 4), Offset(15, 2), Offset(14, 0.5)];
+  for (final o in segs) {
+    pxRect(c, shell, o.dx, o.dy, 2, 2);
+  }
+  pxRect(c, shade, segs[1].dx, segs[1].dy + 1, 2, 1);
+  final tip = segs.last;
+  pxRect(c, sting, strike ? tip.dx - 2 : tip.dx - 2, tip.dy + (strike ? 1 : 0.5), 2, 1);
+}
+
+// The man-eater: a red lion's body, a dark mane round a bearded human face with three rows of
+// teeth, and a scorpion's tail tipped with spikes. Faces left.
+// Frames: 0-3 prowl, 4 roar, 5 charge.
+void _drawManticore(Canvas c, int f) {
+  const fur = Color(0xffb8442a), shade = Color(0xff7a2a1a), light = Color(0xffd87a4a), mane = Color(0xff4a2016);
+  const skin = Color(0xffd8a070), skinShade = Color(0xffa8704a), eye = Color(0xffffe060), mouth = Color(0xff5a0a0a);
+  const teeth = Color(0xfff8f0e0), tail = Color(0xff6a3a2a), spike = Color(0xffe8dcc0), paw = Color(0xff3a1a10), dark = Color(0xff1a1020);
+  final roar = f == 4, charge = f == 5;
+  final st = roar || charge ? 0.0 : (math.sin(f * math.pi / 2) * 2).roundToDouble();
+  final bob = roar || charge ? 0.0 : (f.isOdd ? 1.0 : 0.0);
+
+  void leg(Color col, double hipX, double footX) {
+    pxPoly(c, col, [Offset(hipX - 2, 21 + bob), Offset(hipX + 3, 21 + bob), Offset(footX + 2, 29), Offset(footX - 2, 29)]);
+    pxRect(c, paw, footX - 3, 29, 6, 2);
+  }
+
+  // Far legs
+  leg(shade, 15, charge ? 8 : 14 - st);
+  leg(shade, 32, charge ? 39 : 32 + st);
+  // Scorpion tail arching up from the rump
+  final segs = charge
+      ? const [Offset(37, 14), Offset(40, 12), Offset(41, 9), Offset(40, 6), Offset(37, 4)]
+      : roar
+          ? const [Offset(37, 14), Offset(40, 10), Offset(40, 5), Offset(37, 2), Offset(32, 1.5)]
+          : [Offset(37, 14), Offset(40, 11 + bob), Offset(41, 7 + bob), Offset(39, 3 + bob), Offset(35, 2 + bob)];
+  for (var i = 0; i < segs.length; i++) {
+    final r = 3.0 - i * 0.3;
+    pxOval(c, tail, segs[i].dx - r, segs[i].dy - r, r * 2, r * 2);
+    pxRect(c, spike, segs[i].dx, segs[i].dy - r - 1, 1, 1);
+  }
+  final end = segs.last;
+  pxPoly(c, dark, [end + const Offset(0, -1.5), end + const Offset(0, 1.5), end + const Offset(-5, 0)]);
+  pxRect(c, spike, end.dx - 2, end.dy - 3, 1, 2);
+  pxRect(c, spike, end.dx - 1, end.dy + 2, 1, 2);
+  // Body: a long lion's barrel with a pale belly
+  pxOval(c, fur, 10, 12 + bob, 29, 12);
+  pxOval(c, light, 15, 19 + bob, 18, 4);
+  pxRect(c, shade, 22, 13 + bob, 10, 1);
+  // Near legs
+  leg(fur, 18, charge ? 11 : 17 + st);
+  leg(fur, 34, charge ? 40 : 34 - st);
+  // Mane and face
+  pxOval(c, mane, 1, 5 + bob, 17, 19);
+  pxOval(c, skin, 3, 9 + bob, 11, 12);
+  pxRect(c, skinShade, 3, 18 + bob, 11, 2);
+  pxRect(c, dark, 4, 12 + bob, 3, 1);
+  pxRect(c, dark, 9, 12 + bob, 3, 1);
+  pxRect(c, eye, 4, 13 + bob, 2, 1);
+  pxRect(c, eye, 9, 13 + bob, 2, 1);
+  pxRect(c, skinShade, 7, 14 + bob, 2, 3);
+  if (roar || charge) {
+    // Jaws wide open: three rows of teeth
+    pxRect(c, mouth, 4, 17 + bob, 7, 5);
+    for (final y in [17.0, 19.0, 21.0]) {
+      for (var x = 4.0; x < 11; x += 2) {
+        pxRect(c, teeth, x, y + bob, 1, 1);
+      }
+    }
+  } else {
+    pxRect(c, mouth, 5, 18 + bob, 5, 1);
+    pxRect(c, teeth, 5, 17 + bob, 5, 1);
+  }
+  // A forked beard under the jaw
+  pxPoly(c, mane, [Offset(4, 21 + bob), Offset(11, 21 + bob), Offset(9, 26 + bob), Offset(7.5, 24 + bob), Offset(6, 26 + bob)]);
+}
+
 // ---------- The Reed Lion (boss) ----------
 const _lionPal = {'y': '#d9a441', 'Y': '#f0c870', 'm': '#8a4a1a', 'M': '#5a2a0e', 'k': '#1a1010', 'w': '#ffffff', 'r': '#a01818'};
 const _lionTop = [
@@ -353,7 +453,7 @@ const _white = Color(0xffffffff);
 class Art {
   Art._();
 
-  late Sheet hero, demon, fly, ghoul, lion, coin, heart, vase, bush, feather, sign, chest, altar, flame;
+  late Sheet hero, demon, fly, ghoul, scorpion, manticore, lion, coin, heart, vase, bush, feather, sign, chest, altar, flame;
   late Sheet px, xp, slash, tiles, wall, gate, gateGlow;
   late Sheet bgSky, bgClouds, bgMountains, bgHills;
 
@@ -369,6 +469,8 @@ class Art {
     a.demon = await outlinedSheet(22, 26, 5, _drawDemon);
     a.fly = await outlinedSheet(20, 16, 2, _drawFly);
     a.ghoul = await outlinedSheet(24, 22, 7, _drawGhoul);
+    a.scorpion = await outlinedSheet(18, 12, 3, _drawScorpion);
+    a.manticore = await outlinedSheet(44, 32, 6, _drawManticore);
     a.lion = await pixelSheet([_lionF1, _lionF2], _lionPal);
     a.coin = await pixelSheet([_coin], _coinPal);
     a.heart = await pixelSheet([_heart, _toEmpty(_heart, 5), _toEmpty(_heart, 0)], _heartPal);

@@ -46,13 +46,16 @@ void main() {
     }
   });
 
-  test('ghouls lurk from the Serpent Sands on, never in the first two realms', () {
-    int ghouls(Realm r) => [
+  test('foes by realm: scorpions everywhere, ghouls from the Sands, man-eaters from the Sky Spine', () {
+    int count(Realm r, String type) => [
           for (final l in r.locations.where((l) => l.kind.playable))
-            ...buildLevel(levelFor(l)).objects.where((o) => o.type == 'U'),
+            ...buildLevel(levelFor(l)).objects.where((o) => o.type == type),
         ].length;
-    expect(ghouls(realms[0]) + ghouls(realms[1]), 0);
-    expect(ghouls(realms[2]), greaterThan(0));
+    expect(count(realms[0], 'K'), greaterThan(0));
+    expect(count(realms[0], 'U') + count(realms[1], 'U'), 0);
+    expect(count(realms[2], 'U'), greaterThan(0));
+    expect(count(realms[2], 'M'), 0);
+    expect(count(realms[3], 'M'), greaterThan(0));
   });
 
   test('levels are the same every time a place is generated', () {

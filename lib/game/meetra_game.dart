@@ -247,6 +247,13 @@ class MeetRaGame extends Game with KeyboardEvents {
           enemies.add(Fly(this, o.x, o.y - 40)..hp += def.enemyBonus);
         case 'U':
           enemies.add(Ghoul(this, o.x, o.y)..hp += def.enemyBonus);
+        case 'K':
+          // Scorpions come in pairs
+          for (final dx in [-7.0, 7.0]) {
+            enemies.add(Scorpion(this, o.x + dx, o.y)..hp += def.enemyBonus ~/ 2);
+          }
+        case 'M':
+          enemies.add(Manticore(this, o.x, o.y)..hp += def.enemyBonus * 2);
         case 'v':
           breakables.add(Breakable(o.x, o.y, 'vase', art.vase));
         case '*':
@@ -1086,8 +1093,11 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (!src.isEmpty) c.drawImageRect(_map, src, src, _pixel);
     // Soft shadows ground everything that moves
     if (!player.dead) _shadow(c, player.x, player.y, 10);
+    // Only what is on screen (plus a margin for big sprites) gets drawn
+    final near = view.inflate(64);
+    bool seen(double x, double y) => near.contains(Offset(x, y));
     for (final e in enemies) {
-      if (!(e is Ghoul && e.buried)) _shadow(c, e.x, e.y, e is Fly ? 9 : 14);
+      if (e.shadowW > 0 && seen(e.x, e.y)) _shadow(c, e.x, e.y, e.shadowW);
     }
     if (lion != null && lion!.state != LionState.dead) _shadow(c, lion!.x, lion!.y, 44);
     // depth 6-7: feather pickup, coins, hearts
@@ -1106,6 +1116,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       drawFrame(c, a.feather, 0, f.x, f.y, oy: 0.5, scaleX: 1.5, scaleY: 1.5, angle: -30 + math.sin(_realT * 2) * 6);
     }
     for (final co in coins) {
+      if (!seen(co.body.x, co.body.y)) continue;
       // Coins spin: squeeze the width with a cosine
       final spin = math.cos(co.age / 140 + co.phase).abs();
       drawFrame(c, a.coin, 0, co.body.x.roundToDouble(), co.body.y.roundToDouble(), scaleX: math.max(0.2, spin));
@@ -1117,7 +1128,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     // depth 8-9: enemies, feathers, boss, xp orbs
     for (final e in enemies) {
-      e.render(c);
+      if (seen(e.x, e.y)) e.render(c);
     }
     for (final fe in feathers) {
       drawFrame(c, a.feather, 0, fe.body.x, fe.body.centerY, oy: 0.5, flipX: fe.dir < 0);

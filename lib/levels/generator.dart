@@ -1,7 +1,7 @@
 // Builds a level for every playable location from hand-made ASCII chunks.
 // The location id seeds the random choices, so a place always has the same layout.
 // See build.dart for the map legend. Lowercase markers are optional:
-//   d  maybe a demon (or a ghoul)  b  maybe a fly   x  maybe a vase   +  maybe a bush   c  maybe a chest
+//   d  maybe a ground foe (demon, scorpions, ghoul or man-eater)  b  maybe a fly   x  maybe a vase   +  maybe a bush   c  maybe a chest
 
 import 'dart:math' as math;
 
@@ -96,6 +96,15 @@ final _arena = [
   ..._ground('[......................L.......]'),
 ];
 
+// What stands on a ground enemy spot. Small scorpions everywhere; ghouls buried in the ground
+// from the Serpent Sands on; the big man-eater from the Sky Spine on.
+String _foe(int tier, double roll) {
+  if (tier >= 3 && roll < 0.12) return 'M';
+  if (tier >= 2 && roll < 0.42) return 'U';
+  if (roll > 0.72) return 'K';
+  return 'D';
+}
+
 // Stable string hash (FNV-1a), the same on phones and in the browser
 int _seed(String s) {
   var h = 0x811c9dc5;
@@ -157,8 +166,7 @@ LevelDef levelFor(Location loc) {
     final b = StringBuffer();
     for (final ch in row.split('')) {
       b.write(switch (ch) {
-        // From the Serpent Sands on, some demons are ghouls buried in the ground
-        'd' => rnd.nextDouble() < enemyChance ? (tier >= 2 && rnd.nextDouble() < 0.4 ? 'U' : 'D') : '.',
+        'd' => rnd.nextDouble() < enemyChance ? _foe(tier, rnd.nextDouble()) : '.',
         'b' => rnd.nextDouble() < enemyChance * 0.8 ? 'V' : '.',
         'x' => rnd.nextDouble() < vaseChance ? 'v' : '.',
         '+' => rnd.nextDouble() < 0.7 ? '*' : '.',
