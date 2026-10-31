@@ -76,6 +76,7 @@ class GameScreen extends StatelessWidget {
                           valueListenable: game.ui.realm,
                           builder: (context, r, _) => RealmMapScreen(game, key: ValueKey(r), w: w),
                         )),
+                    _when(game.ui.story, (m) => m != null, (m) => StoryPanel(game, m!, key: ValueKey(m), w: w)),
                     _when(game.ui.title, (v) => v, (_) => TitleScreen(game, w: w)),
                   ]),
                 ),

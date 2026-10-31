@@ -453,7 +453,7 @@ const _white = Color(0xffffffff);
 class Art {
   Art._();
 
-  late Sheet hero, demon, fly, ghoul, scorpion, manticore, lion, coin, heart, vase, bush, feather, sign, chest, altar, flame;
+  late Sheet hero, demon, fly, ghoul, scorpion, manticore, div, serpent, al, lion, coin, heart, vase, bush, feather, sign, chest, altar, flame;
   late Sheet px, xp, slash, tiles, wall, gate, gateGlow;
   late Sheet bgSky, bgClouds, bgMountains, bgHills;
 
@@ -471,6 +471,9 @@ class Art {
     a.ghoul = await outlinedSheet(24, 22, 7, _drawGhoul);
     a.scorpion = await outlinedSheet(18, 12, 3, _drawScorpion);
     a.manticore = await outlinedSheet(44, 32, 6, _drawManticore);
+    a.div = await outlinedSheet(26, 30, 4, _drawDiv);
+    a.serpent = await outlinedSheet(22, 16, 3, _drawSerpent);
+    a.al = await outlinedSheet(20, 24, 3, _drawAl);
     a.lion = await pixelSheet([_lionF1, _lionF2], _lionPal);
     a.coin = await pixelSheet([_coin], _coinPal);
     a.heart = await pixelSheet([_heart, _toEmpty(_heart, 5), _toEmpty(_heart, 0)], _heartPal);
@@ -779,4 +782,119 @@ Future<void> _drawBackgrounds(Art a) async {
     }
     hill('#1f6a5c', 228, 8, 3, 1.7);
   });
+}
+
+// The stone-hurling div: a hulking brown div of the old tales, with one curled horn, tusks, a
+// pot belly, a striped loincloth and a boulder in its fists. Faces left.
+// Frames: 0-1 stomp, 2 boulder raised overhead, 3 throw.
+void _drawDiv(Canvas c, int f) {
+  const hide = Color(0xff9a5a34), shade = Color(0xff6a3a20), light = Color(0xffc8844e), belly = Color(0xffd8a070);
+  const horn = Color(0xffe8dcc0), eye = Color(0xffffe060), dark = Color(0xff1a1020), tusk = Color(0xfff8f0e0);
+  const cloth = Color(0xff2a6a5a), stripe = Color(0xffe8c050), rock = Color(0xff8a8a96), rockShade = Color(0xff5a5a68);
+  final lift = f == 2, thrown = f == 3;
+  final step = f == 1 ? 1.0 : 0.0;
+  // Stumpy legs
+  pxRect(c, shade, 15 - step, 23, 5, 5);
+  pxRect(c, hide, 9 + step, 23, 5, 5);
+  pxRect(c, dark, 8 + step, 28, 7, 2);
+  pxRect(c, dark, 14 - step, 28, 7, 2);
+  // Loincloth
+  pxRect(c, cloth, 8, 20, 13, 4);
+  pxRect(c, stripe, 8, 21, 13, 1);
+  // Big body and belly
+  pxOval(c, hide, 6, 9, 17, 14);
+  pxOval(c, belly, 8, 13, 10, 9);
+  pxRect(c, shade, 19, 11, 3, 8);
+  // Head sunk between the shoulders
+  pxOval(c, hide, 4, 4, 11, 10);
+  pxRect(c, light, 6, 5, 4, 1);
+  pxRect(c, dark, 5, 7, 3, 1);
+  pxRect(c, eye, 5, 8, 2, 1);
+  pxRect(c, dark, 4, 11, 6, 1);
+  pxRect(c, tusk, 4, 10, 1, 2);
+  pxRect(c, tusk, 8, 10, 1, 2);
+  // One curled horn
+  pxPoly(c, horn, [const Offset(10, 5), const Offset(13, 1), const Offset(15, 0), const Offset(14, 3), const Offset(12, 6)]);
+  // Arms and the boulder
+  if (lift) {
+    pxRect(c, hide, 6, 2, 3, 9);
+    pxRect(c, shade, 15, 2, 3, 9);
+    pxOval(c, rock, 5, -1, 13, 9);
+    pxRect(c, rockShade, 9, 4, 6, 2);
+  } else if (thrown) {
+    pxPoly(c, hide, [const Offset(8, 11), const Offset(11, 11), const Offset(4, 15), const Offset(1, 14)]);
+    pxRect(c, hide, 0, 13, 3, 3);
+  } else {
+    pxRect(c, shade, 18, 12, 3, 8);
+    pxRect(c, hide, 4, 12 + step, 3, 8);
+    pxOval(c, rock, 1, 17 + step, 8, 7);
+    pxRect(c, rockShade, 3, 21 + step, 4, 2);
+  }
+}
+
+// A serpent of the snake-shouldered king: black coils with a gold belly and red eyes.
+// Faces left. Frames: 0-1 slither, 2 reared up with the jaws wide, spitting venom.
+void _drawSerpent(Canvas c, int f) {
+  const scale = Color(0xff22302a), light = Color(0xff3e5a48), belly = Color(0xffd8b050), eye = Color(0xffff3a2a);
+  const mouth = Color(0xff8a1a1a), fang = Color(0xfff8f0e0), venom = Color(0xff8ae04a);
+  if (f == 2) {
+    // Coiled body, neck raised in an S, hood spread
+    pxOval(c, scale, 8, 10, 13, 5);
+    pxRect(c, belly, 10, 12, 8, 1);
+    pxRect(c, scale, 8, 5, 4, 7);
+    pxOval(c, light, 3, 1, 10, 7);
+    pxRect(c, belly, 9, 6, 2, 5);
+    pxRect(c, eye, 4, 3, 1, 1);
+    pxRect(c, mouth, 2, 5, 4, 2);
+    pxRect(c, fang, 3, 5, 1, 1);
+    pxRect(c, venom, 0, 5, 2, 1);
+    return;
+  }
+  // Undulating body along the ground
+  for (var i = 0; i < 7; i++) {
+    final y = 10 + (math.sin(i * 1.2 + f * math.pi) * 1.5).roundToDouble();
+    pxRect(c, scale, 4 + i * 2.5, y, 3, 3);
+    pxRect(c, belly, 4 + i * 2.5, y + 2, 3, 1);
+  }
+  pxOval(c, light, 0, 8, 7, 5);
+  pxRect(c, eye, 1, 9, 1, 1);
+  pxRect(c, mouth, 0, 11, 2, 1);
+}
+
+// Al, the hag-spirit of the old tales who steals the breath of the sleeping: a pale face under a
+// torn crimson veil, long black hair, red eyes and hooked claws; no legs, only rags in the air.
+// Faces left. Frames: 0-1 drift, 2 claws out.
+void _drawAl(Canvas c, int f) {
+  const veil = Color(0xff8a1a2a), veilShade = Color(0xff5a0a1a), skin = Color(0xffd8d0c0), hair = Color(0xff141018);
+  const eye = Color(0xffff4040), claw = Color(0xffe8e0c8), dark = Color(0xff1a1020);
+  final sway = f == 1 ? 1.0 : 0.0;
+  final reach = f == 2;
+  // Ragged hem flapping below
+  for (var i = 0; i < 5; i++) {
+    final len = 4.0 + ((i + f) % 3);
+    pxRect(c, veilShade, 4 + i * 2.5 + sway, 17, 2, len);
+  }
+  // Veil over the body
+  pxPoly(c, veil, [Offset(7, 5), Offset(14, 5), Offset(17 + sway, 18), Offset(3 + sway, 18)]);
+  pxRect(c, veilShade, 12, 8, 2, 9);
+  // Hair streaming back
+  pxPoly(c, hair, [const Offset(6, 2), const Offset(13, 1), Offset(19, 9 + sway), Offset(16, 12), const Offset(11, 8)]);
+  // Face
+  pxOval(c, skin, 4, 3, 8, 8);
+  pxRect(c, dark, 5, 5, 2, 2);
+  pxRect(c, dark, 8, 5, 2, 2);
+  pxRect(c, eye, 5, 6, 1, 1);
+  pxRect(c, eye, 8, 6, 1, 1);
+  pxRect(c, dark, 6, 9, 3, 1);
+  // Arms with hooked claws
+  if (reach) {
+    pxRect(c, skin, 0, 9, 7, 2);
+    pxRect(c, claw, 0, 8, 1, 1);
+    pxRect(c, claw, 0, 11, 1, 1);
+    pxRect(c, skin, 1, 12, 6, 1);
+  } else {
+    pxRect(c, skin, 4, 11 + sway, 2, 4);
+    pxRect(c, claw, 3, 15 + sway, 1, 2);
+    pxRect(c, claw, 5, 15 + sway, 1, 2);
+  }
 }

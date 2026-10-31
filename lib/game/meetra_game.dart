@@ -23,6 +23,7 @@ import '../levels/generator.dart';
 import '../levels/level1.dart';
 import '../sfx.dart';
 import '../world/progress.dart';
+import '../world/story.dart';
 import '../world/world.dart';
 import 'ambience.dart';
 import 'effects.dart';
@@ -32,6 +33,14 @@ class BannerMsg {
   BannerMsg(this.title, [this.sub = '']);
   final String title;
   final String sub;
+}
+
+// A few pages of the tale, shown over everything; the game waits until they are read
+class StoryMsg {
+  StoryMsg(this.title, this.pages, {this.onDone});
+  final String title;
+  final List<String> pages;
+  final VoidCallback? onDone;
 }
 
 enum AppScreen { title, world, realm, playing }
@@ -49,6 +58,7 @@ class UiBus {
   final victory = ValueNotifier<bool>(false);
   final rewards = ValueNotifier<List<String>>(const []); // shown on the 'location cleared' screen
   final session = ValueNotifier<int>(0); // bumps on restart so overlays rebuild fresh
+  final story = ValueNotifier<StoryMsg?>(null);
 }
 
 class Pickup {
@@ -67,6 +77,16 @@ class Projectile {
   final int dir;
   double age = 0;
   double trailT = 0;
+  bool removed = false;
+}
+
+// A boulder or a glob of venom thrown by an enemy
+class Shot {
+  Shot(this.body, this.dmg, this.rock);
+  final Body body;
+  final int dmg;
+  final bool rock;
+  double age = 0;
   bool removed = false;
 }
 
@@ -153,6 +173,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   final coins = <Pickup>[];
   final hearts = <Pickup>[];
   final feathers = <Projectile>[];
+  final shots = <Shot>[];
   final orbs = <Orb>[];
   final altars = <Altar>[];
   final signs = <Sign>[];
@@ -187,7 +208,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   double _winT = -1;
   bool _snapCamera = true;
 
-  bool get simPaused => !started || ui.screen.value != AppScreen.playing || ui.levelUps.value > 0;
+  bool get simPaused => !started || ui.screen.value != AppScreen.playing || ui.levelUps.value > 0 || ui.story.value != null;
   // The map screens cover the whole level, so it is neither animated nor drawn behind them
   bool get mapOpen => ui.screen.value == AppScreen.world || ui.screen.value == AppScreen.realm;
   double get uiScale => size.y / gameH;
@@ -198,7 +219,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   void _startLevel() {
     level = buildLevel(def);
     physics = Physics(level);
-    for (final l in [enemies, coins, hearts, feathers, orbs, altars, signs, breakables, chests, slashes, texts]) {
+    for (final l in [enemies, coins, hearts, feathers, shots, orbs, altars, signs, breakables, chests, slashes, texts]) {
       l.clear();
     }
     particles.clear();
@@ -252,7 +273,7 @@ class MeetRaGame extends Game with KeyboardEvents {
           altars.add(Altar(o.x, o.y));
         case 'S':
           signs.add(Sign(o.x, o.y, def.signs[signIndex++]));
-        case 'D' || 'V' || 'U' || 'K' || 'M':
+        case 'D' || 'V' || 'U' || 'K' || 'M' || 'T' || 'Z' || 'H':
           enemies.addAll(_foes(o.type, o.x, o.y));
         case 'W':
           waveSpawn = Offset(o.x, o.y);
@@ -297,6 +318,9 @@ class MeetRaGame extends Game with KeyboardEvents {
       'U' => [Ghoul(this, x, y)..hp += bonus],
       'K' => [for (final dx in [-7.0, 7.0]) Scorpion(this, x + dx, y)..hp += bonus ~/ 2],
       'M' => [Manticore(this, x, y)..hp += bonus * 2],
+      'T' => [Div(this, x, y)..hp += bonus],
+      'Z' => [Serpent(this, x, y)..hp += bonus ~/ 2],
+      'H' => [Al(this, x, y - 30)..hp += bonus ~/ 2],
       _ => const [],
     };
   }
@@ -354,7 +378,7 @@ class MeetRaGame extends Game with KeyboardEvents {
 
     final l = lion;
     if (l != null && l.state != LionState.dead && l.state != LionState.stunned && !P.dead) {
-      if (overlaps(pr, l.body.rect)) P.hurt(l.contactDamage, l.x);
+      if (overlaps(pr, l.body.rect)) P.hurt(l.contactDamage + def.damageBonus, l.x);
     }
     if (l != null && l.state != LionState.dead) {
       for (final f in feathers) {
@@ -391,6 +415,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     coins.removeWhere((p) => p.removed);
     hearts.removeWhere((p) => p.removed);
     feathers.removeWhere((f) => f.removed);
+    shots.removeWhere((s) => s.removed);
     if (lion?.removed ?? false) lion = null;
 
     camera
@@ -429,12 +454,17 @@ class MeetRaGame extends Game with KeyboardEvents {
       if (hit) _killFeather(f);
     }
     if (lion != null) physics.step(lion!.body, s);
+    for (final sh in shots) {
+      var hit = false;
+      physics.step(sh.body, s, useWalls: false, onTile: (_) => hit = true);
+      if (hit) _breakShot(sh);
+    }
 
     // Overlaps
     final pr = P.body.rect;
     if (P.body.collides) {
       for (final e in enemies) {
-        if (!e.dying && !e.harmless && overlaps(pr, e.body.rect)) P.hurt(e.contactDamage, e.x);
+        if (!e.dying && !e.harmless && overlaps(pr, e.body.rect)) P.hurt(e.contactDamage + def.damageBonus, e.x);
       }
       for (final c in coins) {
         if (!c.removed && overlaps(pr, c.body.rect)) _collectCoin(c);
@@ -442,10 +472,15 @@ class MeetRaGame extends Game with KeyboardEvents {
       for (final h in hearts) {
         if (!h.removed && overlaps(pr, h.body.rect)) _collectHeart(h);
       }
+      for (final sh in shots) {
+        if (sh.removed || !overlaps(pr, sh.body.rect)) continue;
+        P.hurt(sh.dmg + def.damageBonus, sh.body.x);
+        _breakShot(sh);
+      }
     }
     for (final f in feathers) {
       for (final e in enemies) {
-        if (f.removed || e.dying || !overlaps(f.body.rect, e.body.rect)) continue;
+        if (f.removed || e.dying || e.hidden || !overlaps(f.body.rect, e.body.rect)) continue;
         e.hurt(f.dmg, f.body.vx.sign, 0.6);
         _killFeather(f);
       }
@@ -577,6 +612,11 @@ class MeetRaGame extends Game with KeyboardEvents {
       }
       if (f.age > 1100) _killFeather(f);
     }
+    for (final sh in shots) {
+      sh.age += dt;
+      if (!sh.rock && rand.nextDouble() < dt / 40) particles.trail(sh.body.x, sh.body.centerY, [0xff8ae04a, 0xff4a8a2a]);
+      if (sh.age > 3000 || sh.body.y > level.height + 40) sh.removed = true;
+    }
     final g = gate;
     if (g != null && g.opening) g.glow = math.min(1, g.glow + dt / 1200);
     _ambientSparkles(dt);
@@ -620,8 +660,15 @@ class MeetRaGame extends Game with KeyboardEvents {
   int resolveMelee(Rect rect, int dmg, int dir, double knock) {
     var hits = 0;
     for (final e in enemies) {
-      if (!e.dying && overlaps(rect, e.body.rect)) {
+      if (!e.dying && !e.hidden && overlaps(rect, e.body.rect)) {
         e.hurt(dmg, dir.toDouble(), knock);
+        hits++;
+      }
+    }
+    // Boulders and venom can be cut out of the air
+    for (final sh in shots) {
+      if (!sh.removed && overlaps(rect, sh.body.rect)) {
+        _breakShot(sh);
         hits++;
       }
     }
@@ -650,7 +697,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     final colors = b.kind == 'vase' ? [0xffb8683a, 0xffd8905a, 0xff1b2a6b] : [0xff3f7a34, 0xff5aa04a, 0xffe85a7a];
     burst(b.x, b.y - 6, colors, 12, 110);
     final r = rand.nextDouble();
-    if (r < 0.15) {
+    if (r < 0.10) {
       spawnHeart(b.x, b.y - 8);
     } else if (r < 0.75) {
       spawnGold(b.x, b.y - 8, betweenInt(1, b.kind == 'vase' ? 3 : 1));
@@ -664,6 +711,26 @@ class MeetRaGame extends Game with KeyboardEvents {
       ..allowGravity = false
       ..vx = dir * 270;
     feathers.add(Projectile(body, dmg, dir));
+  }
+
+  void enemyShot(double x, double y, double vx, double vy, {bool rock = false, int dmg = 1}) {
+    final body = Body(x, y, rock ? 8 : 6, rock ? 8 : 5)
+      ..allowGravity = rock
+      ..vx = vx
+      ..vy = vy;
+    shots.add(Shot(body, dmg, rock));
+    if (rock) {
+      sfx.thud();
+    } else {
+      sfx.feather();
+    }
+  }
+
+  void _breakShot(Shot s) {
+    if (s.removed) return;
+    s.removed = true;
+    burst(s.body.x, s.body.centerY, s.rock ? [0xff8a8a96, 0xff5a5a68, 0xffa88a60] : [0xff8ae04a, 0xff4a8a2a], s.rock ? 10 : 6, 80);
+    if (s.rock) camera.shake(80, 0.003);
   }
 
   void _killFeather(Projectile f) {
@@ -780,6 +847,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     lion = Lion(this, lionSpawn!.dx, lionSpawn!.dy, maxHp: def.boss.hp);
     ui.boss.value = def.boss;
+    final loc = location;
+    if (loc != null && loc.kind == LocKind.boss) _tell('boss${loc.realm.index}', StoryMsg(def.boss.name, [bossTaunts[loc.realm.index]]));
   }
 
   // ---------- Trial of waves ----------
@@ -790,9 +859,9 @@ class MeetRaGame extends Game with KeyboardEvents {
   // ghouls, and from the Sky Spine on the last wave brings a man-eater
   void _spawnWave() {
     final tier = location?.realm.index ?? 0;
-    final kinds = ['D', 'K', if (tier >= 1) 'V', if (tier >= 2) 'U'];
+    final kinds = ['D', 'K', if (tier >= 1) ...['V', 'T'], if (tier >= 2) ...['U', 'Z'], if (tier >= 3) 'H'];
     final types = [
-      for (var i = 0; i < 2 + wave + tier ~/ 3; i++) kinds[rand.nextInt(kinds.length)],
+      for (var i = 0; i < 3 + wave + tier ~/ 2; i++) kinds[rand.nextInt(kinds.length)],
       if (wave == waves - 1) tier >= 3 ? 'M' : 'D',
     ];
     final left = arenaLeft! + tile * 3, right = arenaRight! - tile * 3;
@@ -801,6 +870,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       final foes = _foes(t, x, waveSpawn!.dy);
       for (final e in foes) {
         if (e is Ghoul) e.wake();
+        if (e is Al) e.body.y = waveSpawn!.dy - 40;
       }
       enemies.addAll(foes);
       _waveFoes.addAll(foes);
@@ -868,6 +938,11 @@ class MeetRaGame extends Game with KeyboardEvents {
     ui.boss.value = null;
     ui.banner.value = BannerMsg(won ?? '${def.boss.name} falls!', 'The way out is open');
     gate?.opening = true;
+    final loc = location;
+    if (loc != null && loc.kind == LocKind.boss) {
+      final i = loc.realm.index;
+      timers.after(1800, () => _tell('fall$i', StoryMsg(i == 6 ? 'The Water of Life' : '${def.boss.name} falls', bossFalls[i])));
+    }
   }
 
   void _resetBoss() {
@@ -977,12 +1052,31 @@ class MeetRaGame extends Game with KeyboardEvents {
     started = true;
     ui.screen.value = AppScreen.world;
     music.play(Track.explore);
+    _tell('prologue', StoryMsg('The Stolen Dawn', prologue));
   }
 
   void openRealm(Realm r) {
     progress.realm = r.index;
     ui.realm.value = r.index;
     ui.screen.value = AppScreen.realm;
+    _tell('realm${r.index}', StoryMsg(r.name, realmTales[r.index]));
+  }
+
+  // ---------- The tale ----------
+
+  // Tells a part of the story, once per saga
+  void _tell(String key, StoryMsg msg) {
+    if (!progress.seen.add(key)) return;
+    progress.save(state);
+    touch.clear();
+    ui.story.value = msg;
+  }
+
+  // Called by the story panel after its last page
+  void closeStory() {
+    final m = ui.story.value;
+    ui.story.value = null;
+    m?.onDone?.call();
   }
 
   void openWorld() => ui.screen.value = AppScreen.world;
@@ -1249,6 +1343,17 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     for (final fe in feathers) {
       drawFrame(c, a.feather, 0, fe.body.x, fe.body.centerY, oy: 0.5, flipX: fe.dir < 0);
+    }
+    for (final sh in shots) {
+      final o = Offset(sh.body.x, sh.body.centerY);
+      if (sh.rock) {
+        c.drawCircle(o, 5, Paint()..color = const Color(0xff1a1020));
+        c.drawCircle(o, 4, Paint()..color = const Color(0xff8a8a96));
+        c.drawCircle(o + const Offset(-1, -1), 1.5, Paint()..color = const Color(0xffb8b8c4));
+      } else {
+        c.drawCircle(o, 3.5, Paint()..color = const Color(0xff2a4a1a));
+        c.drawCircle(o, 2.5, Paint()..color = const Color(0xff8ae04a));
+      }
     }
     // The Sun Key: a little sun bobbing in the air, its eye on Ra
     final k = sunKey;

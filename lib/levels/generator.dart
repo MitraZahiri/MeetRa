@@ -1,7 +1,7 @@
 // Builds a level for every playable location from hand-made ASCII chunks.
 // The location id seeds the random choices, so a place always has the same layout.
 // See build.dart for the map legend. Lowercase markers are optional:
-//   d  maybe a ground foe (demon, scorpions, ghoul or man-eater)  b  maybe a fly   x  maybe a vase   +  maybe a bush   c  maybe a chest
+//   d  maybe a ground foe (demon, scorpions, div, serpent, ghoul, Al or man-eater)  b  maybe a fly   x  maybe a vase   +  maybe a bush   c  maybe a chest
 
 import 'dart:math' as math;
 
@@ -100,12 +100,16 @@ final _arena = [
 // The arena of a trial: no lion, waves of the realm's creatures instead
 final _trial = [for (final row in _arena) row.replaceAll('L', 'W')];
 
-// What stands on a ground enemy spot. Small scorpions everywhere; ghouls buried in the ground
-// from the Serpent Sands on; the big man-eater from the Sky Spine on.
+// What stands on a ground enemy spot. Small scorpions everywhere; stone-hurling divs from
+// Crownhold on; ghouls and the snake-king's serpents from the Serpent Sands on; the big
+// man-eater and Al, the hag-spirit, from the Sky Spine on.
 String _foe(int tier, double roll) {
   if (tier >= 3 && roll < 0.12) return 'M';
-  if (tier >= 2 && roll < 0.42) return 'U';
-  if (roll > 0.72) return 'K';
+  if (tier >= 3 && roll < 0.24) return 'H';
+  if (tier >= 2 && roll < 0.40) return 'U';
+  if (tier >= 2 && roll < 0.52) return 'Z';
+  if (tier >= 1 && roll < 0.64) return 'T';
+  if (roll > 0.80) return 'K';
   return 'D';
 }
 
@@ -130,7 +134,7 @@ LevelDef levelFor(Location loc) {
   var pool = [_flat, _pit, _steps, _hill, _ledges, _gaps];
   if (tier > 0 || depth > 0.3) pool = [...pool, _thorns];
   var middle = 5 + tier ~/ 2;
-  var enemyChance = (0.45 + tier * 0.07 + depth * 0.1).clamp(0.0, 0.9);
+  var enemyChance = (0.55 + tier * 0.08 + depth * 0.1).clamp(0.0, 0.95);
   var chestChance = 0.35;
   var vaseChance = 0.6;
 
@@ -172,10 +176,11 @@ LevelDef levelFor(Location loc) {
       title: loc.name,
       subtitle: r.name,
       rows: plan.rows * roomH,
-      chunks: [buildRooms(plan, rnd, enemyChance: enemyChance, foe: (roll) => _foe(tier, roll))],
+      chunks: [buildRooms(plan, rnd, enemyChance: enemyChance, foe: (roll) => _foe(tier, roll), maxFoes: 2 + (tier + 1) ~/ 3)],
       signs: [loc.desc, 'The gate is sealed by the sun. Find the Sun Key hidden somewhere in this place.'],
       boss: const BossDef('', ''),
-      enemyBonus: tier,
+      enemyBonus: tier + tier ~/ 2,
+      damageBonus: tier ~/ 2,
       skyTint: r.color,
       sealed: true,
     );
@@ -205,7 +210,7 @@ LevelDef levelFor(Location loc) {
   }
 
   final boss = switch (loc.kind) {
-    LocKind.boss => BossDef(r.bossName, r.bossTitle, hp: 30 + tier * 10),
+    LocKind.boss => BossDef(r.bossName, r.bossTitle, hp: 40 + tier * 14),
     LocKind.arena => BossDef('Trial of ${r.name}', 'Wave 1 of 3', hp: 18 + tier * 6),
     _ => const BossDef('', ''),
   };
@@ -218,7 +223,8 @@ LevelDef levelFor(Location loc) {
     chunks: [for (final c in chunks) c.map(resolve).toList()],
     signs: [loc.desc],
     boss: boss,
-    enemyBonus: tier,
+    enemyBonus: tier + tier ~/ 2,
+    damageBonus: tier ~/ 2,
     skyTint: r.color,
   );
 }

@@ -5,6 +5,7 @@ import 'package:meetra/config.dart';
 import 'package:meetra/levels/build.dart';
 import 'package:meetra/levels/generator.dart';
 import 'package:meetra/world/progress.dart';
+import 'package:meetra/world/story.dart';
 import 'package:meetra/world/world.dart';
 
 void main() {
@@ -52,7 +53,7 @@ void main() {
     }
   });
 
-  test('foes by realm: scorpions everywhere, ghouls from the Sands, man-eaters from the Sky Spine', () {
+  test('foes by realm: scorpions everywhere, divs from Crownhold, ghouls and serpents from the Sands, man-eaters and Al from the Sky Spine', () {
     int count(Realm r, String type) => [
           for (final l in r.locations.where((l) => l.kind.playable))
             ...buildLevel(levelFor(l)).objects.where((o) => o.type == type),
@@ -62,6 +63,31 @@ void main() {
     expect(count(realms[2], 'U'), greaterThan(0));
     expect(count(realms[2], 'M'), 0);
     expect(count(realms[3], 'M'), greaterThan(0));
+    // Stone-hurling divs from Crownhold, serpents from the Sands, Al from the Sky Spine
+    expect(count(realms[0], 'T'), 0);
+    expect(count(realms[1], 'T'), greaterThan(0));
+    expect(count(realms[0], 'Z') + count(realms[1], 'Z'), 0);
+    expect(count(realms[2], 'Z'), greaterThan(0));
+    expect(count(realms[2], 'H'), 0);
+    expect(count(realms[3], 'H'), greaterThan(0));
+  });
+
+  test('later realms hit harder and their creatures are tougher', () {
+    final first = levelFor(realms[0].locations[2]), last = levelFor(realms[6].locations[2]);
+    expect(first.damageBonus, 0);
+    expect(last.damageBonus, greaterThan(first.damageBonus));
+    expect(last.enemyBonus, greaterThan(first.enemyBonus));
+    expect(levelFor(realms[6].boss).boss.hp, greaterThan(levelFor(realms[0].boss).boss.hp));
+  });
+
+  test('the tale has an opening for every realm and words for every realm boss', () {
+    expect(prologue, isNotEmpty);
+    expect(realmTales.length, realms.length);
+    expect(bossTaunts.length, realms.length);
+    expect(bossFalls.length, realms.length);
+    for (final pages in [...realmTales, ...bossFalls]) {
+      expect(pages, isNotEmpty);
+    }
   });
 
   test('in every sealed level Ra can reach the Sun Key, and from there the gate', () {

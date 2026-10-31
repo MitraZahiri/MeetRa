@@ -458,3 +458,141 @@ class _Confetti extends CustomPainter {
   @override
   bool shouldRepaint(_Confetti old) => true;
 }
+
+// ---------- The tale ----------
+
+// Pages of the story, written out letter by letter over a dark, framed page.
+// A tap (or any key) shows the whole page at once, then turns to the next.
+class StoryPanel extends StatefulWidget {
+  const StoryPanel(this.game, this.msg, {super.key, required this.w});
+  final MeetRaGame game;
+  final StoryMsg msg;
+  final double w;
+
+  @override
+  State<StoryPanel> createState() => _StoryPanelState();
+}
+
+class _StoryPanelState extends State<StoryPanel> with SingleTickerProviderStateMixin, _Clock {
+  static const _lettersPerSecond = 55.0;
+  StreamSubscription<LogicalKeyboardKey>? _keys;
+  int _page = 0;
+  double _pageStart = 0;
+  bool _armed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // A short delay so the tap that opened a map can't skip the first page
+    Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _armed = true;
+      _keys = widget.game.keyDowns.stream.listen((_) => _next());
+    });
+  }
+
+  @override
+  void dispose() {
+    _keys?.cancel();
+    super.dispose();
+  }
+
+  String get _text => widget.msg.pages[_page];
+  int get _shown => ((seconds - _pageStart) * _lettersPerSecond).floor();
+
+  void _next() {
+    if (!_armed) return;
+    if (_shown < _text.length) {
+      // Finish the page at once
+      _pageStart = seconds - _text.length / _lettersPerSecond;
+      return;
+    }
+    if (_page + 1 < widget.msg.pages.length) {
+      setState(() {
+        _page++;
+        _pageStart = seconds;
+      });
+      return;
+    }
+    _keys?.cancel();
+    widget.game.closeStory();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final w = widget.w;
+    final pages = widget.msg.pages.length;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapUp: (_) => _next(),
+      child: AnimatedBuilder(
+        animation: clock,
+        builder: (context, _) {
+          final t = seconds;
+          final fade = Curves.easeOut.transform((t / 0.6).clamp(0.0, 1.0));
+          final done = _shown >= _text.length;
+          return Opacity(
+            opacity: fade,
+            child: Container(
+              color: const Color(0xff0a0e28).withValues(alpha: 0.93),
+              child: CustomPaint(
+                painter: _Rays(Offset(w / 2, 70), t, radius: 520, alpha: 0.10),
+                foregroundPainter: const FramePainter(),
+                child: Stack(children: [
+                  const Positioned.fill(child: FloatingMotes(count: 24)),
+                  At(w / 2, 90, child: ShimmerText(widget.msg.title, size: 40, phase: t * 0.35)),
+                  At(w / 2, 132, child: CustomPaint(size: const Size(220, 10), painter: _Flourish())),
+                  At(w / 2, 175,
+                      ay: 0,
+                      child: OutlinedText(_text.substring(0, math.min(_text.length, _shown)), size: 24, width: math.min(w * 0.72, 760))),
+                  // Page dots
+                  if (pages > 1)
+                    At(w / 2, 432,
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          for (var i = 0; i < pages; i++)
+                            Container(
+                              width: 9,
+                              height: 9,
+                              margin: const EdgeInsets.symmetric(horizontal: 5),
+                              decoration: BoxDecoration(shape: BoxShape.circle, color: i == _page ? gold : gold.withValues(alpha: 0.25)),
+                            ),
+                        ])),
+                  At(w / 2, 468,
+                      child: Opacity(
+                        opacity: done ? 0.55 + 0.45 * (0.5 + 0.5 * math.sin(t * 4.2)) : 0,
+                        child: OutlinedText(_page + 1 < pages ? 'Tap to continue' : 'Tap to begin', size: 20, color: const Color(0xffc8bca0)),
+                      )),
+                ]),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// A thin gold rule with a diamond in the middle, under the story title
+class _Flourish extends CustomPainter {
+  @override
+  void paint(Canvas c, Size size) {
+    final p = Paint()
+      ..color = gold.withValues(alpha: 0.8)
+      ..strokeWidth = 1.5;
+    final m = size.center(Offset.zero);
+    c.drawLine(Offset(0, m.dy), Offset(m.dx - 10, m.dy), p);
+    c.drawLine(Offset(m.dx + 10, m.dy), Offset(size.width, m.dy), p);
+    c.drawPath(
+      Path()
+        ..moveTo(m.dx, m.dy - 5)
+        ..lineTo(m.dx + 6, m.dy)
+        ..lineTo(m.dx, m.dy + 5)
+        ..lineTo(m.dx - 6, m.dy)
+        ..close(),
+      Paint()..color = gold,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_Flourish old) => false;
+}

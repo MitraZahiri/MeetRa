@@ -14,6 +14,7 @@ class Progress extends ChangeNotifier {
   final _cleared = <String>{};
   int realm = 0; // the realm last opened on the world map
   String? lastLocation; // where Ra's marker stands on the realm map
+  final seen = <String>{}; // parts of the story already told
 
   bool isCleared(Location l) => _cleared.contains(l.id);
 
@@ -34,7 +35,7 @@ class Progress extends ChangeNotifier {
   Future<void> save(GameState s) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_key, jsonEncode({'cleared': _cleared.toList(), 'realm': realm, 'last': lastLocation, 'state': s.toJson()}));
+      await prefs.setString(_key, jsonEncode({'cleared': _cleared.toList(), 'realm': realm, 'last': lastLocation, 'seen': seen.toList(), 'state': s.toJson()}));
     } catch (e) {
       debugPrint('MeetRa: could not save progress: $e');
     }
@@ -51,6 +52,9 @@ class Progress extends ChangeNotifier {
         ..addAll((j['cleared'] as List).cast<String>());
       realm = j['realm'] as int? ?? 0;
       lastLocation = j['last'] as String?;
+      seen
+        ..clear()
+        ..addAll(((j['seen'] as List?) ?? const []).cast<String>());
       s.fromJson((j['state'] as Map).cast<String, dynamic>());
       notifyListeners();
     } catch (e) {
@@ -60,6 +64,7 @@ class Progress extends ChangeNotifier {
 
   Future<void> wipe(GameState s) async {
     _cleared.clear();
+    seen.clear();
     realm = 0;
     lastLocation = null;
     s.reset();

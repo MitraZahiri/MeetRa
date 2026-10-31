@@ -28,7 +28,8 @@ class RoomPlan {
 }
 
 // [foe] picks what stands on a ground spot, from a random roll
-List<String> buildRooms(RoomPlan plan, math.Random rnd, {required double enemyChance, required String Function(double roll) foe}) {
+List<String> buildRooms(RoomPlan plan, math.Random rnd,
+    {required double enemyChance, required String Function(double roll) foe, int maxFoes = 2}) {
   final cols = plan.cols, rows = plan.rows;
   final w = cols * roomW, h = rows * roomH;
   final rooms = [
@@ -294,7 +295,7 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd, {required double enemyCh
       final spots = [...free]..shuffle(rnd);
       var foes = 0;
       for (final x in spots.take(3)) {
-        if (foes < 2 && rnd.nextDouble() < enemyChance) {
+        if (foes < maxFoes && rnd.nextDouble() < enemyChance) {
           if (place(a, x, foe(rnd.nextDouble()))) foes++;
         } else if (rnd.nextDouble() < 0.4) {
           place(a, x, a.r == 0 && rnd.nextBool() ? '*' : 'v');

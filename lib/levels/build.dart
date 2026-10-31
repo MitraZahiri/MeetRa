@@ -31,6 +31,7 @@ class LevelDef {
     this.enemyBonus = 0,
     this.skyTint,
     this.sealed = false,
+    this.damageBonus = 0,
   });
 
   final String id;
@@ -43,6 +44,7 @@ class LevelDef {
   final int enemyBonus; // extra health for every enemy in later realms
   final int? skyTint; // ARGB wash over the background, per realm
   final bool sealed; // the exit gate stays shut until Ra finds the Sun Key
+  final int damageBonus; // extra half hearts every blow takes from Ra in later realms
 }
 
 class Level {
@@ -73,6 +75,7 @@ class Level {
 //   B  stone brick   ^  thorns
 //   P  player        A  hearth (checkpoint)   S  signpost
 //   D  demon         V  fly      U  ghoul    K  scorpion pair    M  manticore
+//   T  stone-hurling div   Z  serpent   H  Al, the hag-spirit
 //   v  vase     *  bush     C  chest
 //   F  Saena's feather   L  lion boss   W  trial of waves   [ ]  arena walls   G  exit gate
 //   O  the Sun Key that unseals the gate

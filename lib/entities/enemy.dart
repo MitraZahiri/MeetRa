@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../art/pixel.dart';
+import '../config.dart';
 import '../game/effects.dart';
 import '../game/meetra_game.dart';
 import '../game/physics.dart';
@@ -32,6 +33,9 @@ abstract class Enemy {
   int get frame => anim.frame;
   // True while it cannot hurt Ra by touch (a ghoul still buried in the sand)
   bool get harmless => false;
+  // True while blows and feathers pass straight through it (Al, vanished into the air)
+  bool get hidden => false;
+  double get alpha => 1;
   // Width of the drop shadow; 0 for none
   double get shadowW => 14;
 
@@ -83,7 +87,7 @@ abstract class Enemy {
     final k = _squash / 160;
     final (px, py) = pose;
     drawFrame(c, sheet, frame, x.roundToDouble(), y.roundToDouble(),
-        flipX: flipX, scaleX: px * (1 + 0.3 * k), scaleY: py * (1 - 0.25 * k), tintFill: _flash > 0 ? 0xffffffff : null);
+        flipX: flipX, scaleX: px * (1 + 0.3 * k), scaleY: py * (1 - 0.25 * k), alpha: alpha, tintFill: _flash > 0 ? 0xffffffff : null);
   }
 }
 
@@ -480,5 +484,242 @@ class Manticore extends Enemy {
     b.vx = dir * 22;
     anim.timeScale = 1;
     flipX = dir > 0;
+  }
+}
+
+// The stone-hurling div: slow and heavy. When Ra is in sight it stops, heaves a boulder over its
+// head and lobs it in an arc to where Ra stands. Swing at the boulder to smash it in the air.
+class Div extends Enemy {
+  Div(MeetRaGame game, double x, double y)
+      : super(game, Body(x, y, 16, 26), hp: 5, contactDamage: 2, xpValue: 14, goldValue: 6, colors: [0xff9a5a34, 0xff8a8a96, 0xffe8c050]);
+
+  double dir = -1;
+  double _heave = 0; // ms the boulder is held overhead
+  double _throw = 0; // ms of the follow-through
+  double _rest = rand.nextDouble() * 800;
+  @override
+  final anim = Anim([0, 1], 4);
+  @override
+  Sheet get sheet => game.art.div;
+  @override
+  int get frame => _heave > 0 ? 2 : _throw > 0 ? 3 : anim.frame;
+  @override
+  double get shadowW => 20;
+
+  @override
+  void hurt(int dmg, double dir, [double knock = 1]) {
+    super.hurt(dmg, dir, knock);
+    if (dying) return;
+    body.vx *= 0.4;
+    stun = 180;
+    _heave = 0;
+  }
+
+  @override
+  void update(double dt) {
+    if (dying) return;
+    if (y > game.level.height + 60) {
+      removed = true;
+      return;
+    }
+    final b = body;
+    if (stun > 0) {
+      stun -= dt;
+      return;
+    }
+    _rest = math.max(0, _rest - dt);
+    final p = game.player;
+    final dx = p.x - x;
+    if (_heave > 0) {
+      b.vx = 0;
+      _heave -= dt;
+      if (_heave <= 0) {
+        _throw = 300;
+        // Aim for where Ra stands: a fixed flight time, so far throws fly faster
+        const t = 0.85;
+        final dy = (p.y - 6) - (y - 30);
+        game.enemyShot(x + dir * 4, y - 30, dx / t, dy / t - gravity * t / 2, rock: true, dmg: 2);
+      }
+      return;
+    }
+    if (_throw > 0) {
+      _throw -= dt;
+      if (_throw <= 0) _rest = math.max(900, 2000 - game.def.enemyBonus * 150);
+      return;
+    }
+    final sees = !p.dead && dx.abs() < 210 && dx.abs() > 36 && (p.y - y).abs() < 90;
+    if (sees && dx != 0) dir = dx.sign;
+    flipX = dir > 0;
+    if (sees && _rest <= 0 && b.blockedDown) {
+      _heave = 520;
+      b.vx = 0;
+      game.floatText(x, y - 34, '!', const Color(0xffff6a50), size: 10, rise: 6, duration: 600);
+      return;
+    }
+    if ((dir < 0 && b.blockedLeft) || (dir > 0 && b.blockedRight)) dir *= -1;
+    if (b.blockedDown && game.level.tileAtWorld(x + dir * 10, y + 4) < 0) dir *= -1;
+    // Close in slowly on Ra, or stomp about
+    b.vx = dir * (sees ? 26 : 18);
+    flipX = dir > 0;
+  }
+}
+
+// A serpent of the snake-shouldered king. It slithers low; when Ra is level with it, it rears
+// up and spits a glob of venom straight at Ra. Jump the venom or cut it out of the air.
+class Serpent extends Enemy {
+  Serpent(MeetRaGame game, double x, double y)
+      : super(game, Body(x, y, 16, 8), hp: 2, contactDamage: 1, xpValue: 8, goldValue: 3, colors: [0xff22302a, 0xffd8b050, 0xff8ae04a]);
+
+  double dir = rand.nextBool() ? 1 : -1;
+  double _rear = 0; // ms reared up before the spit
+  double _rest = rand.nextDouble() * 1000;
+  @override
+  final anim = Anim([0, 1], 6);
+  @override
+  Sheet get sheet => game.art.serpent;
+  @override
+  int get frame => _rear > 0 ? 2 : anim.frame;
+  @override
+  double get shadowW => 14;
+
+  @override
+  void update(double dt) {
+    if (dying) return;
+    if (y > game.level.height + 60) {
+      removed = true;
+      return;
+    }
+    final b = body;
+    if (stun > 0) {
+      stun -= dt;
+      _rear = 0;
+      return;
+    }
+    _rest = math.max(0, _rest - dt);
+    final p = game.player;
+    final dx = p.x - x;
+    if (_rear > 0) {
+      b.vx = 0;
+      _rear -= dt;
+      if (_rear <= 0) {
+        _rest = math.max(1000, 2200 - game.def.enemyBonus * 150);
+        final dy = (p.y - 8) - (y - 10);
+        final d = math.max(1.0, math.sqrt(dx * dx + dy * dy));
+        game.enemyShot(x + dir * 8, y - 10, dx / d * 170, dy / d * 170, dmg: 1);
+      }
+      return;
+    }
+    final level = !p.dead && dx.abs() < 170 && (p.y - y).abs() < 40;
+    if (level && _rest <= 0 && b.blockedDown) {
+      dir = dx.sign == 0 ? dir : dx.sign;
+      flipX = dir > 0;
+      _rear = 420;
+      return;
+    }
+    if ((dir < 0 && b.blockedLeft) || (dir > 0 && b.blockedRight)) dir *= -1;
+    if (b.blockedDown && game.level.tileAtWorld(x + dir * 9, y + 4) < 0) dir *= -1;
+    b.vx = dir * 34;
+    flipX = dir > 0;
+  }
+}
+
+enum _AlMood { drift, gone, rising, claw }
+
+// Al, the hag-spirit: drifts half-seen in the air, melts away, and comes back right behind Ra
+// with her claws out. She flickers for a moment before she strikes: turn and hit her then.
+class Al extends Enemy {
+  Al(MeetRaGame game, double x, double y)
+      : super(game, Body(x, y, 12, 18)..allowGravity = false,
+            hp: 3, contactDamage: 2, xpValue: 12, goldValue: 5, colors: [0xff8a1a2a, 0xffd8d0c0, 0xff141018]);
+
+  _AlMood _mood = _AlMood.drift;
+  double _t = rand.nextDouble() * 10;
+  double _timer = 1500 + rand.nextDouble() * 1500;
+  double _fade = 1;
+  bool _noticed = false;
+  @override
+  final anim = Anim([0, 1], 5);
+  @override
+  Sheet get sheet => game.art.al;
+  @override
+  int get frame => _mood == _AlMood.claw ? 2 : anim.frame;
+  @override
+  double get shadowW => 0;
+  @override
+  bool get hidden => _mood == _AlMood.gone;
+  @override
+  bool get harmless => _mood == _AlMood.gone || _mood == _AlMood.rising;
+  @override
+  double get alpha => switch (_mood) {
+        _AlMood.gone => 0,
+        _AlMood.rising => (_timer / 60).floor().isEven ? 0.85 : 0.35,
+        _ => 0.55 + 0.45 * _fade,
+      };
+
+  @override
+  void update(double dt) {
+    if (dying) return;
+    _t += dt / 1000;
+    final b = body;
+    if (stun > 0) {
+      stun -= dt;
+      b
+        ..vx *= 0.9
+        ..vy *= 0.9;
+      return;
+    }
+    final p = game.player;
+    final dx = p.x - x, dy = p.y - 14 - y;
+    final near = !p.dead && dx.abs() < 150 && dy.abs() < 90;
+    _timer -= dt;
+    switch (_mood) {
+      case _AlMood.drift:
+        // A slow, swaying float towards Ra, flickering in and out of sight
+        _fade = 0.5 + 0.5 * math.sin(_t * 3);
+        b
+          ..vx = (near ? dx.sign * 22 : 0) + math.cos(_t * 1.1) * 12
+          ..vy = (near ? dy.sign * 10 : 0) + math.sin(_t * 2.2) * 10;
+        flipX = dx > 0;
+        if (near && !_noticed) {
+          _noticed = true;
+          game.floatText(x, y - 24, '!', const Color(0xffff6a50), size: 10, rise: 6, duration: 700);
+        }
+        if (near && _timer <= 0) {
+          _mood = _AlMood.gone;
+          _timer = 700;
+          b.vx = b.vy = 0;
+          game.particles.ring(x, y - 10, 0xff8a1a2a, r1: 18, life: 320);
+        }
+      case _AlMood.gone:
+        if (_timer <= 0) {
+          // Come back right behind Ra
+          b
+            ..x = (p.x - p.facing * 26).clamp(8.0, game.level.width - 8)
+            ..y = p.y - 6;
+          flipX = p.facing > 0;
+          _mood = _AlMood.rising;
+          _timer = math.max(300, 520 - game.def.enemyBonus * 30);
+          game.particles.ring(b.x, b.y - 10, 0xff8a1a2a, r1: 14, life: 300);
+        }
+      case _AlMood.rising:
+        b.vx = b.vy = 0;
+        if (_timer <= 0) {
+          _mood = _AlMood.claw;
+          _timer = 360;
+          final d = math.max(1.0, math.sqrt(dx * dx + dy * dy));
+          b
+            ..vx = dx / d * 190
+            ..vy = dy / d * 190;
+          flipX = dx > 0;
+        }
+      case _AlMood.claw:
+        if (_timer <= 0) {
+          _mood = _AlMood.drift;
+          _timer = 2200 + rand.nextDouble() * 1200;
+          b
+            ..vx = -b.vx * 0.3
+            ..vy = -60;
+        }
+    }
   }
 }

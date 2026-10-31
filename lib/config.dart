@@ -39,7 +39,7 @@ abstract final class PlayerTuning {
   static const doubleJump = 270.0;
   static const coyote = 90.0; // ms you can still jump after walking off a ledge
   static const buffer = 120.0; // ms a jump pressed before landing is remembered
-  static const invuln = 1000.0;
+  static const invuln = 850.0;
   static const featherCost = 20.0;
 }
 
