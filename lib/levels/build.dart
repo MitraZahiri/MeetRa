@@ -12,11 +12,15 @@ class LevelObject {
   final double y;
 }
 
+// Which beast waits at the 'L' in a boss arena
+enum BossKind { lion, elephant }
+
 class BossDef {
-  const BossDef(this.name, this.title, {this.hp = 30});
+  const BossDef(this.name, this.title, {this.hp = 30, this.kind = BossKind.lion});
   final String name;
   final String title;
   final int hp;
+  final BossKind kind;
 }
 
 class LevelDef {
@@ -74,7 +78,7 @@ class Level {
 //   P  player        A  hearth (checkpoint)   S  signpost
 //   D  demon         V  fly      U  ghoul    K  scorpion pair    M  manticore
 //   v  vase     *  bush     C  chest
-//   F  Saena's feather   L  lion boss   W  trial of waves   [ ]  arena walls   G  exit gate
+//   F  Saena's feather   L  the boss   W  trial of waves   [ ]  arena walls   G  exit gate
 //   O  the Sun Key that unseals the gate
 Level buildLevel(LevelDef def) {
   final height = def.rows;

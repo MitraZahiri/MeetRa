@@ -46,6 +46,13 @@ final Map<String, List<_Voice>> _effects = {
   'altar': [for (final (i, f) in [392.0, 494.0, 587.0].indexed) _tone('triangle', f, dur: 0.6, vol: 0.15, delay: i * 0.05)],
   'pickup': [for (final (i, f) in [660.0, 880.0, 1320.0].indexed) _tone('triangle', f, dur: 0.15, vol: 0.2, delay: i * 0.07)],
   'roar': [_noise(dur: 0.9, vol: 0.5, filter: 'lowpass', freq: 500), _tone('sawtooth', 110, f1: 55, dur: 0.9, vol: 0.25)],
+  // An elephant's blare: a brassy rise and fall over a rough breath
+  'trumpet': [
+    _tone('sawtooth', 300, f1: 560, dur: 0.3, vol: 0.2),
+    _tone('sawtooth', 560, f1: 360, dur: 0.55, vol: 0.2, delay: 0.28),
+    _tone('square', 150, f1: 210, dur: 0.8, vol: 0.08),
+    _noise(dur: 0.8, vol: 0.12, filter: 'bandpass', freq: 1400),
+  ],
   'thud': [_tone('sine', 120, f1: 40, dur: 0.25, vol: 0.4)],
   'victory': [
     for (final (i, f) in [392.0, 523.0, 659.0, 784.0, 659.0, 784.0, 1047.0].indexed)
@@ -216,6 +223,7 @@ class Sfx {
   void pickup() => _play('pickup');
   void roar() => _play('roar');
   void thud() => _play('thud');
+  void trumpet() => _play('trumpet');
   void victory() => _play('victory');
 }
 

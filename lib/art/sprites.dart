@@ -447,13 +447,108 @@ Paint _stroke(Color c, double w) => Paint()
   ..style = PaintingStyle.stroke
   ..strokeWidth = w;
 
+// The White Elephant: a war elephant gone wild, pale as bone, still wearing a red cloth trimmed
+// with gold and a gold brow band, with small red eyes and long tusks. Faces left.
+// Frames: 0-3 walk, 4 rears up, 5 lowers its tusks to charge, 6 stamps down.
+void _drawElephant(Canvas c, int f) {
+  const hide = Color(0xffe6e0d4), shade = Color(0xffb4ac9c), light = Color(0xfffaf6ee), crease = Color(0xff8a8270);
+  const cloth = Color(0xffa82a2a), clothShade = Color(0xff6a1a1a), gold = Color(0xffd4a845), tusk = Color(0xfff4e8c0);
+  const ear = Color(0xffd8b4a8), eye = Color(0xffff3a2a), dark = Color(0xff1a1020);
+  final rear = f == 4, charge = f == 5, stamp = f == 6, walk = f < 4;
+  final st = walk ? (math.sin(f * math.pi / 2) * 2).roundToDouble() : 0.0;
+  final bob = walk && f.isOdd ? 1.0 : 0.0;
+  // The front half lifts when it rears, and dips when it charges or stamps
+  final fy = rear ? -2.0 : charge ? 2.0 : stamp ? 1.0 : bob;
+  final hx = charge ? -1.0 : rear ? 3.0 : 0.0;
+
+  // A pillar leg with a round foot and pale toenails
+  void leg(Color col, double x, double top, double foot, {double lean = 0}) {
+    pxPoly(c, col, [Offset(x, top), Offset(x + 7, top), Offset(x + 7 + lean, foot), Offset(x + lean, foot)]);
+    pxRect(c, crease, x + lean, foot - 4, 7, 1);
+    pxRect(c, light, x + lean + 1, foot - 1, 1, 1);
+    pxRect(c, light, x + lean + 3, foot - 1, 1, 1);
+    pxRect(c, light, x + lean + 5, foot - 1, 1, 1);
+  }
+
+  // Far legs
+  leg(shade, 38 + st, 24 + bob, 38);
+  if (rear) {
+    leg(shade, 15, 22 + fy, 31 + fy, lean: -3);
+  } else {
+    leg(shade, 16 - st, 24 + fy, 38, lean: charge ? -2 : 0);
+  }
+  // A thin tail with a tuft
+  pxRect(c, shade, 48, 14 + bob, 1, 9);
+  pxRect(c, crease, 47, 22 + bob, 3, 3);
+  // Body: a great barrel, shaded underneath
+  pxPoly(c, shade, [Offset(13, 12 + fy), Offset(30, 9 + bob), Offset(49, 12 + bob), Offset(50, 24 + bob), Offset(45, 31 + bob), Offset(16, 31 + fy)]);
+  pxPoly(c, hide, [Offset(13, 11 + fy), Offset(30, 7 + bob), Offset(48, 11 + bob), Offset(49, 22 + bob), Offset(16, 25 + fy)]);
+  pxPoly(c, light, [Offset(22, 9 + (fy + bob) / 2), Offset(30, 8 + bob), Offset(42, 9 + bob), Offset(30, 10 + bob)]);
+  // The red cloth on its back, with a gold band, tassels and a medallion
+  final cy = (fy + bob) / 2;
+  pxPoly(c, cloth, [Offset(21, 10 + cy), Offset(31, 8 + bob), Offset(42, 10 + bob), Offset(44, 23 + bob), Offset(19, 23 + fy)]);
+  pxRect(c, clothShade, 20, 21 + cy, 24, 2);
+  pxRect(c, gold, 20, 23 + cy, 25, 1);
+  pxRect(c, gold, 22, 15 + cy, 20, 1);
+  for (var i = 0; i < 5; i++) {
+    pxRect(c, gold, 21 + i * 5, 24 + cy, 1, 2);
+  }
+  pxOval(c, gold, 29, 13 + cy, 5, 5);
+  pxRect(c, clothShade, 31, 15 + cy, 1, 1);
+  // Near legs
+  leg(hide, 40 - st, 24 + bob, 38);
+  if (rear) {
+    leg(hide, 18, 23 + fy, 32 + fy, lean: -4);
+  } else {
+    leg(hide, 18 + st, 24 + fy, 38, lean: charge ? -2 : 0);
+  }
+  // A big ear behind the head, spread wide when it rears or stamps
+  final flare = stamp ? 2.0 : rear ? 1.0 : 0.0;
+  pxOval(c, shade, 14 + hx, 3 + fy - flare, 13 + flare, 19 + flare * 2);
+  pxOval(c, ear, 16 + hx, 6 + fy - flare, 8 + flare, 13 + flare * 2);
+  // Head, with a gold brow band and a red jewel
+  pxOval(c, hide, 3 + hx, 3 + fy, 17, 18);
+  pxOval(c, light, 6 + hx, 4 + fy, 9, 4);
+  pxRect(c, gold, 5 + hx, 6 + fy, 12, 1);
+  pxRect(c, cloth, 10 + hx, 5 + fy, 2, 2);
+  pxRect(c, dark, 7 + hx, 10 + fy, 4, 1);
+  pxRect(c, eye, 8 + hx, 11 + fy, 2, 1);
+  pxRect(c, crease, 13 + hx, 13 + fy, 1, 4);
+  // The trunk, tapering in rings: hanging, raised, tucked to charge, or swung out to stamp
+  // (raised, it curls up in front of the face, so the head steps back to make room)
+  final trunk = rear
+      ? const [Offset(5, 15), Offset(2.5, 11), Offset(2, 7), Offset(3, 4), Offset(5, 2.5)]
+      : charge
+          ? const [Offset(5, 20), Offset(5, 25), Offset(7, 29), Offset(10, 31)]
+          : stamp
+              ? const [Offset(6, 18), Offset(3, 22), Offset(1.5, 27), Offset(2, 32), Offset(4, 35)]
+              : [Offset(6, 18 + bob), Offset(4, 23 + bob), Offset(4, 28 + bob), Offset(5, 33), Offset(7, 35)];
+  final tx = rear ? 0.0 : hx;
+  for (var i = 0; i < trunk.length - 1; i++) {
+    for (var k = 0.0; k < 1; k += 0.25) {
+      final r = 3.2 - (i + k) * 0.4;
+      final p = Offset.lerp(trunk[i], trunk[i + 1], k)! + Offset(tx, 0);
+      pxOval(c, hide, p.dx - r, p.dy - r, r * 2, r * 2);
+    }
+  }
+  for (var i = 1; i < trunk.length - 1; i++) {
+    final r = 3.2 - i * 0.4;
+    final p = trunk[i] + Offset(tx, 0);
+    pxRect(c, crease, p.dx - r + 1, p.dy, r * 2 - 2, 1);
+  }
+  // Tusks curving forward past the trunk
+  final ty = rear ? fy - 3 : fy;
+  final reach = charge ? 3.0 : 0.0;
+  pxPoly(c, tusk, [Offset(8 + hx, 16 + ty), Offset(11 + hx, 17 + ty), Offset(4 + hx - reach, 23 + ty - reach), Offset(1 + hx - reach, 22 + ty - reach)]);
+}
+
 const _white = Color(0xffffffff);
 
 // All generated textures
 class Art {
   Art._();
 
-  late Sheet hero, demon, fly, ghoul, scorpion, manticore, lion, coin, heart, vase, bush, feather, sign, chest, altar, flame;
+  late Sheet hero, demon, fly, ghoul, scorpion, manticore, lion, elephant, coin, heart, vase, bush, feather, sign, chest, altar, flame;
   late Sheet px, xp, slash, tiles, wall, gate, gateGlow;
   late Sheet bgSky, bgClouds, bgMountains, bgHills;
 
@@ -472,6 +567,7 @@ class Art {
     a.scorpion = await outlinedSheet(18, 12, 3, _drawScorpion);
     a.manticore = await outlinedSheet(44, 32, 6, _drawManticore);
     a.lion = await pixelSheet([_lionF1, _lionF2], _lionPal);
+    a.elephant = await outlinedSheet(52, 40, 7, _drawElephant);
     a.coin = await pixelSheet([_coin], _coinPal);
     a.heart = await pixelSheet([_heart, _toEmpty(_heart, 5), _toEmpty(_heart, 0)], _heartPal);
     a.vase = await pixelSheet([_vase], _vasePal);

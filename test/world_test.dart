@@ -4,6 +4,7 @@ import 'package:meetra/game/meetra_game.dart';
 import 'package:meetra/config.dart';
 import 'package:meetra/levels/build.dart';
 import 'package:meetra/levels/generator.dart';
+import 'package:meetra/levels/level1.dart';
 import 'package:meetra/world/progress.dart';
 import 'package:meetra/world/world.dart';
 
@@ -80,6 +81,13 @@ void main() {
         expect(fromKey.contains(gate), isTrue, reason: '${l.id}: gate');
       }
     }
+  });
+
+  test('the White Elephant guards Hearthvale; the other realms keep the lion for now', () {
+    expect(levelFor(realms[0].boss).boss.kind, BossKind.elephant);
+    expect(levelFor(realms[0].boss).boss.name, 'The White Elephant');
+    expect(levelFor(realms[1].boss).boss.kind, BossKind.lion);
+    expect(level1.boss.kind, BossKind.lion);
   });
 
   test('levels are the same every time a place is generated', () {

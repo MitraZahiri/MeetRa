@@ -14,6 +14,7 @@ import '../art/sprites.dart';
 import '../art/sun_eye.dart';
 import '../config.dart';
 import '../entities/enemy.dart';
+import '../entities/elephant.dart';
 import '../entities/lion.dart';
 import '../entities/player.dart';
 import '../input.dart';
@@ -355,6 +356,11 @@ class MeetRaGame extends Game with KeyboardEvents {
     final l = lion;
     if (l != null && l.state != LionState.dead && l.state != LionState.stunned && !P.dead) {
       if (overlaps(pr, l.body.rect)) P.hurt(l.contactDamage, l.x);
+    }
+    if (l != null && !P.dead) {
+      for (final h in l.hazards) {
+        if (overlaps(pr, h)) P.hurt(1, h.center.dx);
+      }
     }
     if (l != null && l.state != LionState.dead) {
       for (final f in feathers) {
@@ -778,7 +784,11 @@ class MeetRaGame extends Game with KeyboardEvents {
       _spawnWave();
       return;
     }
-    lion = Lion(this, lionSpawn!.dx, lionSpawn!.dy, maxHp: def.boss.hp);
+    final at = lionSpawn!;
+    lion = switch (def.boss.kind) {
+      BossKind.elephant => Elephant(this, at.dx, at.dy, maxHp: def.boss.hp),
+      BossKind.lion => Lion(this, at.dx, at.dy, maxHp: def.boss.hp),
+    };
     ui.boss.value = def.boss;
   }
 
@@ -1216,7 +1226,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     for (final e in enemies) {
       if (e.shadowW > 0 && seen(e.x, e.y)) _shadow(c, e.x, e.y, e.shadowW);
     }
-    if (lion != null && lion!.state != LionState.dead) _shadow(c, lion!.x, lion!.y, 44);
+    if (lion != null && lion!.state != LionState.dead) _shadow(c, lion!.x, lion!.y, lion!.body.w + 4);
     // depth 6-7: feather pickup, coins, hearts
     final f = featherPickup;
     if (f != null) {
@@ -1258,7 +1268,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       paintSunDisc(c, at, 0.24);
       paintSunEye(c, at, 0.24, look: to / math.max(1.0, to.distance), open: sunBlink(_realT + 1.7));
     }
-    lion?.render(c, a.lion);
+    lion?.render(c, lion is Elephant ? a.elephant : a.lion);
     for (final o in orbs) {
       drawFrame(c, a.xp, 0, o.x, o.y, oy: 0.5, angle: o.t * 0.4);
     }

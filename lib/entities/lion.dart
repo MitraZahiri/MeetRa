@@ -12,8 +12,11 @@ enum LionState { intro, pace, telegraph, charge, pounce, stunned, dead }
 // The Reed Lion, boss of the First Trial.
 // Loop: prowl, then (roar and) charge or pounce. A charge into a wall stuns it: that is your opening.
 // Below half health it is enraged: faster, with double pounces.
+// Other bosses build on it: they keep its life, hurt and death, and bring their own moves.
 class Lion {
-  Lion(this.game, double x, double y, {this.maxHp = 30}) : body = Body(x, y, 40, 21);
+  Lion(this.game, double x, double y, {this.maxHp = 30, double w = 40, double h = 21, List<int> walk = const [0, 1], this.scale = 1.25})
+      : body = Body(x, y, w, h),
+        _walk = Anim(walk, 6);
 
   final MeetRaGame game;
   final Body body;
@@ -28,10 +31,11 @@ class Lion {
   LionState _next = LionState.charge;
 
   // Visual state
-  final _walk = Anim([0, 1], 6);
-  int _frame = 0;
+  final Anim _walk;
+  int frame = 0;
   bool _animating = false;
-  double scaleX = 1.25, scaleY = 1.25;
+  final double scale;
+  late double scaleX = scale, scaleY = scale;
   double angle = 0;
   int? tint;
   double _flash = 0;
@@ -49,27 +53,36 @@ class Lion {
     timer = t;
   }
 
-  void _play(double timeScale) {
+  void play(double timeScale) {
     _animating = true;
     _walk.timeScale = timeScale;
   }
 
-  void _stop([int? frame]) {
+  void stop([int? f]) {
     _animating = false;
-    if (frame != null) _frame = frame;
+    if (f != null) frame = f;
   }
+
+  // Hazards it leaves behind, such as shockwaves along the ground
+  Iterable<Rect> get hazards => const [];
 
   void update(double time, double dt) {
     _t += dt / 1000;
     _flash = math.max(0, _flash - dt);
     if (_animating) {
       _walk.update(dt);
-      _frame = _walk.frame;
+      frame = _walk.frame;
     }
     if (state == LionState.dead) {
       _updateDeath(dt);
       return;
     }
+    think(time, dt);
+    _steam();
+  }
+
+  // Its moves, one state at a time
+  void think(double time, double dt) {
     final p = game.player;
     final b = body;
     final onGround = b.blockedDown;
@@ -87,7 +100,7 @@ class Lion {
       case LionState.pace:
         faceP();
         b.vx = facing * (enraged ? 75 : 50);
-        _play(1);
+        play(1);
         if (timer <= 0) {
           final pounce = rand.nextDouble() < (enraged ? 0.5 : 0.4);
           _next = pounce ? LionState.pounce : LionState.charge;
@@ -100,7 +113,7 @@ class Lion {
       case LionState.telegraph:
         faceP();
         b.vx = 0;
-        _stop();
+        stop();
         scaleX = 1.3; // crouch
         scaleY = 1.15;
         tint = (time / 70).floor() % 2 == 1 ? 0xffff8060 : null;
@@ -117,7 +130,7 @@ class Lion {
 
       case LionState.charge:
         b.vx = facing * (enraged ? 290 : 240);
-        _play(2.5);
+        play(2.5);
         _dustT -= dt;
         if (_dustT <= 0) {
           _dustT = 45;
@@ -160,7 +173,7 @@ class Lion {
 
       case LionState.stunned:
         if (onGround) b.vx *= 0.9;
-        _stop(0);
+        stop(0);
         angle = math.sin(time / 50) * 3;
         if (timer <= 0) {
           angle = 0;
@@ -170,7 +183,6 @@ class Lion {
       case LionState.dead:
         break;
     }
-    _steam();
   }
 
   void doPounce(double px) {
@@ -179,7 +191,7 @@ class Lion {
     body
       ..vy = -340
       ..vx = ((px - x) * 1.5).clamp(-220, 220);
-    _stop(1);
+    stop(1);
     setState(LionState.pounce, 150);
   }
 
@@ -188,7 +200,7 @@ class Lion {
     final real = state == LionState.stunned ? (dmg * 1.5).ceil() : dmg;
     hp = math.max(0, hp - real);
     _flash = 70;
-    game.floatText(x, y - 32, '$real', Color(state == LionState.stunned ? 0xffff9a5a : 0xffffe28a));
+    game.floatText(x, y - body.h - 11, '$real', Color(state == LionState.stunned ? 0xffff9a5a : 0xffffe28a));
     game.ui.bossFrac.value = hp / maxHp;
     game.particles.spark(x, y - 14, size: 14);
     game.camera.flash(0xffffffff, 0.08, 120);
@@ -208,7 +220,7 @@ class Lion {
   void die() {
     state = LionState.dead;
     body.enabled = false;
-    _stop();
+    stop();
     tint = null;
     sfx.roar();
     game.camera.shake(800, 0.01);
@@ -230,17 +242,22 @@ class Lion {
   }
 
   // While enraged, hot breath puffs from its nose
+  Offset get nose => Offset(x + facing * 22, y - 18);
+
   void _steam() {
     if (enraged && state != LionState.dead && rand.nextDouble() < 0.08) {
-      game.particles.dust(x + facing * 22, y - 18, count: 1, dir: facing.toDouble(), spread: 4, color: 0xffffb090);
+      game.particles.dust(nose.dx, nose.dy, count: 1, dir: facing.toDouble(), spread: 4, color: 0xffffb090);
     }
   }
+
+  bool get facesLeft => false; // which way the art is drawn
+  bool get flashing => _flash > 0;
 
   void render(Canvas c, Sheet sheet) {
     // Slow breathing while it prowls
     final breath = state == LionState.pace || state == LionState.intro ? math.sin(_t * 4) * 0.02 : 0.0;
-    drawFrame(c, sheet, _frame, x.roundToDouble(), y.roundToDouble(),
-      flipX: facing < 0,
+    drawFrame(c, sheet, frame, x.roundToDouble(), y.roundToDouble(),
+      flipX: facesLeft ? facing > 0 : facing < 0,
       scaleX: scaleX - breath,
       scaleY: scaleY + breath,
       angle: angle,
