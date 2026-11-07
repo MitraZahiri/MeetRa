@@ -182,6 +182,8 @@ class Sfx {
     try {
       final dir = await getTemporaryDirectory();
       final lowLatency = Platform.isAndroid;
+      // Effects mix with the music instead of taking the audio focus from it
+      final mix = AudioContextConfig(focus: AudioContextConfigFocus.mixWithOthers).build();
       // Synthesising every effect takes a while, so it runs off the UI thread
       final waves = await Isolate.run(() => {for (final e in _effects.entries) e.key: _render(e.value)});
       for (final e in _effects.entries) {
@@ -192,7 +194,12 @@ class Sfx {
         for (var i = 0; i < (e.key == 'coin' || e.key == 'hit' ? 4 : 2); i++) {
           final p = AudioPlayer();
           if (lowLatency) await p.setPlayerMode(PlayerMode.lowLatency);
+          await p.setAudioContext(mix);
           await p.setReleaseMode(ReleaseMode.stop);
+          // The source is set once: play(source) would load it again on every call, and in
+          // low-latency mode each of those waits for a 'prepared' event that never comes,
+          // piling up until the game slows to a crawl after a few minutes
+          await p.setSource(_sources[e.key]!);
           pool.add(p);
         }
         _pools[e.key] = pool;
@@ -207,7 +214,8 @@ class Sfx {
     if (!_ready || !enabled) return;
     final pool = _pools[name]!;
     final i = _next[name] = ((_next[name] ?? -1) + 1) % pool.length;
-    pool[i].play(_sources[name]!).catchError((_) {});
+    final p = pool[i];
+    p.stop().then((_) => p.resume()).catchError((_) {});
   }
 
   void jump() => _play('jump');
