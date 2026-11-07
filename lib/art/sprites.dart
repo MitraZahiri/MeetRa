@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import '../world/world.dart';
 import 'pixel.dart';
 import 'sun_eye.dart';
 
@@ -549,7 +550,8 @@ class Art {
   Art._();
 
   late Sheet hero, demon, fly, ghoul, scorpion, manticore, lion, elephant, coin, heart, vase, bush, feather, sign, chest, altar, flame;
-  late Sheet px, xp, slash, tiles, wall, gate, gateGlow;
+  late Sheet px, xp, slash, wall, gate, gateGlow;
+  late Map<RealmTheme, Sheet> tiles; // each realm has its own ground
   late Sheet bgSky, bgClouds, bgMountains, bgHills;
 
   static Future<Art> generate() async {
@@ -593,7 +595,7 @@ class Art {
       c.drawArc(Rect.fromCircle(center: const Offset(5, 13), radius: 13), -1.0, 2.0, false, inner);
     });
 
-    a.tiles = await _drawTiles();
+    a.tiles = {for (final t in RealmTheme.values) t: await _drawTiles(_grounds[t]!)};
     a.wall = await _drawWall();
     a.gate = await _drawGate();
     a.gateGlow = await _drawGateGlow();
@@ -602,29 +604,51 @@ class Art {
   }
 }
 
-Future<Sheet> _drawTiles() => canvasTexture(16 * 5, 16, (c, w, h) {
+// The ground of a realm: the top layer (deep, mid, bright, under-shadow), the earth below
+// (base, dark, light, pebble) and the specks of flowers on top
+class _Ground {
+  const _Ground(this.top, this.earth, [this.flowers = const []]);
+  final List<String> top;
+  final List<String> earth;
+  final List<String> flowers;
+}
+
+const _grounds = {
+  RealmTheme.vale: _Ground(['#3f7a34', '#5aa04a', '#8ad06a', '#2a5424'], ['#6b4a2e', '#5a3c24', '#7d5836', '#8a6a4a'], ['#e85a7a', '#f0d060']),
+  RealmTheme.city: _Ground(['#3a6e34', '#5a9446', '#86c46a', '#284c24'], ['#6a5038', '#584230', '#7c6044', '#9a8064'], ['#f0d060']),
+  RealmTheme.desert: _Ground(['#a07a38', '#d8b060', '#f0d890', '#7a5a2a'], ['#b08048', '#946a38', '#c89a5a', '#d8b070']),
+  RealmTheme.mountain: _Ground(['#9ab8c8', '#dcecf4', '#ffffff', '#6a8898'], ['#5a6070', '#4a5060', '#6e7484', '#8a90a0']),
+  RealmTheme.steppe: _Ground(['#8a7a30', '#c0a040', '#e0cc70', '#5e5222'], ['#7a4a30', '#643c26', '#8c5a3a', '#a07050'], ['#d83a3a']),
+  RealmTheme.coast: _Ground(['#4a8a5a', '#6ab07a', '#a0d890', '#2e6a42'], ['#a89878', '#8a7a60', '#c0b090', '#e0d8c0'], ['#ffffff', '#8ae0d8']),
+  RealmTheme.dark: _Ground(['#3a3648', '#4a4658', '#6a6478', '#24202e'], ['#2a2430', '#201a26', '#36303e', '#4a4458']),
+};
+
+Future<Sheet> _drawTiles(_Ground g) => canvasTexture(16 * 5, 16, (c, w, h) {
       final r = rng(7);
+      final top = g.top.map(hex).toList();
+      final earth = g.earth.map(hex).toList();
       void dirt(double ox) {
-        _rect(c, hex('#6b4a2e'), ox, 0, 16, 16);
+        _rect(c, earth[0], ox, 0, 16, 16);
         for (var i = 0; i < 16; i++) {
-          final col = r() < 0.5 ? hex('#5a3c24') : hex('#7d5836');
+          final col = r() < 0.5 ? earth[1] : earth[2];
           _rect(c, col, ox + (r() * 15).floor(), (r() * 15).floorToDouble(), 2, 1);
         }
-        _rect(c, hex('#8a6a4a'), ox + 3, 10, 2, 2);
-        _rect(c, hex('#8a6a4a'), ox + 11, 4, 2, 1);
+        _rect(c, earth[3], ox + 3, 10, 2, 2);
+        _rect(c, earth[3], ox + 11, 4, 2, 1);
       }
 
-      // 0: grass
+      // 0: grass (or sand, snow, ash: the top of the realm's ground)
       dirt(0);
-      _rect(c, hex('#3f7a34'), 0, 0, 16, 5);
-      _rect(c, hex('#5aa04a'), 0, 0, 16, 3);
-      _rect(c, hex('#8ad06a'), 0, 0, 16, 1);
+      _rect(c, top[0], 0, 0, 16, 5);
+      _rect(c, top[1], 0, 0, 16, 3);
+      _rect(c, top[2], 0, 0, 16, 1);
       for (var x = 0; x < 16; x += 2) {
-        _rect(c, hex('#3f7a34'), x.toDouble(), 5, 1, x % 4 == 0 ? 2 : 1);
-        _rect(c, hex('#2a5424'), x + 1.0, 5, 1, 1);
+        _rect(c, top[0], x.toDouble(), 5, 1, x % 4 == 0 ? 2 : 1);
+        _rect(c, top[3], x + 1.0, 5, 1, 1);
       }
-      _rect(c, hex('#e85a7a'), 4, 1, 1, 1);
-      _rect(c, hex('#f0d060'), 11, 1, 1, 1);
+      for (final (i, f) in g.flowers.indexed) {
+        _rect(c, hex(f), 4.0 + i * 7, 1, 1, 1);
+      }
       // 1: dirt
       dirt(16);
       // 2: one-way platform (wooden beam, gold trim)
@@ -658,7 +682,7 @@ Future<Sheet> _drawTiles() => canvasTexture(16 * 5, 16, (c, w, h) {
         _rect(c, hex('#7a3a3a'), bx, 9, 1, 1);
         _rect(c, hex('#7a3a3a'), bx + 3, 12, 1, 1);
       }
-      _rect(c, hex('#2a5424'), 64, 13, 16, 3);
+      _rect(c, top[3], 64, 13, 16, 3);
     }, frames: 5);
 
 Future<Sheet> _drawWall() => canvasTexture(16, 224, (c, w, h) {

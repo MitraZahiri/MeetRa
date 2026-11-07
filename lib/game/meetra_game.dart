@@ -232,11 +232,12 @@ class MeetRaGame extends Game with KeyboardEvents {
     final rec = dui.PictureRecorder();
     final c = Canvas(rec);
     final p = Paint()..filterQuality = FilterQuality.none;
+    final tiles = art.tiles[location?.realm.theme ?? RealmTheme.vale]!;
     for (var ty = 0; ty < level.rows; ty++) {
       for (var tx = 0; tx < level.cols; tx++) {
         final t = level.data[ty][tx];
         if (t < 0) continue;
-        c.drawImageRect(art.tiles.image, art.tiles.src(t), Rect.fromLTWH(tx * tile, ty * tile, tile, tile), p);
+        c.drawImageRect(tiles.image, tiles.src(t), Rect.fromLTWH(tx * tile, ty * tile, tile, tile), p);
       }
     }
     return rec.endRecording().toImageSync(level.width.toInt(), level.height.toInt());
