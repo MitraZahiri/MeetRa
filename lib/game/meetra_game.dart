@@ -141,7 +141,8 @@ class MeetRaGame extends Game with KeyboardEvents {
   late Level level;
   late Physics physics;
   late Player player;
-  late dui.Image _map;
+  dui.Image? _mapImage;
+  dui.Image get _map => _mapImage!;
   late Ambience ambience;
 
   final camera = Camera();
@@ -223,7 +224,9 @@ class MeetRaGame extends Game with KeyboardEvents {
     camera
       ..bounds = Rect.fromLTWH(0, 0, level.width, level.height)
       ..fade = 0;
-    _map = _renderMap();
+    // The old level's map image is freed at once instead of waiting for the garbage collector
+    _mapImage?.dispose();
+    _mapImage = _renderMap();
     _spawnObjects();
   }
 
@@ -574,7 +577,11 @@ class MeetRaGame extends Game with KeyboardEvents {
     for (final t in texts) {
       t.t += dt;
     }
-    texts.removeWhere((t) => t.t >= t.duration);
+    texts.removeWhere((t) {
+      if (t.t < t.duration) return false;
+      t.dispose();
+      return true;
+    });
     for (final f in feathers) {
       f.age += dt;
       f.trailT += dt;

@@ -191,6 +191,11 @@ class FloatText {
   final TextPainter painter, fill;
   double t = 0;
 
+  void dispose() {
+    painter.dispose();
+    fill.dispose();
+  }
+
   void render(Canvas c) {
     final k = (t / duration).clamp(0.0, 1.0);
     // Pop in big, settle, then rise with an ease-out and fade in the last third
