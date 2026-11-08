@@ -3,7 +3,6 @@ import 'dart:ui';
 
 import '../world/world.dart';
 import 'pixel.dart';
-import 'sun_eye.dart';
 
 // Placeholder art for the prototype. Final hand-drawn sprites arrive in M1.
 
@@ -552,7 +551,6 @@ class Art {
   late Sheet hero, demon, fly, ghoul, scorpion, manticore, lion, elephant, coin, heart, vase, bush, feather, sign, chest, altar, flame;
   late Sheet px, xp, slash, wall, gate, gateGlow;
   late Map<RealmTheme, Sheet> tiles; // each realm has its own ground
-  late Sheet bgSky, bgClouds, bgMountains, bgHills;
 
   static Future<Art> generate() async {
     final a = Art._();
@@ -599,7 +597,6 @@ class Art {
     a.wall = await _drawWall();
     a.gate = await _drawGate();
     a.gateGlow = await _drawGateGlow();
-    await _drawBackgrounds(a);
     return a;
   }
 }
@@ -750,153 +747,3 @@ Future<Sheet> _drawGateGlow() => canvasTexture(20, 44, (c, w, h) {
         paint,
       );
     });
-
-Future<void> _drawBackgrounds(Art a) async {
-  const iw = 480;
-  const ih = 270;
-
-  a.bgSky = await canvasTexture(iw, ih, (c, W, H) {
-    c.drawRect(
-      Rect.fromLTWH(0, 0, W, H),
-      Paint()
-        ..shader = Gradient.linear(
-          Offset.zero,
-          Offset(0, H),
-          [hex('#16225a'), hex('#3a5aa8'), hex('#e9c98f'), hex('#f2e0b0')],
-          const [0, 0.45, 0.8, 1],
-        ),
-    );
-    final r = rng(3);
-    for (var i = 0; i < 40; i++) {
-      _rect(c, const Color.fromRGBO(255, 245, 210, 0.8), (r() * W).floorToDouble(), (r() * 90).floorToDouble(), 1, 1);
-    }
-    // The ornamental golden sun; its eye is drawn live over it, so it can follow Ra
-    paintSunDisc(c, const Offset(360, 80), 1);
-  });
-
-  // Curly ribbon clouds
-  a.bgClouds = await canvasTexture(iw, ih, (c, W, H) {
-    final r = rng(11);
-    final fill = Paint()..color = hex('#f2e6c9');
-    final line = _stroke(hex('#d4a845'), 1);
-    void cloud(double x, double y, double s) {
-      for (final dx in [-W, 0.0, W]) {
-        const blobs = [[0.0, 0.0, 8.0], [10.0, -4.0, 10.0], [22.0, 0.0, 8.0], [14.0, 4.0, 7.0], [-8.0, 3.0, 6.0]];
-        for (final b in blobs) {
-          final o = Offset(x + dx + b[0] * s, y + b[1] * s);
-          c.drawCircle(o, b[2] * s, fill);
-          c.drawCircle(o, b[2] * s, line);
-        }
-        for (final b in blobs) {
-          c.drawCircle(Offset(x + dx + b[0] * s, y + b[1] * s), b[2] * s - 1, fill);
-        }
-        c.drawArc(Rect.fromCircle(center: Offset(x + dx + 10 * s, y - 4 * s), radius: 4 * s), 0, math.pi * 1.5, false, line);
-        c.drawPath(
-          Path()
-            ..moveTo(x + dx + 26 * s, y)
-            ..quadraticBezierTo(x + dx + 36 * s, y + 6 * s, x + dx + 44 * s, y),
-          line,
-        );
-      }
-    }
-
-    for (var i = 0; i < 6; i++) {
-      cloud(i * 80 + r() * 30, 30 + r() * 70, 0.7 + r() * 0.5);
-    }
-  });
-
-  // Rocks as the old miniatures paint them: domes of stone nested inside each other,
-  // each layer paler than the one below, with a dark contour and scalloped tops
-  a.bgMountains = await canvasTexture(iw, ih, (c, W, H) {
-    final r = rng(21);
-    void layer(double cx, double base, double w, double h, Color fill, Color edge, Color light) {
-      for (final dx in [-W, 0.0, W]) {
-        final x0 = cx + dx;
-        double top(double x) => base - h * math.pow(math.max(0.0, 1 - math.pow((x - x0) / w, 2)), 0.6);
-        final p = Path()..moveTo(x0 - w, base);
-        const bump = 9.0;
-        for (var x = x0 - w; x < x0 + w - 0.1; x += bump) {
-          final nx = math.min(x0 + w, x + bump);
-          p.quadraticBezierTo((x + nx) / 2, math.min(top(x), top(nx)) - bump * 0.55, nx, top(nx));
-        }
-        p.close();
-        c.drawPath(p, Paint()..color = fill);
-        c.drawPath(p, _stroke(edge, 1.2));
-        // A pale rim on the sunlit left of each dome
-        c.save();
-        c.clipPath(p);
-        c.drawPath(p.shift(const Offset(2, 2)), _stroke(light, 1.5));
-        c.restore();
-      }
-    }
-
-    void rock(double cx, double base, double w, double h, List<String> pal) {
-      for (var k = 0; k < 4; k++) {
-        layer(cx + (k.isEven ? -1 : 1) * w * 0.08 * k, base + k * 2, w * (1 - 0.2 * k), h * (1 - 0.22 * k),
-            hex(pal[k]), hex(pal[4]), hex(pal[5]));
-      }
-    }
-
-    const far = ['#7a6aa8', '#8a7ab8', '#9a8cc6', '#ac9ed2', '#4a3a6a', '#c8bce8'];
-    const near = ['#a8708a', '#b8829a', '#c896aa', '#d8aabb', '#5a2e48', '#f0d0dc'];
-    const ochre = ['#a8804a', '#ba9458', '#cca86a', '#dcbc80', '#5a3e1e', '#f4dca8'];
-    for (var i = 0; i < 6; i++) {
-      rock(i * 80 + r() * 30, 250, 34 + r() * 20, 95 + r() * 40, far);
-    }
-    for (var i = 0; i < 5; i++) {
-      rock(i * 96 + 40 + r() * 30, 262, 30 + r() * 18, 70 + r() * 30, i.isEven ? near : ochre);
-    }
-  });
-
-  // Turquoise hills and cypress trees
-  a.bgHills = await canvasTexture(iw, ih, (c, W, H) {
-    final r = rng(33);
-    void hill(String color, double base, double amp, double freq, double phase) {
-      final p = Path()..moveTo(0, H);
-      for (var x = 0.0; x <= W; x += 4) {
-        p.lineTo(x, base - math.sin((x / W) * math.pi * 2 * freq + phase) * amp);
-      }
-      p
-        ..lineTo(W, H)
-        ..close();
-      c.drawPath(p, Paint()..color = hex(color));
-    }
-
-    hill('#2b8a78', 205, 14, 2, 0.5);
-    void cypress(double x, double y, double hgt) {
-      for (final dx in [-W, 0.0, W]) {
-        c.drawOval(Rect.fromCenter(center: Offset(x + dx, y - hgt / 2), width: 8, height: hgt), Paint()..color = hex('#1a4a3a'));
-        c.drawOval(Rect.fromCenter(center: Offset(x + dx - 1, y - hgt / 2), width: 4, height: hgt - 4), Paint()..color = hex('#245e4a'));
-      }
-    }
-
-    for (var i = 0; i < 9; i++) {
-      final x = i * 53 + r() * 20;
-      cypress(x, 212 - math.sin((x / W) * math.pi * 4 + 0.5) * 14, 22 + r() * 16);
-    }
-    // Plane trees with round crowns and slim poplars between the cypresses
-    void plane(double x, double y, double s) {
-      for (final dx in [-W, 0.0, W]) {
-        c.drawRect(Rect.fromLTWH(x + dx - 1, y - 8 * s, 2, 8 * s), Paint()..color = hex('#3a2a1a'));
-        for (final (ox, oy, rr) in [(0.0, -14.0, 7.0), (-6.0, -10.0, 5.0), (6.0, -10.0, 5.0), (0.0, -19.0, 5.0)]) {
-          c.drawCircle(Offset(x + dx + ox * s, y + oy * s), rr * s, Paint()..color = hex('#2f6e3e'));
-        }
-        c.drawCircle(Offset(x + dx - 2 * s, y - 16 * s), 3 * s, Paint()..color = hex('#4a9a52'));
-      }
-    }
-
-    void poplar(double x, double y, double hgt) {
-      for (final dx in [-W, 0.0, W]) {
-        c.drawOval(Rect.fromCenter(center: Offset(x + dx, y - hgt / 2), width: 5, height: hgt), Paint()..color = hex('#5a8a3a'));
-        c.drawOval(Rect.fromCenter(center: Offset(x + dx - 1, y - hgt / 2 - 1), width: 2, height: hgt - 6), Paint()..color = hex('#8ab85a'));
-      }
-    }
-
-    for (var i = 0; i < 6; i++) {
-      final x = i * 80 + 30 + r() * 30;
-      final y = 220 - math.sin((x / W) * math.pi * 4 + 0.5) * 6;
-      r() < 0.5 ? plane(x, y, 0.9 + r() * 0.3) : poplar(x, y, 26 + r() * 10);
-    }
-    hill('#1f6a5c', 228, 8, 3, 1.7);
-  });
-}

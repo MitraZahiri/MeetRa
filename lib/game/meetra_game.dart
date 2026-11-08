@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart' show KeyEventResult;
 import 'package:flame/input.dart' show KeyboardEvents;
 
 import '../art/pixel.dart';
+import '../art/backdrops.dart' show Backdrop, backdropParallax, backdropScale, paintBackdrop;
 import '../art/sprites.dart';
 import '../art/sun_eye.dart';
 import '../config.dart';
@@ -22,6 +23,7 @@ import '../music.dart';
 import '../levels/build.dart';
 import '../levels/generator.dart';
 import '../levels/level1.dart';
+import '../levels/rooms.dart' show roomH;
 import '../sfx.dart';
 import '../world/progress.dart';
 import '../world/world.dart';
@@ -144,6 +146,10 @@ class MeetRaGame extends Game with KeyboardEvents {
   dui.Image? _mapImage;
   dui.Image get _map => _mapImage!;
   late Ambience ambience;
+  Backdrop? _backdrop; // the painted scenery of the realm being played
+  RealmTheme? _backdropTheme;
+  bool _backdropCave = false;
+  Backdrop? _underground; // fades in below the surface rooms, painted the first time it is needed
 
   final camera = Camera();
   final timers = Timers();
@@ -227,7 +233,22 @@ class MeetRaGame extends Game with KeyboardEvents {
     // The old level's map image is freed at once instead of waiting for the garbage collector
     _mapImage?.dispose();
     _mapImage = _renderMap();
+    _backdropCave = location?.kind == LocKind.cave;
+    _paintBackdrops();
     _spawnObjects();
+  }
+
+  // Caves show the underground all the way; other places their realm's scenery.
+  // Only the backdrop in use is kept, so a new realm repaints and frees the last one.
+  void _paintBackdrops() {
+    final theme = location?.realm.theme ?? RealmTheme.vale;
+    final cave = location?.kind == LocKind.cave;
+    if (cave || def.sealed) _underground ??= paintBackdrop(null);
+    if (cave) return;
+    if (_backdrop != null && theme == _backdropTheme) return;
+    _backdrop?.dispose();
+    _backdrop = paintBackdrop(theme);
+    _backdropTheme = theme;
   }
 
   // The whole tilemap is drawn once into one image, so tiles never show seams when scaled
@@ -1104,36 +1125,47 @@ class MeetRaGame extends Game with KeyboardEvents {
   // Parallax layers: each one scrolls at its own fraction of the camera's speed
   void _renderBackground(Canvas c, double z) {
     final viewH = size.y / z;
-    // However tall the level, the backdrop scrolls only its own height, top to bottom
-    final travel = math.max(1.0, level.height - viewH);
+    // However tall the level, the backdrop scrolls only its own height, top to bottom.
+    // In a level of rooms the scenery belongs to the surface row, so it shows its horizon there.
+    final travel = math.max(1.0, (def.sealed ? tile * roomH : level.height) - viewH);
     final double y = (camera.scrollY / travel).clamp(0.0, 1.0) * math.max(0.0, 270 - viewH);
     final rect = Offset.zero & Size(size.x, size.y);
-    final layers = [(art.bgSky, 0.0), (art.bgClouds, 0.06), (art.bgMountains, 0.15), (art.bgHills, 0.35)];
-    for (var i = 0; i < layers.length; i++) {
-      final (sheet, factor) = layers[i];
-      final tx = camera.scrollX * factor + (factor > 0 && factor < 0.1 ? _drift : 0.0);
-      final m = Matrix4.identity()
-        ..scale(z, z)
-        ..translate(-tx, -y);
-      final paint = Paint()
-        ..shader = ImageShader(sheet.image, TileMode.repeated, TileMode.repeated, m.storage, filterQuality: FilterQuality.none);
-      c.drawRect(rect, paint);
-      // Sun rays fan out from the painted sun, behind the clouds and mountains
-      if (i == 0) {
+    // Below the surface rooms the underground fades in over the realm's scenery
+    final depth = _backdropCave
+        ? 1.0
+        : def.sealed
+            ? ((camera.scrollY + viewH / 2 - tile * 11) / (tile * 11)).clamp(0.0, 1.0)
+            : 0.0;
+    final dark = location?.realm.theme == RealmTheme.dark;
+    if (depth < 1) {
+      _drawBackdrop(c, z, y, rect, _backdrop!, 1, sky: () {
+        // Sun rays and the Eye of Ra over the painted sun; the Lightless Land has no sun
+        if (dark) return;
         final sun = Offset(360 * z, (80 - y) * z);
         paintSunRays(c, sun, z, _realT, ambience.rays, ambience.rayColor);
         _paintWatcher(c, sun, z);
-      }
+      });
     }
-    // Each realm washes the sky in its own color; the Lightless Land is almost dark
-    final tint = def.skyTint;
-    if (tint != null) {
-      final dark = location?.realm.theme == RealmTheme.dark;
-      c.drawRect(rect, Paint()..color = Color(tint).withValues(alpha: dark ? 0.7 : 0.22));
+    if (depth > 0) _drawBackdrop(c, z, y, rect, _underground!, depth);
+  }
+
+  void _drawBackdrop(Canvas c, double z, double y, Rect rect, Backdrop b, double alpha, {void Function()? sky}) {
+    for (final (i, image) in b.layers.indexed) {
+      final factor = backdropParallax[i];
+      // The cloud layer drifts on its own as well
+      final tx = camera.scrollX * factor + (i == 1 ? _drift : 0.0);
+      final m = Matrix4.identity()
+        ..scale(z, z)
+        ..translate(-tx, -y)
+        ..scale(1 / backdropScale, 1 / backdropScale);
+      c.drawRect(
+        rect,
+        Paint()
+          ..color = Color.fromRGBO(0, 0, 0, alpha)
+          ..shader = ImageShader(image, TileMode.repeated, TileMode.clamp, m.storage, filterQuality: FilterQuality.low),
+      );
+      if (i == 0) sky?.call();
     }
-    // Below the surface rooms the sky gives way to the dark of the earth
-    final depth = ((camera.scrollY + viewH / 2 - tile * 11) / (tile * 11)).clamp(0.0, 1.0);
-    if (def.sealed && depth > 0) c.drawRect(rect, Paint()..color = Color.fromRGBO(30, 20, 18, 0.88 * depth));
   }
 
   double _eyeOpen = 1;

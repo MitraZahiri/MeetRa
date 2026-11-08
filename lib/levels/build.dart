@@ -33,7 +33,6 @@ class LevelDef {
     required this.signs,
     required this.boss,
     this.enemyBonus = 0,
-    this.skyTint,
     this.sealed = false,
   });
 
@@ -45,7 +44,6 @@ class LevelDef {
   final List<String> signs;
   final BossDef boss;
   final int enemyBonus; // extra health for every enemy in later realms
-  final int? skyTint; // ARGB wash over the background, per realm
   final bool sealed; // the exit gate stays shut until Ra finds the Sun Key
 }
 

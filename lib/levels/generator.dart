@@ -176,7 +176,6 @@ LevelDef levelFor(Location loc) {
       signs: [loc.desc, 'The gate is sealed by the sun. Find the Sun Key hidden somewhere in this place.'],
       boss: const BossDef('', ''),
       enemyBonus: tier,
-      skyTint: r.color,
       sealed: true,
     );
   }
@@ -219,6 +218,5 @@ LevelDef levelFor(Location loc) {
     signs: [loc.desc],
     boss: boss,
     enemyBonus: tier,
-    skyTint: r.color,
   );
 }

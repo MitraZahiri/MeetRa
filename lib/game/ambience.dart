@@ -295,7 +295,8 @@ class Ambience {
   // Darkness with holes cut by lights (caves, the Lightless Land), then a soft glow for every light
   void renderLights(Canvas c, Rect view, List<Light> lights) {
     if (dark) {
-      final shade = theme == RealmTheme.dark ? 0.86 : 0.7;
+      // The moon lights the Lightless Land a little; the painted moonlit waste shows through
+      final shade = theme == RealmTheme.dark && !cave ? 0.6 : 0.7;
       c.saveLayer(view, Paint());
       c.drawRect(view, Paint()..color = Color.fromRGBO(8, 6, 18, shade));
       final cut = Paint()..blendMode = BlendMode.dstOut;
