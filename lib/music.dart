@@ -1,7 +1,8 @@
 // Procedural background music, rendered once at startup in a background isolate.
 //
-// - Exploring: a calm santur melody in the mode of Shur (with its quarter-flat second),
-//   a drone and a soft daf (frame drum) in 6/8.
+// - Exploring: a composed, wandering-hero tune in the bright mode of Mahur. A ney (reed flute)
+//   sings the melody over rippling santur arpeggios, plucked bass and a light daf in 6/8;
+//   in the middle section the santur joins the ney an octave up.
 // - Boss: a faster, darker theme in a Chahargah-like mode over a pounding daf ostinato.
 // Plucked strings are Karplus-Strong; every note's tail wraps around so the loop is seamless.
 
@@ -93,6 +94,25 @@ class _Mix {
     }
   }
 
+  // Ney: a breathy reed flute. A soft attack, vibrato that blooms as the note is held,
+  // a touch of overblown second harmonic and a little air noise.
+  void ney(double t, double freq, double vol, double dur, math.Random r) {
+    final start = (t * _sr).round();
+    final n = (dur * _sr).round();
+    final attack = 0.07 * _sr, release = math.min(0.18 * _sr, n * 0.4);
+    var phase = 0.0, air = 0.0;
+    for (var i = 0; i < n; i++) {
+      final sec = i / _sr;
+      final env = math.min(1.0, i / attack) * math.min(1.0, (n - i) / release);
+      final vib = 1 + 0.006 * math.min(1.0, sec / 0.45) * math.sin(2 * math.pi * 5.2 * sec);
+      phase += freq * vib / _sr;
+      final p = phase * 2 * math.pi;
+      air = air * 0.7 + (r.nextDouble() * 2 - 1) * 0.3;
+      final tone = math.sin(p) + 0.22 * math.sin(2 * p) + 0.06 * math.sin(3 * p);
+      add(start + i, (tone + air * 0.18) * vol * env);
+    }
+  }
+
   // A soft drone on the tonic and fifth that breathes slowly
   void drone(List<double> freqs, double vol, double breath) {
     final phases = List.filled(freqs.length, 0.0);
@@ -173,40 +193,96 @@ List<(int, int)> _melody(math.Random r, int bars, int scaleLen, List<int> cadenc
   return notes;
 }
 
-Uint8List _renderExplore() {
-  const eighth = 0.25;
-  const bars = 16;
-  final m = _Mix(bars * 6 * eighth);
-  final r = math.Random(7);
-  // Shur on D: D, E (quarter flat), F, G, A, Bb, C, D, E(qf), F
-  final scale = [_hz(0), _hz(2, -0.5), _hz(3), _hz(5), _hz(7), _hz(8), _hz(10), _hz(12), _hz(14, -0.5), _hz(15)];
-  m.drone([_hz(-24), _hz(-17), _hz(-12)], 0.05, 2);
+// Mahur on D, two octaves of scale degrees: D E F# G A B C# D E F# G A
+double _mahur(int deg) {
+  const steps = [0, 2, 4, 5, 7, 9, 11];
+  final oct = deg >= 0 ? deg ~/ 7 : -((-deg + 6) ~/ 7);
+  return _hz(steps[deg - oct * 7] + 12 * oct);
+}
 
-  var t = 0.0;
-  for (final (deg, len) in _melody(r, bars, scale.length, [2, 0, 4, 0])) {
-    final d = len * eighth;
-    if (len >= 3 && r.nextDouble() < 0.55) {
-      m.tremolo(t, scale[deg], 0.28, d, r);
-    } else {
-      m.pluck(t, scale[deg], 0.42, dur: math.max(0.9, d + 0.6), r: r);
-      // Grace note from below now and then
-      if (len >= 2 && deg > 0 && r.nextDouble() < 0.25) m.pluck(t - 0.06, scale[deg - 1], 0.18, dur: 0.3, r: r);
+// The exploring tune, bar by bar in 6/8: (scale degree, length in eighths), each bar six eighths.
+// A: a rising call that answers itself. B: the tune climbs high, then walks home.
+const _callA = [
+  [(4, 3), (5, 1), (4, 1), (3, 1)],
+  [(2, 2), (3, 1), (4, 3)],
+  [(7, 3), (6, 1), (5, 1), (4, 1)],
+  [(5, 6)],
+];
+const _answerA = [
+  [(4, 3), (5, 1), (4, 1), (3, 1)],
+  [(2, 2), (1, 1), (0, 3)],
+  [(2, 2), (3, 1), (4, 2), (2, 1)],
+  [(0, 6)],
+];
+const _climbB = [
+  [(7, 2), (8, 1), (9, 3)],
+  [(8, 2), (7, 1), (6, 3)],
+  [(7, 2), (9, 1), (11, 3)],
+  [(10, 3), (9, 3)],
+  [(8, 2), (9, 1), (8, 1), (7, 2)],
+  [(6, 2), (5, 1), (4, 3)],
+  [(5, 2), (6, 1), (7, 2), (6, 1)],
+  [(4, 6)],
+];
+// The root of the harmony under each bar of each section
+const _rootsA = [0, 0, 3, 5];
+const _rootsAnswer = [0, 1, 3, 0];
+const _rootsB = [3, 3, 0, 0, 3, 1, 5, 4];
+
+Uint8List _renderExplore() {
+  const eighth = 0.2;
+  final sections = [
+    (_callA, _rootsA, false),
+    (_answerA, _rootsAnswer, false),
+    (_climbB, _rootsB, true),
+    (_callA, _rootsA, false),
+    (_answerA, _rootsAnswer, false),
+  ];
+  final bars = sections.fold(0, (n, s) => n + s.$1.length);
+  final m = _Mix(bars * 6 * eighth);
+  final r = math.Random(11);
+  m.drone([_hz(-24), _hz(-17)], 0.035, 2);
+
+  var bar = 0;
+  for (final (tune, roots, high) in sections) {
+    for (var i = 0; i < tune.length; i++) {
+      final bt = bar * 6 * eighth;
+      // Melody on the ney; in the climb the santur doubles it an octave up
+      var t = bt;
+      for (final (deg, len) in tune[i]) {
+        final d = len * eighth;
+        m.ney(t, _mahur(deg), 0.30, d * 0.96, r);
+        if (high) {
+          if (len >= 3) {
+            m.tremolo(t, _mahur(deg + 7), 0.10, d, r);
+          } else {
+            m.pluck(t, _mahur(deg + 7), 0.14, dur: d + 0.5, r: r);
+          }
+        }
+        t += d;
+      }
+      // Santur arpeggio on the bar's chord: root, fifth, octave, tenth, octave, fifth
+      final root = roots[i] - 7;
+      final arp = [root, root + 4, root + 7, root + 9, root + 7, root + 4];
+      for (var k = 0; k < 6; k++) {
+        m.pluck(bt + k * eighth, _mahur(arp[k]), k == 0 ? 0.20 : 0.13, dur: 1.0, r: r);
+      }
+      // Plucked bass on the downbeat and the second half of the bar
+      m.pluck(bt, _mahur(roots[i] - 14), 0.32, dur: 2.0, decay: 0.998, r: r);
+      m.pluck(bt + 3 * eighth, _mahur(roots[i] - 10), 0.18, dur: 1.2, decay: 0.997, r: r);
+      // Light daf: dum . tak dum tak ka, with a roll at every phrase end
+      m.dum(bt, 0.30);
+      m.tak(bt + 2 * eighth, 0.10, r);
+      m.dum(bt + 3 * eighth, 0.16);
+      m.tak(bt + 4 * eighth, 0.09, r);
+      m.tak(bt + 5 * eighth, 0.06, r);
+      if (i % 4 == 3) {
+        for (var k = 0; k < 4; k++) {
+          m.tak(bt + 4 * eighth + k * eighth / 2, 0.08 + k * 0.02, r, length: 0.05);
+        }
+      }
+      bar++;
     }
-    t += d;
-  }
-  // Bass strings on the downbeats
-  const bass = [0, 0, -2, 0, 0, 3, -2, 0];
-  for (var b = 0; b < bars; b++) {
-    m.pluck(b * 6 * eighth, _hz(-12 + bass[b % bass.length]), 0.3, dur: 2.4, decay: 0.998, r: r);
-  }
-  // Soft daf: dum . tak ka . tak
-  for (var b = 0; b < bars; b++) {
-    final bt = b * 6 * eighth;
-    m.dum(bt, 0.32);
-    m.tak(bt + 2 * eighth, 0.12, r);
-    m.tak(bt + 3 * eighth, 0.07, r);
-    m.tak(bt + 5 * eighth, 0.11, r);
-    if (b % 4 == 3) m.dum(bt + 4.5 * eighth, 0.2); // a roll into the next phrase
   }
   return m.toWav();
 }
