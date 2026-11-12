@@ -90,6 +90,7 @@ class Player {
   double invuln = 0;
   double hurtLock = 0;
   double dropTimer = 0;
+  double _downHold = 0; // ms down has been held while standing
   bool dead = false;
   bool frozen = false;
   Offset safe;
@@ -144,6 +145,13 @@ class Player {
       final slow = attackTimer > 0 && ground ? 0.35 : 1.0;
       final accel = (ground ? PlayerTuning.accelGround : PlayerTuning.accelAir) * (dt / 1000);
       body.vx = approach(body.vx, dir * PlayerTuning.speed * slow, accel);
+    }
+
+    // Holding down for a moment on a one-way ledge drops through it
+    _downHold = c.down && ground && attackTimer <= 0 && hurtLock <= 0 ? _downHold + dt : 0;
+    if (_downHold > 140 && dropTimer <= 0 && tileUnderIs(T.platform)) {
+      dropTimer = 250;
+      _downHold = 0;
     }
 
     // Jumping (coyote time + buffer + double jump + drop through platforms)
