@@ -272,6 +272,48 @@ void _drawScorpion(Canvas c, int f) {
   pxRect(c, sting, strike ? tip.dx - 2 : tip.dx - 2, tip.dy + (strike ? 1 : 0.5), 2, 1);
 }
 
+// The shade: a scrap of the dark spirit's night that waits unseen in the dark. A hooded, ragged
+// shape of smoke with long claws and two ember eyes; it has no legs, only a frayed tail. Faces left.
+// Frames: 0-1 drift (the tail ripples), 2 the reach, claws thrown forward.
+void _drawShade(Canvas c, int f) {
+  const smoke = Color(0xff2a2238), shade = Color(0xff171222), rim = Color(0xff5a4a7a);
+  const claw = Color(0xffb8a8d8), eye = Color(0xffff5a3a), glow = Color(0xffffc070);
+  final reach = f == 2;
+  final w = f == 1 ? 1.0 : 0.0;
+  // A frayed tail of smoke, rippling from side to side
+  pxPoly(c, shade, [const Offset(7, 12), const Offset(15, 11), Offset(16 - w, 16), Offset(14 + w, 19), Offset(12, 21), Offset(10 - w, 18), Offset(8 + w, 16)]);
+  pxRect(c, smoke, 11 + w, 19, 1, 2);
+  pxRect(c, smoke, 14 - w, 17, 1, 2);
+  // Far arm
+  if (reach) {
+    pxPoly(c, shade, [const Offset(8, 9), const Offset(10, 10), const Offset(2, 11), const Offset(1, 10)]);
+  } else {
+    pxPoly(c, shade, [const Offset(9, 9), const Offset(11, 10), Offset(9, 15 + w), Offset(7, 15 + w)]);
+  }
+  // A hunched body under a pointed hood
+  pxOval(c, smoke, 6, 6, 11, 10);
+  pxPoly(c, smoke, [const Offset(5, 7), const Offset(10, 1), const Offset(16, 3), const Offset(17, 8), const Offset(12, 9)]);
+  pxRect(c, rim, 10, 2, 4, 1);
+  pxRect(c, rim, 15, 4, 1, 3);
+  // The hood is empty but for two eyes
+  pxOval(c, shade, 4, 5, 7, 6);
+  pxRect(c, eye, 5, 7, 2, 1);
+  pxRect(c, eye, 8, 7, 1, 1);
+  pxRect(c, glow, 5, 7, 1, 1);
+  // Near arm with three long claws
+  if (reach) {
+    pxPoly(c, smoke, [const Offset(9, 10), const Offset(12, 11), const Offset(3, 13), const Offset(2, 12)]);
+    for (final y in [11.0, 13.0, 15.0]) {
+      pxRect(c, claw, 0, y - 1, 3, 1);
+    }
+  } else {
+    pxPoly(c, smoke, [const Offset(8, 10), const Offset(11, 11), Offset(7, 16 + w), Offset(5, 16 + w)]);
+    for (final x in [4.0, 6.0, 8.0]) {
+      pxRect(c, claw, x, 17 + w, 1, 2);
+    }
+  }
+}
+
 // The man-eater: a red lion's body, a dark mane round a bearded human face with three rows of
 // teeth, and a scorpion's tail tipped with spikes. Faces left.
 // Frames: 0-3 prowl, 4 roar, 5 charge.
@@ -548,7 +590,7 @@ const _white = Color(0xffffffff);
 class Art {
   Art._();
 
-  late Sheet hero, demon, fly, ghoul, scorpion, manticore, lion, elephant, coin, heart, vase, bush, feather, sign, chest, altar, flame;
+  late Sheet hero, demon, fly, ghoul, scorpion, shade, manticore, lion, elephant, coin, heart, vase, bush, feather, sign, chest, altar, flame;
   late Sheet px, xp, slash, wall, gate, gateGlow;
   late Map<RealmTheme, Sheet> tiles; // each realm has its own ground
 
@@ -565,6 +607,7 @@ class Art {
     a.fly = await outlinedSheet(20, 16, 2, _drawFly);
     a.ghoul = await outlinedSheet(24, 22, 7, _drawGhoul);
     a.scorpion = await outlinedSheet(18, 12, 3, _drawScorpion);
+    a.shade = await outlinedSheet(20, 22, 3, _drawShade, outline: const Color(0xff0a0610));
     a.manticore = await outlinedSheet(44, 32, 6, _drawManticore);
     a.lion = await pixelSheet([_lionF1, _lionF2], _lionPal);
     a.elephant = await outlinedSheet(52, 40, 7, _drawElephant);

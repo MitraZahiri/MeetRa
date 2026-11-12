@@ -278,7 +278,7 @@ class MeetRaGame extends Game with KeyboardEvents {
           altars.add(Altar(o.x, o.y));
         case 'S':
           signs.add(Sign(o.x, o.y, def.signs[signIndex++]));
-        case 'D' || 'V' || 'U' || 'K' || 'M':
+        case 'D' || 'V' || 'U' || 'K' || 'M' || 'H':
           enemies.addAll(_foes(o.type, o.x, o.y));
         case 'W':
           waveSpawn = Offset(o.x, o.y);
@@ -326,6 +326,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       'U' => [Ghoul(this, x, y)..hp += bonus],
       'K' => [for (final dx in [-7.0, 7.0]) Scorpion(this, x + dx, y)..hp += bonus ~/ 2],
       'M' => [Manticore(this, x, y)..hp += bonus * 2],
+      'H' => [Shade(this, x, y - 4)..hp += bonus],
       _ => <Enemy>[],
     };
     final extra = (tier >= 3 ? 1 : 0) + (tier >= 6 ? 1 : 0);
@@ -457,7 +458,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     physics.step(P.body, s, skipPlatforms: P.dropTimer > 0, onTile: (t) => spikes |= t == T.spikes);
     if (spikes) P.fallHurt();
     for (final e in enemies) {
-      if (!e.asleep) physics.step(e.body, s);
+      if (!e.asleep) physics.step(e.body, s, tiles: !e.ghost);
     }
     for (final c in [...coins, ...hearts]) {
       physics.step(c.body, s, useWalls: false);
@@ -484,7 +485,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     for (final f in feathers) {
       for (final e in enemies) {
-        if (f.removed || e.dying || !overlaps(f.body.rect, e.body.rect)) continue;
+        if (f.removed || e.dying || e.untouchable || !overlaps(f.body.rect, e.body.rect)) continue;
         e.hurt(f.dmg, f.body.vx.sign, 0.6);
         _killFeather(f);
       }
@@ -663,7 +664,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   int resolveMelee(Rect rect, int dmg, int dir, double knock) {
     var hits = 0;
     for (final e in enemies) {
-      if (!e.dying && overlaps(rect, e.body.rect)) {
+      if (!e.dying && !e.untouchable && overlaps(rect, e.body.rect)) {
         e.hurt(dmg, dir.toDouble(), knock);
         hits++;
       }
@@ -1228,6 +1229,8 @@ class MeetRaGame extends Game with KeyboardEvents {
       if (gate != null && gate!.glow > 0) Light(gate!.x, gate!.y - 22, 64 * gate!.glow, 0xfffff0b0, gate!.glow),
       if (ambience.dark) Light(player.x, player.y - 8, 72, 0xfff0e8d0, 0.95),
       if (ambience.dark && lion != null) Light(lion!.x, lion!.y - 14, 30, 0xffff8040, 0.5),
+      for (final e in enemies)
+        if (e is Shade && e.eyesOpen) Light(e.eyeX, e.eyeY, 10, 0xffff5a3a, 0.3 + 0.7 * e.alpha),
     ];
   }
 

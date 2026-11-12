@@ -75,6 +75,7 @@ class Level {
 //   B  stone brick   ^  thorns
 //   P  player        A  hearth (checkpoint)   S  signpost
 //   D  demon         V  fly      U  ghoul    K  scorpion pair    M  manticore
+//   H  shade, hidden in the dark until Ra comes near
 //   v  vase     *  bush     C  chest
 //   F  Saena's feather   L  the boss   W  trial of waves   [ ]  arena walls   G  exit gate
 //   O  the Sun Key that unseals the gate

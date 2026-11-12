@@ -32,6 +32,11 @@ abstract class Enemy {
   int get frame => anim.frame;
   // True while it cannot hurt Ra by touch (a ghoul still buried in the sand)
   bool get harmless => false;
+  // True while blows pass straight through it (a shade still hidden in the dark)
+  bool get untouchable => false;
+  // A spirit drifts through rock instead of bumping into it
+  bool get ghost => false;
+  double get alpha => 1;
   // Width of the drop shadow; 0 for none
   double get shadowW => 14;
 
@@ -83,7 +88,7 @@ abstract class Enemy {
     final k = _squash / 160;
     final (px, py) = pose;
     drawFrame(c, sheet, frame, x.roundToDouble(), y.roundToDouble(),
-        flipX: flipX, scaleX: px * (1 + 0.3 * k), scaleY: py * (1 - 0.25 * k), tintFill: _flash > 0 ? 0xffffffff : null);
+        flipX: flipX, scaleX: px * (1 + 0.3 * k), scaleY: py * (1 - 0.25 * k), alpha: alpha, tintFill: _flash > 0 ? 0xffffffff : null);
   }
 }
 
@@ -480,5 +485,150 @@ class Manticore extends Enemy {
     b.vx = dir * 22;
     anim.timeScale = 1;
     flipX = dir > 0;
+  }
+}
+
+// The shade: a scrap of the dark spirit's night. It waits unseen in dark places, where blows pass
+// through it. When Ra comes near, two ember eyes open first, then the rest of it seeps out of the
+// dark and glides after Ra, straight through rock. Each time it strikes Ra or is struck, it sinks
+// back into the dark and rises again somewhere behind Ra.
+class Shade extends Enemy {
+  Shade(MeetRaGame game, double x, double y)
+      : super(game, Body(x, y, 10, 16)..allowGravity = false,
+            hp: 3, contactDamage: 1, xpValue: 7, goldValue: 3, colors: [0xff2a2238, 0xff5a4a7a, 0xffff5a3a]);
+
+  static const _riseTime = 650.0, _sinkTime = 380.0;
+  double _t = rand.nextDouble() * 10;
+  bool _hidden = true;
+  double _rise = 0; // ms left of seeping out of the dark
+  double _sink = 0; // ms left of fading back into it
+  double _reach = 0; // ms of the lunge, claws forward
+  double _rest = 0;
+  @override
+  final anim = Anim([0, 1], 5);
+  @override
+  Sheet get sheet => game.art.shade;
+  @override
+  int get frame => _reach > 0 ? 2 : anim.frame;
+  @override
+  bool get harmless => _hidden || _rise > 0 || _sink > 0;
+  @override
+  bool get untouchable => _hidden || _sink > 0;
+  @override
+  bool get ghost => true;
+  @override
+  double get shadowW => 0;
+  @override
+  double get alpha {
+    if (_hidden) return 0;
+    if (_rise > 0) return 0.15 + 0.85 * (1 - _rise / _riseTime);
+    if (_sink > 0) return _sink / _sinkTime;
+    return 0.9 + 0.1 * math.sin(_t * 6);
+  }
+
+  // Ember eyes glow in the dark before the body can be seen (the game draws them as a light)
+  bool get eyesOpen => !_hidden;
+  double get eyeX => x + (flipX ? 4 : -4);
+  double get eyeY => y - 15;
+
+  @override
+  (double, double) get pose => (1 + math.sin(_t * 3) * 0.05, 1 - math.sin(_t * 3) * 0.05);
+
+  void _emerge() {
+    _hidden = false;
+    _rise = _riseTime;
+    game.particles.ring(x, y - 8, 0xff5a4a7a, r1: 18, life: 500);
+    for (var i = 0; i < 5; i++) {
+      game.particles.ember(x, y - 8, 0xff9a7ab8);
+    }
+  }
+
+  void _vanish() {
+    _sink = _sinkTime;
+    _reach = 0;
+    body
+      ..vx = 0
+      ..vy = 0;
+  }
+
+  @override
+  void hurt(int dmg, double dir, [double knock = 1]) {
+    if (untouchable) return;
+    super.hurt(dmg, dir, knock * 0.6);
+    if (!dying) _vanish();
+  }
+
+  @override
+  void update(double dt) {
+    if (dying) return;
+    _t += dt / 1000;
+    final p = game.player;
+    final dx = p.x - x;
+    final dy = p.y - y;
+    final d = math.sqrt(dx * dx + dy * dy);
+    final b = body;
+    if (_hidden) {
+      b
+        ..vx = 0
+        ..vy = 0;
+      if (!p.dead && d < 78) _emerge();
+      return;
+    }
+    if (_sink > 0) {
+      _sink -= dt;
+      stun = 0;
+      if (_sink <= 0) {
+        // Rise again behind Ra, if the dark there is open
+        final nx = p.x - p.facing * (46 + rand.nextDouble() * 18);
+        final ny = p.y - 6;
+        if (!p.dead && game.level.tileAtWorld(nx, ny - 8) < 0 && nx > 8 && nx < game.level.width - 8) {
+          b
+            ..x = nx
+            ..y = ny;
+        }
+        _rise = _riseTime;
+        _rest = 500;
+        game.particles.ring(x, y - 8, 0xff5a4a7a, r1: 16, life: 420);
+      }
+      return;
+    }
+    if (_rise > 0) {
+      _rise -= dt;
+      b
+        ..vx = 0
+        ..vy = math.sin(_t * 4) * 6;
+      flipX = dx > 0;
+      if (_rise <= 0) game.floatText(x, y - 22, '!', const Color(0xffff6a50), size: 10, rise: 6, duration: 700);
+      return;
+    }
+    if (stun > 0) {
+      stun -= dt;
+      return;
+    }
+    _rest = math.max(0, _rest - dt);
+    // Touching Ra: the blow lands (the game hurts Ra), and the shade melts away again
+    if (b.rect.overlaps(p.body.rect)) {
+      _vanish();
+      return;
+    }
+    flipX = dx > 0;
+    final dd = d == 0 ? 1.0 : d;
+    if (_reach > 0) {
+      _reach -= dt;
+      b
+        ..vx = dx / dd * 150
+        ..vy = dy / dd * 150;
+      if (_reach <= 0) _rest = 900;
+      return;
+    }
+    if (!p.dead && d < 40 && _rest <= 0) {
+      _reach = 300;
+      return;
+    }
+    // Glide after Ra with a slow, swaying drift
+    final speed = p.dead ? 0.0 : 52.0;
+    b
+      ..vx = dx / dd * speed
+      ..vy = dy / dd * speed + math.sin(_t * 2.2) * 14;
   }
 }
