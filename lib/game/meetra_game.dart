@@ -314,17 +314,25 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
   }
 
-  // The creatures a map letter stands for (scorpions come in pairs)
+  // The creatures a map letter stands for (scorpions come in pairs).
+  // Every realm makes them tougher: more health, and from the Sky Spine on their touch costs
+  // a whole heart. In the Lightless Land everything hits harder still.
   List<Enemy> _foes(String type, double x, double y) {
-    final bonus = def.enemyBonus;
-    return switch (type) {
+    final tier = def.enemyBonus;
+    final bonus = tier + tier ~/ 2;
+    final foes = switch (type) {
       'D' => [Demon(this, x, y)..hp += bonus],
       'V' => [Fly(this, x, y - 40)..hp += bonus],
       'U' => [Ghoul(this, x, y)..hp += bonus],
       'K' => [for (final dx in [-7.0, 7.0]) Scorpion(this, x + dx, y)..hp += bonus ~/ 2],
       'M' => [Manticore(this, x, y)..hp += bonus * 2],
-      _ => const [],
+      _ => <Enemy>[],
     };
+    final extra = (tier >= 3 ? 1 : 0) + (tier >= 6 ? 1 : 0);
+    for (final e in foes) {
+      e.contactDamage += extra;
+    }
+    return foes;
   }
 
   // ---------- Input ----------

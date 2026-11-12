@@ -13,7 +13,7 @@ abstract class Enemy {
   final MeetRaGame game;
   final Body body;
   int hp;
-  final int contactDamage;
+  int contactDamage; // half hearts; later realms hit harder
   final int xpValue;
   final int goldValue;
   final List<int> colors;
@@ -90,7 +90,7 @@ abstract class Enemy {
 // The horned demon: patrols, charges when it sees Ra, and up close raises its club and lunges
 class Demon extends Enemy {
   Demon(MeetRaGame game, double x, double y)
-      : super(game, Body(x, y, 12, 18), hp: 3, contactDamage: 1, xpValue: 6, goldValue: 3, colors: [0xff3d4f8a, 0xffc8602a, 0xffe8dcc0]);
+      : super(game, Body(x, y, 12, 18), hp: 4, contactDamage: 1, xpValue: 6, goldValue: 3, colors: [0xff3d4f8a, 0xffc8602a, 0xffe8dcc0]);
 
   double dir = -1;
   bool _aggro = false;
@@ -140,10 +140,10 @@ class Demon extends Enemy {
     if (_lunge > 0) {
       _lunge -= dt;
       b.vx = dir * 170;
-      if (_lunge <= 0) _rest = 900;
+      if (_lunge <= 0) _rest = 600;
       return;
     }
-    final aggro = !p.dead && dx.abs() < 90 && (p.y - y).abs() < 24;
+    final aggro = !p.dead && dx.abs() < 120 && (p.y - y).abs() < 28;
     // Spotting Ra: a '!' and a little hop of surprise
     if (aggro && !_aggro) {
       game.floatText(x, y - 20, '!', const Color(0xffff6a50), size: 10, rise: 6, duration: 700);
@@ -153,7 +153,7 @@ class Demon extends Enemy {
     if (aggro && dx != 0) dir = dx.sign;
     flipX = dir > 0;
     if (aggro && dx.abs() < 34 && _rest <= 0 && b.blockedDown) {
-      _windup = 380;
+      _windup = 320;
       b.vx = 0;
       return;
     }
@@ -161,7 +161,7 @@ class Demon extends Enemy {
     if ((dir < 0 && b.blockedLeft) || (dir > 0 && b.blockedRight)) dir *= -1;
     // Turn around at ledges
     if (b.blockedDown && game.level.tileAtWorld(x + dir * 8, y + 4) < 0) dir *= -1;
-    b.vx = dir * (aggro ? 70 : 30);
+    b.vx = dir * (aggro ? 82 : 32);
     flipX = dir > 0;
     anim.timeScale = aggro ? 2 : 1;
   }
@@ -202,7 +202,7 @@ class Fly extends Enemy {
     final dx = p.x - x;
     final dy = p.y - 10 - y;
     final d = math.sqrt(dx * dx + dy * dy);
-    if (!awake && d < 110 && !p.dead) {
+    if (!awake && d < 130 && !p.dead) {
       awake = true;
       anim.timeScale = 1;
       game.floatText(x, y - 10, '!', const Color(0xffff6a50), size: 10, rise: 6, duration: 700);
@@ -218,8 +218,8 @@ class Fly extends Enemy {
     final dd = d == 0 ? 1 : d;
     final jink = math.sin(t * 9) * 55;
     body
-      ..vx = (dx / dd) * 64 - (dy / dd) * jink
-      ..vy = (dy / dd) * 64 + (dx / dd) * jink * 0.6;
+      ..vx = (dx / dd) * 76 - (dy / dd) * jink
+      ..vy = (dy / dd) * 76 + (dx / dd) * jink * 0.6;
     flipX = dx > 0;
   }
 }
@@ -293,7 +293,7 @@ class Ghoul extends Enemy {
     if (_pouncing) {
       if (b.blockedDown && b.vy >= 0) {
         _pouncing = false;
-        _rest = 700;
+        _rest = 450;
         b.vx = 0;
         game.particles.dust(x, y);
       }
@@ -326,7 +326,7 @@ class Ghoul extends Enemy {
         dir *= -1;
       }
     }
-    b.vx = dir * (chasing ? 88 : 24);
+    b.vx = dir * (chasing ? 98 : 24);
     flipX = dir > 0;
     anim.timeScale = chasing ? 1.6 : 0.6;
   }
@@ -377,7 +377,7 @@ class Scorpion extends Enemy {
     if (_dart > 0) {
       _dart -= dt;
       b.vx = dir * 150;
-      if (_dart <= 0) _rest = 700;
+      if (_dart <= 0) _rest = 480;
       return;
     }
     final p = game.player;
@@ -385,7 +385,7 @@ class Scorpion extends Enemy {
     if (!p.dead && dx.abs() < 46 && (p.y - y).abs() < 18 && _rest <= 0 && b.blockedDown) {
       dir = dx.sign == 0 ? dir : dx.sign;
       flipX = dir > 0;
-      _windup = 260;
+      _windup = 220;
       return;
     }
     if ((dir < 0 && b.blockedLeft) || (dir > 0 && b.blockedRight)) dir *= -1;
@@ -431,7 +431,7 @@ class Manticore extends Enemy {
 
   void _stop() {
     _charge = 0;
-    _rest = 1000;
+    _rest = 750;
     body.vx = 0;
     game.particles.dust(x + dir * 14, y);
   }
@@ -459,7 +459,7 @@ class Manticore extends Enemy {
     }
     if (_charge > 0) {
       _charge -= dt;
-      b.vx = dir * 175;
+      b.vx = dir * 190;
       anim.timeScale = 2.5;
       if (rand.nextDouble() < 0.15) game.particles.dust(x - dir * 12, y);
       final passed = dx.sign != dir && dx.abs() > 70;
