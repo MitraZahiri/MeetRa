@@ -83,6 +83,20 @@ void main() {
     }
   });
 
+  test('on every road to an arena or a realm boss, even the hard ones, Ra can reach the gate', () {
+    for (final r in realms) {
+      for (final l in r.locations.where((l) => l.kind == LocKind.arena || l.kind == LocKind.boss)) {
+        final level = buildLevel(levelFor(l));
+        Offset find(String t) {
+          final o = level.objects.firstWhere((o) => o.type == t);
+          return Offset(o.tx.toDouble(), o.ty.toDouble());
+        }
+
+        expect(_standable(level, find('P')).contains(find('G')), isTrue, reason: l.id);
+      }
+    }
+  });
+
   test('the White Elephant guards Hearthvale; the other realms keep the lion for now', () {
     expect(levelFor(realms[0].boss).boss.kind, BossKind.elephant);
     expect(levelFor(realms[0].boss).boss.name, 'The White Elephant');

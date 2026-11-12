@@ -29,8 +29,13 @@ class RoomPlan {
 
 // [foe] picks what stands on a ground spot, from a random roll.
 // [shadeChance] is the chance a shade lurks in a room below the surface ([darkSurface]: in every room).
+// [hard] (0..1, rising with the realms) adds more obstacles per room, wider thorn beds and more foes.
 List<String> buildRooms(RoomPlan plan, math.Random rnd,
-    {required double enemyChance, required String Function(double roll) foe, double shadeChance = 0, bool darkSurface = false}) {
+    {required double enemyChance,
+    required String Function(double roll) foe,
+    double shadeChance = 0,
+    bool darkSurface = false,
+    double hard = 0}) {
   final cols = plan.cols, rows = plan.rows;
   final w = cols * roomW, h = rows * roomH;
   final rooms = [
@@ -229,7 +234,7 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
       void claim(int x0, int n) => free.removeWhere((x) => x >= x0 - 1 && x < x0 + n + 1);
 
       // The first room stays clear and calm
-      final features = a == start ? 0 : 1 + rnd.nextInt(2);
+      final features = a == start ? 0 : 1 + rnd.nextInt(2) + (rnd.nextDouble() < hard ? 1 : 0);
       for (var f = 0; f < features; f++) {
         switch (rnd.nextInt(a.r == 0 ? 3 : 4)) {
           case 0: // a mound or a raised step
@@ -252,8 +257,8 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
             }
             if (rnd.nextDouble() < 0.5) set(ox + x0 + n ~/ 2, oy + 5, rnd.nextDouble() < 0.3 ? 'C' : 'v');
             claim(x0, n);
-          case 2: // thorns, with a ledge above to cross on
-            final n = 2 + rnd.nextInt(2);
+          case 2: // thorns, with a ledge above to cross on; wider in later realms
+            final n = 2 + rnd.nextInt(2) + (rnd.nextDouble() < hard ? 1 : 0);
             final x0 = run(n + 2);
             if (x0 == null) break;
             for (var x = x0 + 1; x <= x0 + n; x++) {
@@ -295,8 +300,9 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
       }
       final spots = [...free]..shuffle(rnd);
       var foes = 0;
-      for (final x in spots.take(3)) {
-        if (foes < 2 && rnd.nextDouble() < enemyChance) {
+      final maxFoes = 2 + (hard >= 0.5 ? 1 : 0);
+      for (final x in spots.take(maxFoes + 1)) {
+        if (foes < maxFoes && rnd.nextDouble() < enemyChance) {
           if (place(a, x, foe(rnd.nextDouble()))) foes++;
         } else if (rnd.nextDouble() < 0.4) {
           place(a, x, a.r == 0 && rnd.nextBool() ? '*' : 'v');

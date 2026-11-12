@@ -1,7 +1,7 @@
 // Builds a level for every playable location from hand-made ASCII chunks.
 // The location id seeds the random choices, so a place always has the same layout.
 // See build.dart for the map legend. Lowercase markers are optional:
-//   d  maybe a ground foe (demon, scorpions, ghoul, man-eater or shade)  b  maybe a fly   x  maybe a vase   +  maybe a bush   c  maybe a chest
+//   d  maybe a ground foe (demon, scorpions, ghoul, man-eater or shade)  h  maybe a shade  b  maybe a fly   x  maybe a vase   +  maybe a bush   c  maybe a chest
 
 import 'dart:math' as math;
 
@@ -97,6 +97,37 @@ final _arena = [
   ..._ground('[......................L.......]'),
 ];
 
+// Hard stretches for the later realms.
+// A floor of thorns with only narrow islands of ground, and ledges above for the careful.
+final _gauntlet = [
+  '.........b............b.....',
+  '.............................',
+  '.....===.....===.....===.....',
+  '.............................',
+  ..._ground('..d.^^^^##^^^^##^^^^##...x...'),
+];
+
+// A chasm crossed on lone pillars, with flies waiting over the drops
+final _chasm = [
+  '......b..........b.........',
+  '...........................',
+  '...........................',
+  '..x.......................+',
+  '####...##....##....##...###',
+  '####...##....##....##...###',
+  '####...##....##....##...###',
+];
+
+// A low, dark hall: thorns in the floor and shades waiting under the roof
+final _darkHall = [
+  'BBBBBBBBBBBBBBBBBBBBBBBB',
+  'BBBBBBBBBBBBBBBBBBBBBBBB',
+  '........................',
+  '.....h..........h.......',
+  '........................',
+  ..._ground('..d....^^.....d....^^.c.'),
+];
+
 // The arena of a trial: no lion, waves of the realm's creatures instead
 final _trial = [for (final row in _arena) row.replaceAll('L', 'W')];
 
@@ -140,7 +171,10 @@ LevelDef levelFor(Location loc) {
 
   var pool = [_flat, _pit, _steps, _hill, _ledges, _gaps];
   if (tier > 0 || depth > 0.3) pool = [...pool, _thorns];
-  var middle = 5 + tier ~/ 2;
+  // From the Serpent Sands on the road gets hard; in the Lightless Land it is mostly hard
+  if (tier >= 2) pool = [...pool, _gauntlet, _chasm, _darkHall];
+  if (tier >= 6) pool = [...pool, _gauntlet, _chasm, _darkHall, _darkHall];
+  var middle = 5 + tier ~/ 2 + (tier >= 4 ? 1 : 0);
   var enemyChance = (0.45 + tier * 0.07 + depth * 0.1).clamp(0.0, 0.9);
   var chestChance = 0.35;
   var vaseChance = 0.6;
@@ -186,6 +220,7 @@ LevelDef levelFor(Location loc) {
       chunks: [
         buildRooms(plan, rnd,
             enemyChance: enemyChance,
+            hard: tier / 6,
             foe: (roll) => _foe(tier, roll),
             shadeChance: _shadeChance(tier, loc.kind),
             darkSurface: r.theme == RealmTheme.dark)
@@ -211,6 +246,7 @@ LevelDef levelFor(Location loc) {
       b.write(switch (ch) {
         'd' => rnd.nextDouble() < enemyChance ? _foe(tier, rnd.nextDouble()) : '.',
         'b' => rnd.nextDouble() < enemyChance * 0.8 ? 'V' : '.',
+        'h' => rnd.nextDouble() < enemyChance ? 'H' : '.',
         'x' => rnd.nextDouble() < vaseChance ? 'v' : '.',
         '+' => rnd.nextDouble() < 0.7 ? '*' : '.',
         'c' => rnd.nextDouble() < chestChance ? 'C' : '.',
