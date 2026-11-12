@@ -225,7 +225,10 @@ LevelDef levelFor(Location loc) {
             shadeChance: _shadeChance(tier, loc.kind),
             darkSurface: r.theme == RealmTheme.dark)
       ],
-      signs: [loc.desc, 'The gate is sealed by the sun. Find the Sun Key hidden somewhere in this place.'],
+      signs: [
+        loc.desc,
+        'The gate is sealed by the sun. Follow the golden arrow to the Sun Key. Hold down on a wooden ledge to drop through it.',
+      ],
       boss: const BossDef('', ''),
       enemyBonus: tier,
       sealed: true,

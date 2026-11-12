@@ -422,7 +422,7 @@ class MeetRaGame extends Game with KeyboardEvents {
         _win();
       } else if (def.sealed && _sealedHint <= 0) {
         _sealedHint = 4000;
-        ui.banner.value = BannerMsg('The gate is sealed', 'Find the Sun Key hidden in this place');
+        ui.banner.value = BannerMsg('The gate is sealed', 'Follow the golden arrow to the Sun Key');
       }
     }
 
@@ -1136,8 +1136,69 @@ class MeetRaGame extends Game with KeyboardEvents {
 
     final screen = Offset.zero & Size(size.x, size.y);
     paintVignette(c, screen.size, ambience.dark ? 0.8 : 0.38);
+    _paintGuide(c);
     if (camera.flashAlpha > 0) c.drawRect(screen, Paint()..color = Color(camera.flashColor).withValues(alpha: camera.flashAlpha));
     if (camera.fade > 0) c.drawRect(screen, Paint()..color = Color.fromRGBO(10, 6, 20, camera.fade));
+  }
+
+  // In a sealed level, a golden arrow at the edge of the screen points the way to the Sun Key
+  // while it is out of sight, and once the key is taken, the way to the gate
+  void _paintGuide(Canvas c) {
+    if (!def.sealed || victory || player.dead) return;
+    final g = gate;
+    final target = !keyFound ? sunKey : g == null ? null : Offset(g.x, g.y - 20);
+    if (target == null) return;
+    final z = uiScale * zoom;
+    final p = Offset((target.dx - camera.scrollX) * z, (target.dy - camera.scrollY) * z);
+    final w = size.x, h = size.y, m = 30 * uiScale;
+    if (p.dx > 0 && p.dx < w && p.dy > 0 && p.dy < h) return; // in sight: no arrow needed
+    final centre = Offset(w / 2, h / 2);
+    final d = p - centre;
+    final kx = d.dx == 0 ? double.infinity : (w / 2 - m) / d.dx.abs();
+    final ky = d.dy == 0 ? double.infinity : (h / 2 - m) / d.dy.abs();
+    final at = centre + d * math.min(kx, ky);
+    final pulse = 1 + 0.12 * math.sin(_realT * 5);
+    final s = 9 * uiScale * pulse;
+    final gold = Color(keyFound ? 0xfffff0b0 : 0xfff7d774);
+    c
+      ..save()
+      ..translate(at.dx, at.dy);
+    c.drawCircle(Offset.zero, s * 1.9, Paint()..color = gold.withValues(alpha: 0.18));
+    // The key: a small sun with rays; the gate: a little arch
+    if (!keyFound) {
+      final ray = Paint()
+        ..color = gold
+        ..strokeWidth = 1.5 * uiScale;
+      for (var i = 0; i < 8; i++) {
+        final a = i * math.pi / 4 + _realT;
+        c.drawLine(Offset(math.cos(a), math.sin(a)) * s * 0.75, Offset(math.cos(a), math.sin(a)) * s * 1.15, ray);
+      }
+      c.drawCircle(Offset.zero, s * 0.55, Paint()..color = gold);
+    } else {
+      final arch = Path()
+        ..moveTo(-s * 0.5, s * 0.6)
+        ..lineTo(-s * 0.5, -s * 0.1)
+        ..arcToPoint(Offset(s * 0.5, -s * 0.1), radius: Radius.circular(s * 0.5))
+        ..lineTo(s * 0.5, s * 0.6)
+        ..close();
+      c.drawPath(arch, Paint()..color = gold);
+    }
+    // The arrowhead, just beyond the icon, towards the target
+    c.rotate(math.atan2(d.dy, d.dx));
+    final head = Path()
+      ..moveTo(s * 2.4, 0)
+      ..lineTo(s * 1.4, -s * 0.7)
+      ..lineTo(s * 1.4, s * 0.7)
+      ..close();
+    c
+      ..drawPath(
+          head,
+          Paint()
+            ..color = const Color(0xff1a1020)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2 * uiScale)
+      ..drawPath(head, Paint()..color = gold)
+      ..restore();
   }
 
   // Parallax layers: each one scrolls at its own fraction of the camera's speed
