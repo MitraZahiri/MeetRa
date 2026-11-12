@@ -1,7 +1,7 @@
 // Builds a level for every playable location from hand-made ASCII chunks.
 // The location id seeds the random choices, so a place always has the same layout.
 // See build.dart for the map legend. Lowercase markers are optional:
-//   d  maybe a ground foe (demon, scorpions, ghoul or man-eater)  b  maybe a fly   x  maybe a vase   +  maybe a bush   c  maybe a chest
+//   d  maybe a ground foe (demon, scorpions, ghoul, man-eater or shade)  b  maybe a fly   x  maybe a vase   +  maybe a bush   c  maybe a chest
 
 import 'dart:math' as math;
 
@@ -101,12 +101,23 @@ final _arena = [
 final _trial = [for (final row in _arena) row.replaceAll('L', 'W')];
 
 // What stands on a ground enemy spot. Small scorpions everywhere; ghouls buried in the ground
-// from the Serpent Sands on; the big man-eater from the Sky Spine on.
+// from the Serpent Sands on; the big man-eater from the Sky Spine on; and in the Lightless Land
+// many of them are shades.
 String _foe(int tier, double roll) {
+  if (tier >= 6 && roll > 0.68) return 'H';
   if (tier >= 3 && roll < 0.12) return 'M';
   if (tier >= 2 && roll < 0.42) return 'U';
   if (roll > 0.72) return 'K';
   return 'D';
+}
+
+// How likely a shade lurks in each dark room: none in Hearthvale's open fields, more in every
+// realm after, more in caves and secret places, and nearly everywhere in the Lightless Land
+double _shadeChance(int tier, LocKind kind) {
+  if (tier == 0 && kind != LocKind.cave && kind != LocKind.secret) return 0;
+  var c = 0.18 + tier * 0.06;
+  if (kind == LocKind.cave || kind == LocKind.secret) c += 0.15;
+  return c.clamp(0.0, 0.8);
 }
 
 // Stable string hash (FNV-1a), the same on phones and in the browser
@@ -172,7 +183,13 @@ LevelDef levelFor(Location loc) {
       title: loc.name,
       subtitle: r.name,
       rows: plan.rows * roomH,
-      chunks: [buildRooms(plan, rnd, enemyChance: enemyChance, foe: (roll) => _foe(tier, roll))],
+      chunks: [
+        buildRooms(plan, rnd,
+            enemyChance: enemyChance,
+            foe: (roll) => _foe(tier, roll),
+            shadeChance: _shadeChance(tier, loc.kind),
+            darkSurface: r.theme == RealmTheme.dark)
+      ],
       signs: [loc.desc, 'The gate is sealed by the sun. Find the Sun Key hidden somewhere in this place.'],
       boss: const BossDef('', ''),
       enemyBonus: tier,

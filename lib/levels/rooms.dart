@@ -27,8 +27,10 @@ class RoomPlan {
   final int chests; // chests per dead-end room
 }
 
-// [foe] picks what stands on a ground spot, from a random roll
-List<String> buildRooms(RoomPlan plan, math.Random rnd, {required double enemyChance, required String Function(double roll) foe}) {
+// [foe] picks what stands on a ground spot, from a random roll.
+// [shadeChance] is the chance a shade lurks in a room below the surface ([darkSurface]: in every room).
+List<String> buildRooms(RoomPlan plan, math.Random rnd,
+    {required double enemyChance, required String Function(double roll) foe, double shadeChance = 0, bool darkSurface = false}) {
   final cols = plan.cols, rows = plan.rows;
   final w = cols * roomW, h = rows * roomH;
   final rooms = [
@@ -302,6 +304,10 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd, {required double enemyCh
       }
       // A carrion fly hovering in the air
       if (rnd.nextDouble() < enemyChance * 0.5 && spots.isNotEmpty && g[oy + 4][ox + spots.last] == '.') set(ox + spots.last, oy + 4, 'V');
+      // A shade waiting unseen in the dark, away from the doors
+      if ((a.r > 0 || darkSurface) && free.isNotEmpty && rnd.nextDouble() < shadeChance) {
+        place(a, free[rnd.nextInt(free.length)], 'H', lift: 1);
+      }
     }
   }
   return [for (final row in g) row.join()];

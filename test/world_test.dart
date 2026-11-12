@@ -145,6 +145,16 @@ void main() {
     game.leaveLevel();
     expect(game.ui.screen.value, AppScreen.realm);
   });
+
+  test("shades lurk in the dark: none on Hearthvale's trails, most in the Lightless Land", () {
+    int shades(Realm r, {bool Function(Location l)? where}) => [
+          for (final l in r.locations.where((l) => l.kind.playable && (where?.call(l) ?? true)))
+            ...buildLevel(levelFor(l)).objects.where((o) => o.type == 'H'),
+        ].length;
+    expect(shades(realms[0], where: (l) => l.kind == LocKind.trail), 0);
+    expect(shades(realms[2]), greaterThan(0));
+    expect(shades(realms[6]), greaterThan(shades(realms[2])));
+  });
 }
 
 // Every tile Ra can stand in, starting from [from], with a rough model of Ra's moves:
