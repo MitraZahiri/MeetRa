@@ -258,7 +258,7 @@ LevelDef levelFor(Location loc) {
 
   final boss = switch (loc.kind) {
     LocKind.boss => BossDef(r.bossName, r.bossTitle, hp: 30 + tier * 10, kind: tier == 0 ? BossKind.elephant : BossKind.lion),
-    LocKind.arena => BossDef('Trial of ${r.name}', 'Wave 1 of 3', hp: 18 + tier * 6),
+    LocKind.arena => BossDef('Trial of ${r.name}', 'Wave 1 of ${trialWaves(tier)}', hp: 18 + tier * 6),
     _ => const BossDef('', ''),
   };
 

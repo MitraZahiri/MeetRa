@@ -12,6 +12,9 @@ class LevelObject {
   final double y;
 }
 
+// How many waves a trial of the realm with this index sends
+int trialWaves(int tier) => 3 + (tier >= 3 ? 1 : 0) + (tier >= 6 ? 1 : 0);
+
 // Which beast waits at the 'L' in a boss arena
 enum BossKind { lion, elephant }
 

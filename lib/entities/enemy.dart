@@ -534,7 +534,8 @@ class Shade extends Enemy {
   @override
   (double, double) get pose => (1 + math.sin(_t * 3) * 0.05, 1 - math.sin(_t * 3) * 0.05);
 
-  void _emerge() {
+  // Seeps out of the dark at once (also used when a trial calls it up)
+  void emerge() {
     _hidden = false;
     _rise = _riseTime;
     game.particles.ring(x, y - 8, 0xff5a4a7a, r1: 18, life: 500);
@@ -571,7 +572,7 @@ class Shade extends Enemy {
       b
         ..vx = 0
         ..vy = 0;
-      if (!p.dead && d < 78) _emerge();
+      if (!p.dead && d < 78) emerge();
       return;
     }
     if (_sink > 0) {

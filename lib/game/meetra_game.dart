@@ -832,16 +832,23 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   // ---------- Trial of waves ----------
 
-  static const waves = 3;
+  // Three waves in the first realms, four from the Sky Spine on, five in the Lightless Land
+  int get waves => trialWaves(location?.realm.index ?? 0);
 
   // Each wave brings more of the realm's creatures, rising out of puffs of dust; later realms send
   // ghouls, and from the Sky Spine on the last wave brings a man-eater
   void _spawnWave() {
     final tier = location?.realm.index ?? 0;
-    final kinds = ['D', 'K', if (tier >= 1) 'V', if (tier >= 2) 'U'];
+    final kinds = ['D', 'K', if (tier >= 1) 'V', if (tier >= 2) 'U', if (tier >= 4) 'H'];
+    final last = wave == waves - 1;
     final types = [
-      for (var i = 0; i < 2 + wave + tier ~/ 3; i++) kinds[rand.nextInt(kinds.length)],
-      if (wave == waves - 1) tier >= 3 ? 'M' : 'D',
+      for (var i = 0; i < 2 + wave + tier ~/ 2; i++) kinds[rand.nextInt(kinds.length)],
+      // The last wave brings a champion: a demon at first, a man-eater from the Sky Spine on,
+      // two of them from the Marble West on
+      if (last) tier >= 3 ? 'M' : 'D',
+      if (last && tier >= 5) 'M',
+      // From the Serpent Sands on, a shade rises in the middle of every later wave
+      if (wave > 0 && tier >= 2) 'H',
     ];
     final left = arenaLeft! + tile * 3, right = arenaRight! - tile * 3;
     for (final t in types) {
@@ -849,6 +856,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       final foes = _foes(t, x, waveSpawn!.dy);
       for (final e in foes) {
         if (e is Ghoul) e.wake();
+        if (e is Shade) e.emerge();
       }
       enemies.addAll(foes);
       _waveFoes.addAll(foes);
@@ -873,8 +881,9 @@ class MeetRaGame extends Game with KeyboardEvents {
       return;
     }
     _waveComing = true;
+    final tier = location?.realm.index ?? 0;
     ui.banner.value = BannerMsg('Wave ${wave + 2} of $waves', 'More are coming');
-    timers.after(1400, () {
+    timers.after(tier >= 3 ? 900 : 1200, () {
       _waveComing = false;
       if (!bossStarted || bossDefeated || player.dead) return;
       wave++;
