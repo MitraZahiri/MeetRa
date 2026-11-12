@@ -65,7 +65,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 - Every realm has its own **painted backdrop** in five parallax layers, plus its own ground, grass and weather: a forest glade, a domed city, a canyon of rock pillars, misty peaks with a demon carved in the rock, the steppe at dusk, white sea cliffs and a moonlit waste of dead trees.
 - Going down into the rooms below the surface, the sky fades into an **underground cavern** of hanging stone and glowing crystals.
 - Levels are **rooms to explore**: doors, drops through the floor, climbs back up. The way out is sealed until Ra finds the **Sun Key**, hidden in the room farthest from the start.
-- The Reed Marsh is the hand-made tutorial; the other places are built from level chunks and get harder realm by realm.
+- The Reed Marsh is the hand-made tutorial; the other places are built from level chunks and get harder realm by realm: more obstacles and wider thorn beds in every room, and from the Serpent Sands on the roads to arenas and bosses lead through **thorn gauntlets**, **pillar chasms** and **dark halls**.
 - Progress is saved on the phone.
 
 ### Fighting
@@ -76,6 +76,8 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 - XP, levelling and a **Heart / Might / Aura** choice
 - Gold, breakable vases and bushes, hidden chests, heart drops
 - **Hearth** checkpoints that also heal you; pits and thorns send you back to the last safe ground
+- Fights get harder in every realm: creatures gain health, and from the Sky Spine on their touch costs a whole heart
+- **Trials of waves**: three waves at first, four from the Sky Spine on and five in the Lightless Land, ending with man-eaters
 
 ### Creatures from old Persian lore
 
@@ -86,6 +88,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 | Ghoul of the waste | Lies buried as a heap of sand, bursts out and pounces |
 | Scorpions | Small and quick, they come in pairs and dart in with the sting |
 | Man-eater | A huge red lion with a scorpion's tail: roars, then charges; blows barely push it |
+| Shade | Waits unseen in the dark, where blows pass through it. Its ember eyes open first, then it seeps out, glides after Ra through rock, and after every blow sinks away and rises again behind Ra |
 | **The Reed Lion** (boss) | Charges, stuns itself on walls, pounces; enraged at half health |
 | **The White Elephant** (boss) | Stamps shockwaves along the ground and charges with its tusks |
 
@@ -155,7 +158,7 @@ lib/
   art/                 Art generated from code: pixel sprites and tiles, painted backdrops
   levels/              ASCII level builder, the hand-made tutorial, rooms and the level generator
   world/               The 7 realms × 20 places, unlock rules and the save file
-  entities/            Player, enemies (demon, fly, ghoul, scorpion, man-eater), Lion and Elephant bosses
+  entities/            Player, enemies (demon, fly, ghoul, scorpion, man-eater, shade), Lion and Elephant bosses
   game/                MeetRaGame (loop, camera, render), arcade physics, effects, ambience (grass, weather, lights)
   ui/                  HUD, menus, world and realm maps, touch buttons
 test/                  Unit tests (level builder, physics, world and unlocks)
