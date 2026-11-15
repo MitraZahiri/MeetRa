@@ -28,6 +28,12 @@ Future<void> main() async {
   final game = MeetRaGame(art);
   await game.progress.load(game.state);
   game.ui.realm.value = game.progress.realm;
+  // Phones close games from the background without warning, so progress is written whenever the app leaves the screen
+  AppLifecycleListener(
+    onHide: () => game.progress.save(game.state),
+    onPause: () => game.progress.save(game.state),
+    onDetach: () => game.progress.save(game.state),
+  );
   _devShot(game);
   runApp(MeetRaApp(game: game));
 }

@@ -103,9 +103,10 @@ class Breakable {
 }
 
 class Chest {
-  Chest(this.x, this.y);
+  Chest(this.x, this.y, this.id, {this.opened = false});
   final double x, y;
-  bool opened = false;
+  final String id; // how the save remembers it
+  bool opened;
   Rect get bounds => Rect.fromLTWH(x - 7, y - 10, 14, 10);
 }
 
@@ -269,6 +270,7 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   void _spawnObjects() {
     var signIndex = 0;
+    var chestIndex = 0;
     Player? p;
     for (final o in level.objects) {
       switch (o.type) {
@@ -289,7 +291,8 @@ class MeetRaGame extends Game with KeyboardEvents {
         case '*':
           breakables.add(Breakable(o.x, o.y, 'bush', art.bush));
         case 'C':
-          chests.add(Chest(o.x, o.y));
+          final id = '${location?.id ?? def.title}#${chestIndex++}';
+          chests.add(Chest(o.x, o.y, id, opened: progress.isChestOpen(id)));
         case 'F':
           featherPickup = FeatherItem(o.x, o.y - 10);
         case 'L':
@@ -588,6 +591,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     for (final ch in chests) {
       if (ch.opened || !overlaps(pr, ch.bounds)) continue;
       ch.opened = true;
+      progress.openChest(ch.id);
       sfx.pickup();
       particles
         ..ring(ch.x, ch.y - 6, 0xffffe28a, r1: 24, life: 450)
@@ -595,6 +599,8 @@ class MeetRaGame extends Game with KeyboardEvents {
       spawnGold(ch.x, ch.y - 10, 12);
       spawnXp(ch.x, ch.y - 10, 8);
       ui.banner.value = BannerMsg('Treasure!', 'Hidden chests reward the curious');
+      // Saved at once, so leaving and coming back can't fill the same chest again
+      progress.save(state);
     }
   }
 
@@ -1028,12 +1034,25 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   // ---------- Navigation (called by the map screens) ----------
 
-  // Called by the title screen
+  // Called by the title screen: picks the saga up on the realm map where Ra last stood
   void begin() {
     if (started) return;
     started = true;
-    ui.screen.value = AppScreen.world;
+    if (progress.hasSave) {
+      ui.realm.value = progress.realm;
+      ui.screen.value = AppScreen.realm;
+    } else {
+      ui.screen.value = AppScreen.world;
+    }
     music.play(Track.explore);
+  }
+
+  // Called by the title screen: erases the save and starts from the first realm
+  Future<void> beginNew() async {
+    if (started) return;
+    started = true;
+    music.play(Track.explore);
+    await newGame();
   }
 
   void openRealm(Realm r) {
@@ -1058,7 +1077,9 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   void enterLocation(Location loc) {
     location = loc;
-    progress.moveTo(loc);
+    progress
+      ..moveTo(loc)
+      ..save(state);
     def = levelFor(loc);
     state
       ..hp = state.maxHp

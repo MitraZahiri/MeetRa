@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../art/sun_eye.dart';
 import '../config.dart';
 import '../game/meetra_game.dart';
+import '../world/world.dart';
 import 'common.dart';
 import 'touch_controls.dart';
 
@@ -73,6 +74,8 @@ class _TitleScreenState extends State<TitleScreen> with SingleTickerProviderStat
   StreamSubscription<LogicalKeyboardKey>? _keys;
   bool _armed = false;
   bool _leaving = false;
+  bool _confirmWipe = false; // 'New game' over a save needs a second tap
+  Timer? _confirmTimer;
 
   @override
   void initState() {
@@ -85,6 +88,7 @@ class _TitleScreenState extends State<TitleScreen> with SingleTickerProviderStat
     });
   }
 
+  // Continues the saved saga, or begins one if there is none
   void _start() {
     if (!_armed || _leaving) return;
     _keys?.cancel();
@@ -92,15 +96,55 @@ class _TitleScreenState extends State<TitleScreen> with SingleTickerProviderStat
     setState(() => _leaving = true);
   }
 
+  void _startNew() {
+    if (!_armed || _leaving) return;
+    if (!_confirmWipe) {
+      _confirmTimer?.cancel();
+      _confirmTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _confirmWipe = false);
+      });
+      setState(() => _confirmWipe = true);
+      return;
+    }
+    _keys?.cancel();
+    _confirmTimer?.cancel();
+    widget.game.beginNew();
+    setState(() => _leaving = true);
+  }
+
   @override
   void dispose() {
     _keys?.cancel();
+    _confirmTimer?.cancel();
     super.dispose();
   }
+
+  Widget _button(String label, VoidCallback onTap, {double size = 28, double pulse = 0}) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapUp: (_) => onTap(),
+        child: Transform.scale(
+          scale: 1 + 0.04 * pulse,
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 240),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xff1b2a6b),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: gold, width: 2.5),
+              boxShadow: [BoxShadow(color: gold.withValues(alpha: 0.35), blurRadius: 18)],
+            ),
+            child: OutlinedText(label, size: size, color: gold),
+          ),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
     final w = widget.w;
+    final g = widget.game;
+    final saved = g.progress.hasSave;
+    final realm = realms[g.progress.realm.clamp(0, realms.length - 1)];
     return AnimatedOpacity(
       opacity: _leaving ? 0 : 1,
       duration: const Duration(milliseconds: 500),
@@ -109,7 +153,8 @@ class _TitleScreenState extends State<TitleScreen> with SingleTickerProviderStat
         Positioned.fill(
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTapUp: (_) => _start(),
+            // With a save on the device only the buttons start the game, so a stray tap can't
+            onTapUp: saved ? null : (_) => _start(),
             child: Container(
               decoration: const BoxDecoration(
                 gradient: RadialGradient(
@@ -131,11 +176,28 @@ class _TitleScreenState extends State<TitleScreen> with SingleTickerProviderStat
                       At(w / 2, 272, child: const OutlinedText('Seven realms · one hundred and forty places to explore', size: 24)),
                       At(w / 2, 308,
                           child: const OutlinedText('A tale from the Book of Kings', size: 17, color: Color(0xff8ae0d8))),
-                      At(w / 2, 410,
-                          child: Opacity(
-                            opacity: 0.55 + 0.45 * (0.5 + 0.5 * math.sin(t * 4.2)),
-                            child: Transform.scale(scale: 1 + 0.04 * math.sin(t * 4.2), child: const OutlinedText('Tap to begin', size: 30, color: gold)),
-                          )),
+                      if (!saved)
+                        At(w / 2, 410,
+                            child: Opacity(
+                              opacity: 0.55 + 0.45 * (0.5 + 0.5 * math.sin(t * 4.2)),
+                              child: Transform.scale(scale: 1 + 0.04 * math.sin(t * 4.2), child: const OutlinedText('Tap to begin', size: 30, color: gold)),
+                            ))
+                      else ...[
+                        At(w / 2, 378, child: _button('Continue', _start, pulse: math.sin(t * 4))),
+                        At(w / 2, 420,
+                            child: OutlinedText('${realm.name}  ·  Lv ${g.state.level}  ·  ${g.state.gold} gold',
+                                size: 16, color: const Color(0xffc8bca0))),
+                        At(w / 2, 470,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTapUp: (_) => _startNew(),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                                child: OutlinedText(_confirmWipe ? 'Tap again to erase your save' : 'New game',
+                                    size: 20, color: _confirmWipe ? const Color(0xffff8a7a) : parch),
+                              ),
+                            )),
+                      ],
                     ]),
                   );
                 },

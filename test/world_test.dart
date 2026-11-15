@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meetra/art/sprites.dart';
 import 'package:meetra/game/meetra_game.dart';
 import 'package:meetra/config.dart';
@@ -102,6 +103,36 @@ void main() {
     expect(levelFor(realms[0].boss).boss.name, 'The White Elephant');
     expect(levelFor(realms[1].boss).boss.kind, BossKind.lion);
     expect(level1.boss.kind, BossKind.lion);
+  });
+
+  test('the save keeps cleared places, opened chests and stats, and a new game erases them', () async {
+    SharedPreferences.setMockInitialValues({});
+    final p = Progress();
+    final s = GameState();
+    expect(p.hasSave, isFalse);
+    final place = realms[0].locations[3];
+    p
+      ..clear(realms[0].locations[0])
+      ..moveTo(place)
+      ..openChest('${place.id}#0');
+    s.gold = 120;
+    await p.save(s);
+
+    final p2 = Progress();
+    final s2 = GameState();
+    await p2.load(s2);
+    expect(p2.hasSave, isTrue);
+    expect(p2.isCleared(realms[0].locations[0]), isTrue);
+    expect(p2.isChestOpen('${place.id}#0'), isTrue);
+    expect(p2.isChestOpen('${place.id}#1'), isFalse);
+    expect(p2.lastLocation, place.id);
+    expect(s2.gold, 120);
+
+    await p2.wipe(s2);
+    final p3 = Progress();
+    await p3.load(GameState());
+    expect(p3.hasSave, isFalse);
+    expect(p3.isChestOpen('${place.id}#0'), isFalse);
   });
 
   test('levels are the same every time a place is generated', () {
