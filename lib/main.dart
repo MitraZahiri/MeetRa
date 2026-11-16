@@ -14,6 +14,7 @@ import 'ui/common.dart';
 import 'ui/hud.dart';
 import 'ui/maps.dart';
 import 'ui/menus.dart';
+import 'ui/story.dart';
 import 'ui/touch_controls.dart';
 import 'world/world.dart';
 
@@ -132,6 +133,7 @@ class GameScreen extends StatelessWidget {
                           valueListenable: game.ui.realm,
                           builder: (context, r, _) => RealmMapScreen(game, key: ValueKey(r), w: w),
                         )),
+                    _when(game.ui.story, (s) => s != null, (s) => StoryView(game, s!, key: ObjectKey(s), w: w)),
                     _when(game.ui.title, (v) => v, (_) => TitleScreen(game, w: w)),
                   ]),
                 ),

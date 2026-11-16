@@ -26,6 +26,7 @@ import '../levels/level1.dart';
 import '../levels/rooms.dart' show roomH;
 import '../sfx.dart';
 import '../world/progress.dart';
+import '../world/saga.dart';
 import '../world/world.dart';
 import 'ambience.dart';
 import 'effects.dart';
@@ -38,6 +39,14 @@ class BannerMsg {
 }
 
 enum AppScreen { title, world, realm, playing }
+
+// Pages of the saga to read on a parchment scroll; [onDone] runs when the last page is turned
+class StoryScroll {
+  StoryScroll(this.title, this.pages, {this.onDone});
+  final String title;
+  final List<StoryPage> pages;
+  final void Function()? onDone;
+}
 
 // Everything the Flutter UI layer (HUD, menus) listens to
 class UiBus {
@@ -52,6 +61,7 @@ class UiBus {
   final victory = ValueNotifier<bool>(false);
   final rewards = ValueNotifier<List<String>>(const []); // shown on the 'location cleared' screen
   final session = ValueNotifier<int>(0); // bumps on restart so overlays rebuild fresh
+  final story = ValueNotifier<StoryScroll?>(null); // the scroll being read; the game waits meanwhile
 }
 
 class Pickup {
@@ -196,7 +206,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   double _winT = -1;
   bool _snapCamera = true;
 
-  bool get simPaused => !started || ui.screen.value != AppScreen.playing || ui.levelUps.value > 0;
+  bool get simPaused => !started || ui.screen.value != AppScreen.playing || ui.levelUps.value > 0 || ui.story.value != null;
   // The map screens cover the whole level, so it is neither animated nor drawn behind them
   bool get mapOpen => ui.screen.value == AppScreen.world || ui.screen.value == AppScreen.realm;
   double get uiScale => size.y / gameH;
@@ -1047,12 +1057,33 @@ class MeetRaGame extends Game with KeyboardEvents {
     music.play(Track.explore);
   }
 
-  // Called by the title screen: erases the save and starts from the first realm
+  // Called by the title screen: erases the save and starts from the first realm, with the prologue
   Future<void> beginNew() async {
     if (started) return;
     started = true;
     music.play(Track.explore);
     await newGame();
+  }
+
+  // ---------- The saga ----------
+
+  final _stories = <StoryScroll>[];
+
+  // Opens a scroll, or queues it behind the one being read
+  void tell(StoryScroll s) {
+    touch.clear();
+    if (ui.story.value == null) {
+      ui.story.value = s;
+    } else {
+      _stories.add(s);
+    }
+  }
+
+  // Called by the scroll when its last page is turned
+  void closeStory() {
+    final done = ui.story.value;
+    ui.story.value = _stories.isEmpty ? null : _stories.removeAt(0);
+    done?.onDone?.call();
   }
 
   void openRealm(Realm r) {
@@ -1120,12 +1151,13 @@ class MeetRaGame extends Game with KeyboardEvents {
     ui.levelUps.value = math.max(0, ui.levelUps.value - 1);
   }
 
-  // Erases the save and starts the saga again
+  // Erases the save and starts the saga again, from the prologue
   Future<void> newGame() async {
     await progress.wipe(state);
     mapSeen.clear();
     ui.realm.value = 0;
     ui.screen.value = AppScreen.world;
+    tell(StoryScroll('The Road of Seven Trials', prologue));
   }
 
   // ---------- Effects ----------
