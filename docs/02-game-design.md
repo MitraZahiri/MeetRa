@@ -80,6 +80,24 @@ The game is played on a **world map** of seven realms (see the map in the Saga B
 
 Levels for every place are built from hand-made level chunks, seeded by the place's id, so each place always has the same layout. Difficulty rises with each realm (more enemies, tougher enemies, stronger bosses). The Reed Marsh (Hearthvale) is the hand-made tutorial level.
 
+## 3c. The Saga in Play
+
+The story is told in play, on parchment scrolls that pause the game. All text lives in `lib/world/saga.dart`.
+
+| When | What is told |
+|---|---|
+| New game | The **prologue**: the Dawnfire, the Pale Giant, the blind king, Old Mehr's two roads |
+| A realm's map opens for the first time | The realm's **chapter opening** |
+| The first realm boss fight starts | The guardian's **words** |
+| Back on the realm map after the boss falls | The **chapter's ending** (the Lightless Land's ending closes the saga) |
+| Resting in a town | A word from someone there, a different person on each visit |
+| Resting at a hearth | The traveller at that hearth |
+| Touching a Verse Stone | One verse of the realm's legend |
+
+**The chapters** follow the realms: the vale gone cold (Hearthvale), the first darkness (Crownhold), the hungry king (Serpent Sands), the thief in the ice (Sky Spine, where the Dawnfire is won back), the khan beyond the river (Duskland), the edge of the map (Marble West) and the Water of Life (the Lightless Land, which heals the king's eyes).
+
+**Verse Stones.** Seven trails in every realm (road stops 2, 4, 5, 8, 9, 10 and 12) hide a Verse Stone in the farthest room off the road. Each holds one verse of a legend in the breeze of the old epics, told with MeetRa's own people: the first spark, the smith's banner, the cooks who saved half, the first hero of the short road, the eleven duels, the king who tried to fly, and the spring at the end of the world. Seven verses complete a legend and give **+1 might**. The **Book of Verses** keeps them all.
+
 ## 4. Gameplay
 
 ### 4.1 Controls (phone)

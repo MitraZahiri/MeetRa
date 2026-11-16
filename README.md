@@ -56,7 +56,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
   </tr>
 </table>
 
-## Status: playable prototype (v1.1.0)
+## Status: playable prototype (v1.5.0)
 
 ### The world
 
@@ -66,7 +66,16 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 - Going down into the rooms below the surface, the sky fades into an **underground cavern** of hanging stone and glowing crystals.
 - Levels are **rooms to explore**: doors, drops through the floor, climbs back up. The way out is sealed until Ra finds the **Sun Key**, hidden in the room farthest from the start.
 - The Reed Marsh is the hand-made tutorial; the other places are built from level chunks and get harder realm by realm: more obstacles and wider thorn beds in every room, and from the Serpent Sands on the roads to arenas and bosses lead through **thorn gauntlets**, **pillar chasms** and **dark halls**.
-- Progress is saved on the phone.
+- Progress is saved on the phone: cleared places, opened chests, found verses and Ra's stats. The title screen offers **Continue** or a **New game**.
+
+### The saga
+
+- A **prologue** on a new game: the stolen Dawnfire, the blind king and Old Mehr's two roads.
+- Every realm is a **chapter** told on parchment scrolls: it opens when Ra first reaches the realm, its guardian speaks before the fight, and it closes when the guardian falls. The last chapter ends the saga.
+- People to meet: **Old Mehr**, Bram the Smith, Tamra the Well-Keeper, Hask the Woodcutter, Orsa the Herder, Captain Lysa, the Lantern Keeper and **Saena**, the great bird. Each town has a word for Ra on every visit, and a different traveller rests by each hearth.
+- **Verse Stones**: seven trails in every realm hide a stone carved with one verse of the realm's legend, in a room off the road. The realm map marks the trails that still hide one. Finding all seven completes the legend and blesses Ra with +1 might.
+- The **Book of Verses** gathers the seven legends (49 verses) and tells where the missing ones wait.
+- Signposts pass on **rumours** of each realm.
 
 ### Fighting
 
@@ -157,11 +166,11 @@ lib/
   music.dart           Procedural santur and daf music, rendered in a background isolate
   art/                 Art generated from code: pixel sprites and tiles, painted backdrops
   levels/              ASCII level builder, the hand-made tutorial, rooms and the level generator
-  world/               The 7 realms × 20 places, unlock rules and the save file
+  world/               The 7 realms × 20 places, unlock rules, the save file and the saga's text
   entities/            Player, enemies (demon, fly, ghoul, scorpion, man-eater, shade), Lion and Elephant bosses
   game/                MeetRaGame (loop, camera, render), arcade physics, effects, ambience (grass, weather, lights)
-  ui/                  HUD, menus, world and realm maps, touch buttons
-test/                  Unit tests (level builder, physics, world and unlocks)
+  ui/                  HUD, menus, world and realm maps, story scrolls, the Book of Verses, touch buttons
+test/                  Unit tests (level builder, physics, world, unlocks, saves) and a UI layout test
 android/, ios/         Native platform projects
 docs/                  Design documents and screenshots
 ```
