@@ -844,6 +844,12 @@ class MeetRaGame extends Game with KeyboardEvents {
       BossKind.lion => Lion(this, at.dx, at.dy, maxHp: def.boss.hp),
     };
     ui.boss.value = def.boss;
+    // A realm's guardian speaks before the first fight
+    final loc = location;
+    if (loc != null && loc.kind == LocKind.boss && progress.firstTelling('boss:${loc.realm.id}')) {
+      tell(StoryScroll(loc.realm.name, [StoryPage(def.boss.name, chapterOf(loc.realm).bossWords)]));
+      progress.save(state);
+    }
   }
 
   // ---------- Trial of waves ----------
@@ -1144,8 +1150,13 @@ class MeetRaGame extends Game with KeyboardEvents {
       ..boss.value = null
       ..victory.value = false
       ..levelUps.value = 0;
-    progress.save(state);
     ui.screen.value = AppScreen.realm;
+    // With its guardian fallen, the realm's chapter closes
+    final loc = location;
+    if (loc != null && loc.kind == LocKind.boss && progress.isCleared(loc) && progress.firstTelling('after:${loc.realm.id}')) {
+      tell(StoryScroll(chapterOf(loc.realm).title, chapterOf(loc.realm).after));
+    }
+    progress.save(state);
   }
 
   // Called by the level-up panel after each choice
