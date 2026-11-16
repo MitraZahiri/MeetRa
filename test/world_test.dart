@@ -116,6 +116,8 @@ void main() {
       ..clear(realms[0].locations[0])
       ..moveTo(place)
       ..openChest('${place.id}#0');
+    expect(p.firstTelling('intro:hearthvale'), isTrue);
+    expect(p.firstTelling('intro:hearthvale'), isFalse);
     s.gold = 120;
     await p.save(s);
 
@@ -128,6 +130,8 @@ void main() {
     expect(p2.isChestOpen('${place.id}#1'), isFalse);
     expect(p2.lastLocation, place.id);
     expect(s2.gold, 120);
+    expect(p2.firstTelling('intro:hearthvale'), isFalse);
+    expect(p2.firstTelling('intro:crownhold'), isTrue);
 
     await p2.wipe(s2);
     final p3 = Progress();

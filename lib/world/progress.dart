@@ -13,6 +13,7 @@ class Progress extends ChangeNotifier {
 
   final _cleared = <String>{};
   final _chests = <String>{}; // opened chests, as '<location id>#<chest number>'
+  final _told = <String>{}; // parts of the saga already told, such as 'intro:<realm id>'
   int realm = 0; // the realm last opened on the world map
   String? lastLocation; // where Ra's marker stands on the realm map
 
@@ -24,6 +25,9 @@ class Progress extends ChangeNotifier {
   // Levels are built from a fixed seed per location, so a chest's number names the same chest every visit
   bool isChestOpen(String chest) => _chests.contains(chest);
   void openChest(String chest) => _chests.add(chest);
+
+  // True the first time a part of the saga comes up, so each one is told only once
+  bool firstTelling(String part) => _told.add(part);
 
   // Returns true the first time a location is cleared
   bool clear(Location l) {
@@ -42,7 +46,7 @@ class Progress extends ChangeNotifier {
   Future<void> save(GameState s) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_key, jsonEncode({'cleared': _cleared.toList(), 'chests': _chests.toList(), 'realm': realm, 'last': lastLocation, 'state': s.toJson()}));
+      await prefs.setString(_key, jsonEncode({'cleared': _cleared.toList(), 'chests': _chests.toList(), 'told': _told.toList(), 'realm': realm, 'last': lastLocation, 'state': s.toJson()}));
     } catch (e) {
       debugPrint('MeetRa: could not save progress: $e');
     }
@@ -60,6 +64,9 @@ class Progress extends ChangeNotifier {
       _chests
         ..clear()
         ..addAll((j['chests'] as List? ?? const []).cast<String>());
+      _told
+        ..clear()
+        ..addAll((j['told'] as List? ?? const []).cast<String>());
       realm = j['realm'] as int? ?? 0;
       lastLocation = j['last'] as String?;
       s.fromJson((j['state'] as Map).cast<String, dynamic>());
@@ -72,6 +79,7 @@ class Progress extends ChangeNotifier {
   Future<void> wipe(GameState s) async {
     _cleared.clear();
     _chests.clear();
+    _told.clear();
     realm = 0;
     lastLocation = null;
     s.reset();

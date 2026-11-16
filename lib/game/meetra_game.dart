@@ -1049,8 +1049,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (started) return;
     started = true;
     if (progress.hasSave) {
-      ui.realm.value = progress.realm;
-      ui.screen.value = AppScreen.realm;
+      openRealm(realms[progress.realm]);
     } else {
       ui.screen.value = AppScreen.world;
     }
@@ -1086,10 +1085,16 @@ class MeetRaGame extends Game with KeyboardEvents {
     done?.onDone?.call();
   }
 
+  // The first time Ra reaches a realm, its chapter of the saga opens
   void openRealm(Realm r) {
     progress.realm = r.index;
     ui.realm.value = r.index;
     ui.screen.value = AppScreen.realm;
+    if (progress.firstTelling('intro:${r.id}')) {
+      final c = chapterOf(r);
+      tell(StoryScroll(c.title, c.intro));
+      progress.save(state);
+    }
   }
 
   void openWorld() => ui.screen.value = AppScreen.world;
