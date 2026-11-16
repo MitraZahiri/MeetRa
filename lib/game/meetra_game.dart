@@ -1072,6 +1072,23 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   // ---------- The saga ----------
 
+  final _townVisits = <String, int>{};
+
+  // Someone by the fire has a word for Ra: in towns a different person each visit,
+  // and at each hearth the traveller resting there
+  void _talk(Location loc) {
+    final c = chapterOf(loc.realm);
+    final hearths = [for (final l in loc.realm.locations) if (l.kind == LocKind.hearth) l];
+    final StoryPage page;
+    if (loc.kind == LocKind.town) {
+      final n = _townVisits[loc.id] = (_townVisits[loc.id] ?? -1) + 1;
+      page = c.townTalk[n % c.townTalk.length];
+    } else {
+      page = c.hearthTalk[hearths.indexOf(loc) % c.hearthTalk.length];
+    }
+    tell(StoryScroll(loc.name, [page]));
+  }
+
   final _stories = <StoryScroll>[];
 
   // Opens a scroll, or queues it behind the one being read
@@ -1114,6 +1131,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     final first = progress.clear(loc);
     progress.save(state);
     sfx.altar();
+    _talk(loc);
     return first ? ['You rest by the fire. The road ahead opens.'] : ['You rest by the fire. Health restored.'];
   }
 
