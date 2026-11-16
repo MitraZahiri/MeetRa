@@ -637,9 +637,18 @@ class MeetRaGame extends Game with KeyboardEvents {
     spawnXp(v.x, v.y - 12, 10);
     final c = chapterOf(loc.realm);
     final n = progress.versesIn(loc.realm);
+    // The seventh verse makes the legend whole, and its old strength passes to Ra
+    final whole = n == 7 && progress.firstTelling('legend:${loc.realm.id}');
+    if (whole) {
+      state.attack += 1;
+      floatText(v.x, v.y - 24, '+1 might', const Color(0xff8ae0d8), size: 10, rise: 22, duration: 1400);
+    }
     tell(StoryScroll('${c.legend}  ·  verse ${numerals[v.index]} of VII', [
       StoryPage('Carved on the stone', c.verses[v.index]),
       if (n < 7) StoryPage(narrator, '$n of the seven verses of ${loc.realm.name} found. The others wait on its trails.'),
+      if (whole)
+        StoryPage(narrator,
+            "The seven verses of ${loc.realm.name} are whole again: ${c.legend}. The old poets' strength flows into Ra. Blessing: +1 might. The whole legend is kept in the Book of Verses."),
     ]));
     progress.save(state);
   }

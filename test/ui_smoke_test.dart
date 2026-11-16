@@ -27,7 +27,12 @@ void main() {
     await tester.runAsync(() async => game = MeetRaGame(await Art.generate()));
     final pages = [
       ...prologue,
-      for (final c in chapters.values) ...[...c.intro, ...c.after, ...c.townTalk, ...c.hearthTalk, StoryPage('A guardian', c.bossWords)],
+      for (final c in chapters.values) ...[
+        ...c.intro, ...c.after, ...c.townTalk, ...c.hearthTalk, StoryPage('A guardian', c.bossWords),
+        for (final v in c.verses) StoryPage('Carved on the stone', v),
+      ],
+      const StoryPage(narrator,
+          "The seven verses of Sky Spine & Frostwood are whole again: The First Hero of the Short Road. The old poets' strength flows into Ra. Blessing: +1 might. The whole legend is kept in the Book of Verses."),
     ];
     for (final p in pages) {
       await show(tester, StoryView(game, StoryScroll('Chapter Six: The Edge of the Map', [p]), key: UniqueKey(), w: 960));
