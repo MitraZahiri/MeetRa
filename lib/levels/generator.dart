@@ -226,9 +226,13 @@ LevelDef levelFor(Location loc) {
             shadeChance: _shadeChance(tier, loc.kind),
             darkSurface: r.theme == RealmTheme.dark)
       ],
+      // The second signpost teaches the sealed gate on the first roads of Hearthvale; after that it
+      // passes on a rumour of the realm (picked from the place's seed, so the layout is untouched)
       signs: [
         loc.desc,
-        'The gate is sealed by the sun. Follow the golden arrow to the Sun Key. Hold down on a wooden ledge to drop through it.',
+        tier == 0 && loc.index <= 5
+            ? 'The gate is sealed by the sun. Follow the golden arrow to the Sun Key. Hold down on a wooden ledge to drop through it.'
+            : chapterOf(r).rumours[_seed('${loc.id}:rumour') % chapterOf(r).rumours.length],
       ],
       boss: const BossDef('', ''),
       enemyBonus: tier,

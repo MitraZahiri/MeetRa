@@ -244,7 +244,8 @@ class _SignBoxState extends State<SignBox> with SingleTickerProviderStateMixin {
                 border: Border.all(color: const Color(Palette.lapis).withValues(alpha: 0.7), width: 1),
               ),
               alignment: Alignment.center,
-              child: OutlinedText(t, size: 21, color: ink, stroke: false, width: 600),
+              // Long verses and rumours step down a size to stay inside the frame
+              child: OutlinedText(t, size: t.length > 150 ? 17 : (t.length > 110 ? 19 : 21), color: ink, stroke: false, width: 600),
             ),
           ),
         ),
