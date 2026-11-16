@@ -540,7 +540,13 @@ class _WorldMapScreenState extends State<WorldMapScreen> with SingleTickerProvid
             child: RepaintBoundary(child: CustomPaint(painter: _WorldPainter(g, _layout, _art, _fog, px, _pulse, _reveals, _selected))),
           ),
           At(w - 30, 32, ax: 1, child: OutlinedText('Dawn Sigils  ${sigilCount(g.progress)} / 6', size: 18, color: const Color(0xff8ae0d8))),
-          At(30, 32, ax: 0, child: OutlinedText('Lv ${g.state.level}  ·  ${g.state.gold} gold', size: 18)),
+          At(30, 32,
+              ax: 0,
+              child: Row(children: [
+                _TextButton('Verses', () => g.ui.book.value = g.progress.realm, size: 14),
+                const SizedBox(width: 14),
+                OutlinedText('Lv ${g.state.level}  ·  ${g.state.gold} gold', size: 18),
+              ])),
           At(w / 2, 32,
               child: GestureDetector(
                 onTap: () {
@@ -777,7 +783,13 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
           At(w / 2, 32, child: OutlinedText(r.name, size: 30, color: gold)),
           At(w / 2, 60, child: OutlinedText(r.tagline, size: 15, color: const Color(0xffc8bca0))),
           At(w - 30, 36, ax: 1, child: OutlinedText('${clearedIn(r, g.progress)} / 20 explored', size: 18, color: const Color(0xff8ae0d8))),
-          At(30, 36, ax: 0, child: _TextButton('‹  World', g.openWorld, size: 16)),
+          At(30, 36,
+              ax: 0,
+              child: Row(children: [
+                _TextButton('‹  World', g.openWorld, size: 16),
+                const SizedBox(width: 10),
+                _TextButton('Verses  ${g.progress.versesIn(r)}/7', () => g.ui.book.value = r.index, size: 14),
+              ])),
           Positioned(left: 0, right: 0, top: 428, bottom: 0, child: _panel(g)),
         ]),
       ),

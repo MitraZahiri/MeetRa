@@ -10,6 +10,7 @@ import 'game/meetra_game.dart';
 import 'input.dart';
 import 'music.dart';
 import 'sfx.dart';
+import 'ui/book.dart';
 import 'ui/common.dart';
 import 'ui/hud.dart';
 import 'ui/maps.dart';
@@ -133,6 +134,7 @@ class GameScreen extends StatelessWidget {
                           valueListenable: game.ui.realm,
                           builder: (context, r, _) => RealmMapScreen(game, key: ValueKey(r), w: w),
                         )),
+                    _when(game.ui.book, (r) => r != null, (r) => BookScreen(game, w: w, realm: r!)),
                     _when(game.ui.story, (s) => s != null, (s) => StoryView(game, s!, key: ObjectKey(s), w: w)),
                     _when(game.ui.title, (v) => v, (_) => TitleScreen(game, w: w)),
                   ]),

@@ -62,6 +62,7 @@ class UiBus {
   final rewards = ValueNotifier<List<String>>(const []); // shown on the 'location cleared' screen
   final session = ValueNotifier<int>(0); // bumps on restart so overlays rebuild fresh
   final story = ValueNotifier<StoryScroll?>(null); // the scroll being read; the game waits meanwhile
+  final book = ValueNotifier<int?>(null); // the Book of Verses, open on this realm's page
 }
 
 class Pickup {
