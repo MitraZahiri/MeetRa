@@ -98,9 +98,19 @@ class Altar {
 }
 
 class Sign {
-  Sign(this.x, this.y, this.text);
+  Sign(this.x, this.y, this.text, {this.post = true});
   final double x, y;
   final String text;
+  final bool post; // a wooden signpost; a read Verse Stone keeps its words without one
+}
+
+// A stone carved with one verse of the realm's legend, waiting off the road
+class VerseStone {
+  VerseStone(this.x, this.y, this.index, {this.read = false});
+  final double x, y;
+  final int index; // 0..6
+  bool read;
+  Rect get bounds => Rect.fromLTWH(x - 8, y - 18, 16, 18);
 }
 
 class Breakable {
@@ -182,6 +192,7 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   Offset checkpoint = Offset.zero;
   Sign? activeSign;
+  VerseStone? verseStone;
   double? arenaLeft, arenaRight;
   Offset? lionSpawn;
   Offset? waveSpawn; // a trial of waves instead of the lion
@@ -223,6 +234,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     particles.clear();
     ambience = Ambience(level, location?.realm.theme ?? RealmTheme.vale, cave: location?.kind == LocKind.cave);
     featherPickup = null;
+    verseStone = null;
     gate = null;
     activeSign = null;
     arenaLeft = arenaRight = null;
@@ -300,6 +312,14 @@ class MeetRaGame extends Game with KeyboardEvents {
           breakables.add(Breakable(o.x, o.y, 'vase', art.vase));
         case '*':
           breakables.add(Breakable(o.x, o.y, 'bush', art.bush));
+        case 'T':
+          final loc = location;
+          final i = loc == null ? null : verseIndex(loc);
+          if (loc != null && i != null) {
+            final read = progress.hasVerse(loc);
+            verseStone = VerseStone(o.x, o.y, i, read: read);
+            if (read) signs.add(_verseSign(verseStone!));
+          }
         case 'C':
           final id = '${location?.id ?? def.title}#${chestIndex++}';
           chests.add(Chest(o.x, o.y, id, opened: progress.isChestOpen(id)));
@@ -399,6 +419,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     _updatePickups(dt);
     _updateOrbs(dt);
     _updateChests(pr);
+    _updateVerse(pr);
 
     final l = lion;
     if (l != null && l.state != LionState.dead && l.state != LionState.stunned && !P.dead) {
@@ -597,6 +618,31 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
   }
 
+  Sign _verseSign(VerseStone v) =>
+      Sign(v.x, v.y, 'Verse ${numerals[v.index]}:  ${chapterOf(location!.realm).verses[v.index]}', post: false);
+
+  // Touching an unread Verse Stone reads it aloud; after that its words show like a signpost's
+  void _updateVerse(Rect pr) {
+    final v = verseStone, loc = location;
+    if (v == null || v.read || loc == null || !overlaps(pr, v.bounds)) return;
+    v.read = true;
+    progress.findVerse(loc);
+    signs.add(_verseSign(v));
+    sfx.altar();
+    camera.flash(0xff8ae0d8, 0.25, 600);
+    particles
+      ..ring(v.x, v.y - 10, 0xff8ae0d8, r1: 34, life: 600, width: 2.5)
+      ..spark(v.x, v.y - 12, size: 14, color: 0xff8ae0d8);
+    spawnXp(v.x, v.y - 12, 10);
+    final c = chapterOf(loc.realm);
+    final n = progress.versesIn(loc.realm);
+    tell(StoryScroll('${c.legend}  ·  verse ${numerals[v.index]} of VII', [
+      StoryPage('Carved on the stone', c.verses[v.index]),
+      if (n < 7) StoryPage(narrator, '$n of the seven verses of ${loc.realm.name} found. The others wait on its trails.'),
+    ]));
+    progress.save(state);
+  }
+
   void _updateChests(Rect pr) {
     for (final ch in chests) {
       if (ch.opened || !overlaps(pr, ch.bounds)) continue;
@@ -655,6 +701,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     for (final c in coins) {
       if (chance(900)) particles.sparkle(c.body.x + between(-2, 2), c.body.y - between(2, 6));
     }
+    final vs = verseStone;
+    if (vs != null && !vs.read && chance(260)) particles.sparkle(vs.x + between(-5, 5), vs.y - between(4, 16), 0xff8ae0d8);
     for (final ch in chests) {
       if (!ch.opened && chance(600)) particles.sparkle(ch.x + between(-6, 6), ch.y - between(2, 10), 0xffffe28a);
     }
@@ -1348,6 +1396,23 @@ class MeetRaGame extends Game with KeyboardEvents {
     paintSunEye(c, sun, z, look: look, open: _eyeOpen * sunBlink(_realT));
   }
 
+  // A grey standing stone with a rounded top and three carved lines, glowing turquoise until it is read
+  void _drawVerseStone(Canvas c, VerseStone v) {
+    final x = v.x.roundToDouble(), y = v.y;
+    void box(double l, double t, double w, double h, int color) => c.drawRect(Rect.fromLTWH(x + l, y + t, w, h), Paint()..color = Color(color));
+    box(-8, -2, 16, 2, 0xff3e3830); // plinth
+    box(-6, -16, 12, 14, 0xff3e3830); // outline
+    box(-4, -18, 8, 2, 0xff3e3830);
+    box(-5, -15, 10, 13, 0xff8d8474); // face
+    box(-3, -17, 6, 2, 0xff8d8474);
+    box(-5, -15, 2, 13, 0xffa49b8a); // lit edge
+    final glow = v.read ? 0.45 : 0.65 + 0.35 * math.sin(_realT * 2.2);
+    final carve = v.read ? 0xff2bb3a8 : 0xff8ae0d8;
+    for (final (dy, w) in const [(-13.0, 6.0), (-10.0, 4.0), (-7.0, 6.0)]) {
+      c.drawRect(Rect.fromLTWH(x - w / 2, y + dy, w, 1.5), Paint()..color = Color(carve).withValues(alpha: glow));
+    }
+  }
+
   // The top of the nearest floor below a point, for drop shadows
   double? _groundBelow(double x, double y) {
     final tx = (x / tile).floor();
@@ -1380,6 +1445,8 @@ class MeetRaGame extends Game with KeyboardEvents {
       for (final o in orbs) Light(o.x, o.y, 12, 0xff8ae0d8, 0.8),
       for (final co in coins) Light(co.body.x, co.body.y - 3, 9, 0xffffd060, 0.5),
       for (final h in hearts) Light(h.body.x, h.body.y - 4, 10, 0xffff6a7a, 0.5),
+      if (verseStone != null)
+        Light(verseStone!.x, verseStone!.y - 9, verseStone!.read ? 12 : 24 + math.sin(t * 2.2) * 3, 0xff8ae0d8, verseStone!.read ? 0.3 : 0.6),
       for (final ch in chests)
         if (!ch.opened) Light(ch.x, ch.y - 5, 14, 0xffffd060, 0.35 + 0.15 * math.sin(t * 2.5)),
       for (final s in slashes) Light(s.x, s.y, 22, 0xffffe8b0, 1 - s.t / Slash.duration),
@@ -1399,8 +1466,10 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     // depth 3: signs and the gate
     for (final s in signs) {
-      drawFrame(c, a.sign, 0, s.x, s.y);
+      if (s.post) drawFrame(c, a.sign, 0, s.x, s.y);
     }
+    final vs = verseStone;
+    if (vs != null) _drawVerseStone(c, vs);
     final g = gate;
     if (g != null) {
       drawFrame(c, a.gate, 0, g.x, g.y);

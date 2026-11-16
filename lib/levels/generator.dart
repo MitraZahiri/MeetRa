@@ -5,6 +5,7 @@
 
 import 'dart:math' as math;
 
+import '../world/saga.dart';
 import '../world/world.dart';
 import 'build.dart';
 import 'level1.dart';
@@ -210,7 +211,7 @@ LevelDef levelFor(Location loc) {
       LocKind.ruin => RoomPlan(cols: 4, rows: 3, underground: 'B', chests: 2),
       LocKind.shrine => const RoomPlan(cols: 3, rows: 2),
       LocKind.secret => RoomPlan(cols: 5, rows: 3, underground: 'B', chests: 2),
-      _ => RoomPlan(cols: 4 + tier ~/ 3, rows: 2 + rnd.nextInt(2)),
+      _ => RoomPlan(cols: 4 + tier ~/ 3, rows: 2 + rnd.nextInt(2), verse: verseIndex(loc) != null),
     };
     return LevelDef(
       id: loc.id,

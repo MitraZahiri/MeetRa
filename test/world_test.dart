@@ -85,6 +85,20 @@ void main() {
     }
   });
 
+  test('seven trails in every realm hide one Verse Stone each, and Ra can reach it', () {
+    for (final r in realms) {
+      for (final l in r.locations.where((l) => l.kind.playable)) {
+        final level = buildLevel(levelFor(l));
+        final stones = level.objects.where((o) => o.type == 'T').toList();
+        expect(stones.length, verseIndex(l) == null ? 0 : 1, reason: l.id);
+        if (stones.isEmpty) continue;
+        final start = level.objects.firstWhere((o) => o.type == 'P');
+        final reach = _standable(level, Offset(start.tx.toDouble(), start.ty.toDouble()));
+        expect(reach.contains(Offset(stones[0].tx.toDouble(), stones[0].ty.toDouble())), isTrue, reason: '${l.id}: stone');
+      }
+    }
+  });
+
   test('on every road to an arena or a realm boss, even the hard ones, Ra can reach the gate', () {
     for (final r in realms) {
       for (final l in r.locations.where((l) => l.kind == LocKind.arena || l.kind == LocKind.boss)) {

@@ -1,6 +1,7 @@
 // Explorable levels: a grid of rooms joined by doors, drops through the floor and climbs back up.
 // The main road winds up and down from the first room to the gate; every other room hangs off it.
 // The gate is sealed until Ra finds the Sun Key, hidden in the room farthest from the start.
+// On some trails a Verse Stone waits too, in the farthest of the other rooms off the road.
 // The top row of rooms lies under the open sky; the rows below are underground.
 // See build.dart for the map legend.
 
@@ -20,11 +21,12 @@ class _Room {
 
 // Shape of the room grid and how it plays, per kind of place
 class RoomPlan {
-  const RoomPlan({required this.cols, required this.rows, this.downward = false, this.underground = '#', this.chests = 1});
+  const RoomPlan({required this.cols, required this.rows, this.downward = false, this.underground = '#', this.chests = 1, this.verse = false});
   final int cols, rows;
   final bool downward; // a cave: the road only ever goes down, to a gate at the bottom
   final String underground; // tile for the rock below the surface
   final int chests; // chests per dead-end room
+  final bool verse; // hide a Verse Stone
 }
 
 // [foe] picks what stands on a ground spot, from a random roll.
@@ -130,6 +132,14 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
           ? road[1]
           : road[road.length ~/ 2];
   final hearthRoom = road[road.length ~/ 2];
+  // The Verse Stone: off the road and away from the key if the map allows, as far from the start as can be.
+  // Chosen without the random generator, so adding it leaves the rest of the level as it was.
+  _Room? verseRoom;
+  if (plan.verse) {
+    final others = side.where((a) => a != keyRoom).toList();
+    final pool = others.isNotEmpty ? others : road.where((a) => a != start && a != end && a != hearthRoom).toList();
+    if (pool.isNotEmpty) verseRoom = pool.reduce((a, b) => dist[a]! >= dist[b]! ? a : b);
+  }
 
   // ---- Carve the rock ----
   final rock = plan.underground;
@@ -292,6 +302,11 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
       if (a == hearthRoom) place(a, 3, 'A');
       if (a == keyRoom) {
         if (!place(a, roomW ~/ 2, 'O', lift: 1)) place(a, roomW - 6, 'O', lift: 1);
+      }
+      if (a == verseRoom) {
+        for (final col in const [8, 6, 10, 5, 4]) { // clear of the chests at 12 and 15
+          if (place(a, col, 'T')) break;
+        }
       }
       if (deadEnds.contains(a)) {
         for (var i = 0; i < plan.chests; i++) {
