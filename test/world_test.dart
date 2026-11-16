@@ -7,6 +7,7 @@ import 'package:meetra/levels/build.dart';
 import 'package:meetra/levels/generator.dart';
 import 'package:meetra/levels/level1.dart';
 import 'package:meetra/world/progress.dart';
+import 'package:meetra/world/saga.dart';
 import 'package:meetra/world/world.dart';
 
 void main() {
@@ -133,6 +134,20 @@ void main() {
     await p3.load(GameState());
     expect(p3.hasSave, isFalse);
     expect(p3.isChestOpen('${place.id}#0'), isFalse);
+  });
+
+  test('every realm has a chapter: an opening, guardian words, an ending and a legend in seven verses', () {
+    for (final r in realms) {
+      final c = chapterOf(r);
+      expect(c.intro, isNotEmpty, reason: r.id);
+      expect(c.after, isNotEmpty, reason: r.id);
+      expect(c.bossWords, isNotEmpty, reason: r.id);
+      expect(c.townTalk, isNotEmpty, reason: r.id);
+      expect(c.hearthTalk.length, r.locations.where((l) => l.kind == LocKind.hearth).length, reason: r.id);
+      expect(c.verses.length, 7, reason: r.id);
+      // One Verse Stone on each of seven trails
+      expect([for (final l in r.locations) verseIndex(l)].nonNulls.toList(), [0, 1, 2, 3, 4, 5, 6], reason: r.id);
+    }
   });
 
   test('levels are the same every time a place is generated', () {
