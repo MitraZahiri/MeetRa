@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../config.dart';
 import '../game/meetra_game.dart';
+import '../world/saga.dart';
 import '../world/world.dart';
 import 'common.dart';
 import 'ink.dart';
@@ -815,7 +816,8 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
         Row(children: [
           OutlinedText(l.name, size: 24, color: gold),
           const SizedBox(width: 12),
-          OutlinedText('${l.kind.label}  ·  $status', size: 15, color: statusColor),
+          OutlinedText('${l.kind.label}  ·  $status${verseIndex(l) == null ? '' : g.progress.hasVerse(l) ? '  ·  Verse found' : '  ·  A verse hides here'}',
+              size: 15, color: statusColor),
         ]),
         const SizedBox(height: 6),
         _bodyText(_message.isNotEmpty ? _message.join('  ') : l.desc),
@@ -910,6 +912,23 @@ class _RealmPainter extends CustomPainter {
       c.drawCircle(p, r, _fill(fill));
       c.drawCircle(p, r, inkPen(l.kind == LocKind.boss ? 3.5 : 2.5, cleared || open ? inkColor : const Color(0xff8a7a60)));
       _icon(c, l.kind, p, r * 0.55, cleared ? const Color(0xfffbf3df) : (open ? _lapis : const Color(0xff8a7a60)));
+      // A small diamond for the Verse Stone: filled once read, a beating outline while it still waits
+      if (verseIndex(l) != null && (open || cleared)) {
+        final q = p + Offset(r * 0.85, -r * 0.85);
+        final d = Path()
+          ..moveTo(q.dx, q.dy - 6)
+          ..lineTo(q.dx + 4.5, q.dy)
+          ..lineTo(q.dx, q.dy + 6)
+          ..lineTo(q.dx - 4.5, q.dy)
+          ..close();
+        if (prog.hasVerse(l)) {
+          c.drawPath(d, _fill(_turq));
+          c.drawPath(d, inkPen(1.5));
+        } else {
+          c.drawPath(d, _fill(const Color(0xfffbf3df)));
+          c.drawPath(d, inkPen(1.8, _redInk.withValues(alpha: 0.55 + 0.45 * math.sin(t * math.pi * 2))));
+        }
+      }
       if (open || cleared) {
         inkText(c, l.name, p + Offset(0, r + 3), size: 12.5, bold: true, color: dark ? parch : inkColor, halo: !dark, maxW: 130);
       }
