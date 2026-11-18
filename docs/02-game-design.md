@@ -93,10 +93,15 @@ The story is told in play, on parchment scrolls that pause the game. All text li
 | Resting in a town | A word from someone there, a different person on each visit |
 | Resting at a hearth | The traveller at that hearth |
 | Touching a Verse Stone | One verse of the realm's legend |
+| Breaking a cage in a cave or ruin | The freed captive's thanks |
+| Back on the realm map after a shrine | Saena's vision |
+| Back on the realm map after a secret place | Saena on the Dawn Sigil (the Water of Life in the Lightless Land) |
 
 **The chapters** follow the realms: the vale gone cold (Hearthvale), the first darkness (Crownhold), the hungry king (Serpent Sands), the thief in the ice (Sky Spine, where the Dawnfire is won back), the khan beyond the river (Duskland), the edge of the map (Marble West) and the Water of Life (the Lightless Land, which heals the king's eyes).
 
-**Verse Stones.** Seven trails in every realm (road stops 2, 4, 5, 8, 9, 10 and 12) hide a Verse Stone in the farthest room off the road. Each holds one verse of a legend in the breeze of the old epics, told with MeetRa's own people: the first spark, the smith's banner, the cooks who saved half, the first hero of the short road, the eleven duels, the king who tried to fly, and the spring at the end of the world. Seven verses complete a legend and give **+1 might**. The **Book of Verses** keeps them all.
+**Verse Stones.** Seven trails in every realm (road stops 2, 4, 5, 8, 9, 10 and 12) hide a Verse Stone in the farthest room off the road. Each holds one verse of a legend in the breeze of the old epics, told with MeetRa's own people: the first spark, the smith's banner, the cooks who saved half, the first hero of the short road, the eleven duels, the king who tried to fly, and the spring at the end of the world. Seven verses complete a legend and give **+1 might**. The **Book of Verses** keeps them all, and replays every chapter told so far.
+
+**Captives.** Both caves (road stops 14 and 17) and the ruin (16) of every realm hold a captive in a cage in the farthest room off the road. Three sword strikes free them: gold, a heart and a few words of thanks. The realm map marks the cages and counts the captives freed.
 
 ## 4. Gameplay
 

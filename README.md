@@ -56,7 +56,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
   </tr>
 </table>
 
-## Status: playable prototype (v1.5.0)
+## Status: playable prototype (v1.6.0)
 
 ### The world
 
@@ -74,7 +74,9 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 - Every realm is a **chapter** told on parchment scrolls: it opens when Ra first reaches the realm, its guardian speaks before the fight, and it closes when the guardian falls. The last chapter ends the saga.
 - People to meet: **Old Mehr**, Bram the Smith, Tamra the Well-Keeper, Hask the Woodcutter, Orsa the Herder, Captain Lysa, the Lantern Keeper and **Saena**, the great bird. Each town has a word for Ra on every visit, and a different traveller rests by each hearth.
 - **Verse Stones**: seven trails in every realm hide a stone carved with one verse of the realm's legend, in a room off the road. The realm map marks the trails that still hide one. Finding all seven completes the legend and blesses Ra with +1 might.
-- The **Book of Verses** gathers the seven legends (49 verses) and tells where the missing ones wait.
+- **Captives**: every cave and ruin holds someone locked in a cage, three per realm. Three sword strikes set them free; they thank Ra and leave gold and a heart behind. The realm map marks the cages.
+- **Saena** shares a vision at every shrine and tells the story of each Dawn Sigil.
+- The **Book of Verses** gathers the seven legends (49 verses), tells where the missing ones wait, and lets you read each chapter again.
 - Signposts pass on **rumours** of each realm.
 
 ### Fighting
