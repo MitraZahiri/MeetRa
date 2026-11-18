@@ -83,6 +83,7 @@ class Level {
 //   F  Saena's feather   L  the boss   W  trial of waves   [ ]  arena walls   G  exit gate
 //   O  the Sun Key that unseals the gate
 //   T  a Verse Stone, carved with one verse of the realm's legend
+//   R  a cage with a captive inside, broken open with the sword
 Level buildLevel(LevelDef def) {
   final height = def.rows;
   final rows = List.filled(height, '');

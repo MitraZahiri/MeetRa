@@ -99,6 +99,20 @@ void main() {
     }
   });
 
+  test('the caves and the ruin of every realm hold one caged captive, and Ra can reach the cage', () {
+    for (final r in realms) {
+      for (final l in r.locations.where((l) => l.kind.playable)) {
+        final level = buildLevel(levelFor(l));
+        final cages = level.objects.where((o) => o.type == 'R').toList();
+        expect(cages.length, captiveIndex(l) == null ? 0 : 1, reason: l.id);
+        if (cages.isEmpty) continue;
+        final start = level.objects.firstWhere((o) => o.type == 'P');
+        final reach = _standable(level, Offset(start.tx.toDouble(), start.ty.toDouble()));
+        expect(reach.contains(Offset(cages[0].tx.toDouble(), cages[0].ty.toDouble())), isTrue, reason: '${l.id}: cage');
+      }
+    }
+  });
+
   test('on every road to an arena or a realm boss, even the hard ones, Ra can reach the gate', () {
     for (final r in realms) {
       for (final l in r.locations.where((l) => l.kind == LocKind.arena || l.kind == LocKind.boss)) {

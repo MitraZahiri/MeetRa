@@ -207,8 +207,8 @@ LevelDef levelFor(Location loc) {
   final fight = loc.kind == LocKind.arena || loc.kind == LocKind.boss;
   if (!fight) {
     final plan = switch (loc.kind) {
-      LocKind.cave => RoomPlan(cols: 4, rows: 4, downward: true, underground: 'B'),
-      LocKind.ruin => RoomPlan(cols: 4, rows: 3, underground: 'B', chests: 2),
+      LocKind.cave => const RoomPlan(cols: 4, rows: 4, downward: true, underground: 'B', captive: true),
+      LocKind.ruin => const RoomPlan(cols: 4, rows: 3, underground: 'B', chests: 2, captive: true),
       LocKind.shrine => const RoomPlan(cols: 3, rows: 2),
       LocKind.secret => RoomPlan(cols: 5, rows: 3, underground: 'B', chests: 2),
       _ => RoomPlan(cols: 4 + tier ~/ 3, rows: 2 + rnd.nextInt(2), verse: verseIndex(loc) != null),
