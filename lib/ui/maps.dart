@@ -783,7 +783,8 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
           ),
           At(w / 2, 32, child: OutlinedText(r.name, size: 30, color: gold)),
           At(w / 2, 60, child: OutlinedText(r.tagline, size: 15, color: const Color(0xffc8bca0))),
-          At(w - 30, 36, ax: 1, child: OutlinedText('${clearedIn(r, g.progress)} / 20 explored', size: 18, color: const Color(0xff8ae0d8))),
+          At(w - 30, 30, ax: 1, child: OutlinedText('${clearedIn(r, g.progress)} / 20 explored', size: 18, color: const Color(0xff8ae0d8))),
+          At(w - 30, 56, ax: 1, child: OutlinedText('${g.progress.freedIn(r)} / 3 captives freed', size: 14, color: const Color(0xffc8bca0))),
           At(30, 36,
               ax: 0,
               child: Row(children: [
@@ -816,7 +817,7 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
         Row(children: [
           OutlinedText(l.name, size: 24, color: gold),
           const SizedBox(width: 12),
-          OutlinedText('${l.kind.label}  ·  $status${verseIndex(l) == null ? '' : g.progress.hasVerse(l) ? '  ·  Verse found' : '  ·  A verse hides here'}',
+          OutlinedText('${l.kind.label}  ·  $status${verseIndex(l) == null ? '' : g.progress.hasVerse(l) ? '  ·  Verse found' : '  ·  A verse hides here'}${captiveIndex(l) == null ? '' : g.progress.isFreed(l) ? '  ·  Captive freed' : '  ·  A captive waits here'}',
               size: 15, color: statusColor),
         ]),
         const SizedBox(height: 6),
@@ -927,6 +928,22 @@ class _RealmPainter extends CustomPainter {
         } else {
           c.drawPath(d, _fill(const Color(0xfffbf3df)));
           c.drawPath(d, inkPen(1.8, _redInk.withValues(alpha: 0.55 + 0.45 * math.sin(t * math.pi * 2))));
+        }
+      }
+      // A small barred square for a captive: filled once freed, a beating outline while still caged
+      if (captiveIndex(l) != null && (open || cleared)) {
+        final q = p + Offset(-r * 0.85, -r * 0.85);
+        final box = Rect.fromCenter(center: q, width: 10, height: 10);
+        if (prog.isFreed(l)) {
+          c.drawRect(box, _fill(_turq));
+          c.drawRect(box, inkPen(1.5));
+        } else {
+          final pen = inkPen(1.6, _redInk.withValues(alpha: 0.55 + 0.45 * math.sin(t * math.pi * 2)));
+          c.drawRect(box, _fill(const Color(0xfffbf3df)));
+          c.drawRect(box, pen);
+          for (final dx in const [-2.0, 2.0]) {
+            c.drawLine(q + Offset(dx, -5), q + Offset(dx, 5), pen);
+          }
         }
       }
       if (open || cleared) {
