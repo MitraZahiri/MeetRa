@@ -1277,10 +1277,21 @@ class MeetRaGame extends Game with KeyboardEvents {
       ..victory.value = false
       ..levelUps.value = 0;
     ui.screen.value = AppScreen.realm;
-    // With its guardian fallen, the realm's chapter closes
+    // Back from a cleared place, the saga goes on: a chapter closes when its guardian falls,
+    // Saena speaks at shrines and about every Dawn Sigil
     final loc = location;
-    if (loc != null && loc.kind == LocKind.boss && progress.isCleared(loc) && progress.firstTelling('after:${loc.realm.id}')) {
-      tell(StoryScroll(chapterOf(loc.realm).title, chapterOf(loc.realm).after));
+    if (loc != null && progress.isCleared(loc)) {
+      final c = chapterOf(loc.realm);
+      switch (loc.kind) {
+        case LocKind.boss when progress.firstTelling('after:${loc.realm.id}'):
+          tell(StoryScroll(c.title, c.after));
+        case LocKind.shrine when progress.firstTelling('shrine:${loc.id}'):
+          tell(StoryScroll(loc.name, [c.shrines[shrineStops.indexOf(loc.index)]]));
+        case LocKind.secret when progress.firstTelling('sigil:${loc.realm.id}'):
+          tell(StoryScroll(loc.realm.hidden ? 'The Water of Life' : 'Dawn Sigil ${sigilCount(progress)} of 6', [c.sigil]));
+        default:
+          break;
+      }
     }
     progress.save(state);
   }
