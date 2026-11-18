@@ -30,6 +30,7 @@ void main() {
       for (final c in chapters.values) ...[
         ...c.intro, ...c.after, ...c.townTalk, ...c.hearthTalk, StoryPage('A guardian', c.bossWords),
         for (final v in c.verses) StoryPage('Carved on the stone', v),
+        ...c.captives, ...c.shrines, c.sigil,
       ],
       const StoryPage(narrator,
           "The seven verses of Sky Spine & Frostwood are whole again: The First Hero of the Short Road. The old poets' strength flows into Ra. Blessing: +1 might. The whole legend is kept in the Book of Verses."),

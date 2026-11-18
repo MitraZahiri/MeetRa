@@ -163,6 +163,14 @@ void main() {
       expect(c.townTalk, isNotEmpty, reason: r.id);
       expect(c.hearthTalk.length, r.locations.where((l) => l.kind == LocKind.hearth).length, reason: r.id);
       expect(c.verses.length, 7, reason: r.id);
+      expect(c.captives.length, captiveStops.length, reason: r.id);
+      expect(c.shrines.length, shrineStops.length, reason: r.id);
+      for (final i in captiveStops) {
+        expect(r.locations[i].kind, anyOf(LocKind.cave, LocKind.ruin), reason: '${r.id}/$i');
+      }
+      for (final i in shrineStops) {
+        expect(r.locations[i].kind, LocKind.shrine, reason: '${r.id}/$i');
+      }
       // One Verse Stone on each of seven trails
       expect([for (final l in r.locations) verseIndex(l)].nonNulls.toList(), [0, 1, 2, 3, 4, 5, 6], reason: r.id);
     }

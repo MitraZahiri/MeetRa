@@ -25,6 +25,9 @@ class Chapter {
     required this.rumours,
     required this.legend,
     required this.verses,
+    required this.captives,
+    required this.shrines,
+    required this.sigil,
   });
 
   final String title;
@@ -36,6 +39,9 @@ class Chapter {
   final List<String> rumours; // what the signposts along the trails say
   final String legend; // the name of the legend told by the seven verses
   final List<String> verses; // seven, one on each Verse Stone
+  final List<StoryPage> captives; // three, one in each cage in the caves and the ruin
+  final List<StoryPage> shrines; // two visions, one at each shrine
+  final StoryPage sigil; // when the secret place is cleared
 }
 
 const narrator = '';
@@ -54,6 +60,17 @@ const prologue = [
 
 // The seven trail places of every realm that hold a Verse Stone, in the order of the verses
 const verseStops = [2, 4, 5, 8, 9, 10, 12];
+
+// The caves and the ruin of every realm each hold a captive in a cage
+const captiveStops = [14, 16, 17];
+
+// Which captive waits in this place (0..2), or null
+int? captiveIndex(Location l) {
+  final i = captiveStops.indexOf(l.index);
+  return i < 0 ? null : i;
+}
+
+const shrineStops = [15, 18];
 
 // Which verse waits in this place (0..6), or null
 int? verseIndex(Location l) {
@@ -108,6 +125,16 @@ const chapters = <String, Chapter>{
       'So the first hearth was built upon the hill, and every hearth since is that same fire still.',
       'And if the fire is ever taken from the vale, strike stone on stone again, and do not fail.',
     ],
+    captives: [
+      StoryPage('A lost shepherd', 'I came down here after a lamb, and the dark closed behind me. Thank you. The lamb found its own way home, of course. Lambs always do.'),
+      StoryPage('A young potter', 'The demons wanted bowls for their feasts. I made every one of them crooked. Take my savings, I will not need them in a cage.'),
+      StoryPage('A beekeeper', 'I followed the glowworms to find where my bees had gone. The bees had gone somewhere much smarter than here.'),
+    ],
+    shrines: [
+      StoryPage('Saena', 'Fire was not stolen from the sky, little one. It was found, by someone who missed. Never be ashamed of a missed throw.'),
+      StoryPage('Saena', 'You hear me because you are listening. Most people only wait for their turn to speak. Rest. The road is long.'),
+    ],
+    sigil: StoryPage('Saena', 'The first Dawn Sigil. My nest kept it while the vale slept. Six were made, one for every land the dawn first touched. Gather them all, and the last land will show itself.'),
   ),
   'crownhold': Chapter(
     title: 'Chapter Two: The First Darkness',
@@ -150,6 +177,16 @@ const chapters = <String, Chapter>{
       'Later kings sewed jewels along its hem, but it was a smith\'s apron first, and it outlasted them.',
       'So when a crown forgets the hands that made it, remember the apron, and the town that raised it.',
     ],
+    captives: [
+      StoryPage('A palace scribe', "I was copying the old glyphs when the Hollows came. I saved one page. It says: 'Darkness is only a door that no one has opened yet.'"),
+      StoryPage('A lamplighter', 'Every lamp I lit, the Hollow swallowed, and then it nearly swallowed me. Tonight I will light one for you.'),
+      StoryPage('A falconer', 'My falcon flew home without me and brought the guards to the wrong door three times. Clever bird. Wrong door.'),
+    ],
+    shrines: [
+      StoryPage('Saena', 'The binder carved these glyphs with a hand that shook. Strength is not a steady hand. It is carving anyway.'),
+      StoryPage('Saena', 'A fire that never smokes is a fire that hides nothing. Be like that, and no shadow will find a place to sit in you.'),
+    ],
+    sigil: StoryPage('Saena', 'The second sigil, locked in the library behind a seal of my own feathers. The old writers knew I would send someone. I am glad it was you.'),
   ),
   'sands': Chapter(
     title: 'Chapter Three: The Hungry King',
@@ -192,6 +229,16 @@ const chapters = <String, Chapter>{
       'Years passed, and the freed became a people of their own, who knew the dunes the way the serpents knew stone.',
       'When the serpent king fell at last, they came riding with the dawn. The half that was saved had become a nation.',
     ],
+    captives: [
+      StoryPage('A water carrier', 'Three days without water, and you open the cage with a sword. Next time, bring the sword and a cup.'),
+      StoryPage('A palace prisoner', "Vexar's cooks slipped me out of the kitchen, and the ghouls caught me in the ruins. Tell the cooks I almost made it."),
+      StoryPage('A tribe child', 'My grandmother says our people were saved by kind strangers once. Now I can say it too.'),
+    ],
+    shrines: [
+      StoryPage('Saena', 'The desert is not empty, child. It is full of things that are waiting. Water waits too. Learn to wait like water.'),
+      StoryPage('Saena', 'Hunger is the oldest serpent of all. Feed the ones beside you, and it will never grow on your shoulders.'),
+    ],
+    sigil: StoryPage('Saena', 'The third sigil, buried under the dunes where the serpents could not smell it. Sand keeps secrets better than stone.'),
   ),
   'skyspine': Chapter(
     title: 'Chapter Four: The Thief in the Ice',
@@ -235,6 +282,16 @@ const chapters = <String, Chapter>{
       'At the fifth and the sixth he bound a warden and broke a warlord\'s horns, and the road ran on into the ice.',
       'At the seventh he met a giant in the cold, and won. No one remembers his name. Only the road remembers.',
     ],
+    captives: [
+      StoryPage('A lost climber', "I wanted to see Saena's nest with my own eyes. I saw the inside of an ice cave instead. Still, a fine view of the ceiling."),
+      StoryPage('An eagle keeper', "The Giant's frost caught my eagles in flight. They hang up there in the sky like stars. When the fire comes back, they will fly again."),
+      StoryPage('A wandering bard', 'I came to write a song about the Giant. Now I will write one about you. Do you prefer rhymes, or no rhymes?'),
+    ],
+    shrines: [
+      StoryPage('Saena', 'The mountain king lived up here with lions and eagles for friends. He was never lonely. Neither are you. Look at what follows you.'),
+      StoryPage('Saena', 'Storms do not hate the mountain. They only pass over it. Let what is cold pass over you, and keep your fire inside.'),
+    ],
+    sigil: StoryPage('Saena', 'The fourth sigil. It was frozen in the heart of the storm, and still it is warm to the touch. Dawn does not forget what it is.'),
   ),
   'duskland': Chapter(
     title: 'Chapter Five: The Khan Beyond the River',
@@ -277,6 +334,16 @@ const chapters = <String, Chapter>{
       'They saw each other\'s faces, threw their swords down in the grass, and embraced in the middle of the field.',
       'The armies went home. It is still called the Field of the Twelve Duels, though only eleven were ever fought.',
     ],
+    captives: [
+      StoryPage('A horse trader', "The khan's men took my horses and left me the cage. A bad trade. You have made it a good one."),
+      StoryPage('A captured envoy', 'I came to talk peace with the khan. He said peace is what the losing side talks about. Now we will see who is losing.'),
+      StoryPage('A silver miner', 'We dug too deep, and the hill dug back. Here, a little silver for the light you brought down.'),
+    ],
+    shrines: [
+      StoryPage('Saena', 'A flower that grows where blood was spilled grows red, but it grows. The steppe forgives. Teach your heart to do the same.'),
+      StoryPage('Saena', 'Seekers find what they look for. Be careful what you look for in your enemies. You will find that too.'),
+    ],
+    sigil: StoryPage('Saena', 'The fifth sigil, hidden in the whirlwind where no rider can follow. The khan rode past it a hundred times and never looked up.'),
   ),
   'marble': Chapter(
     title: 'Chapter Six: The Edge of the Map',
@@ -318,6 +385,16 @@ const chapters = <String, Chapter>{
       'The throne fell into a forest far from any road, and the king of the sky sat in the mud, alone and ashamed.',
       "His champions found him there and carried him home. 'Next time,' they told him, 'ask the birds first.'",
     ],
+    captives: [
+      StoryPage('A shipwrecked sailor', 'The dragon sank my ship and the grotto swallowed me. If you see a captain named Lysa, tell her I owe her a boat.'),
+      StoryPage("A sculptor's apprentice", 'I came to carve the dragon from life. It turned out to be very much alive. I will carve you instead. Hold still.'),
+      StoryPage('A temple diver', "I dove for the sunken temple's bell. The bell is still down there, and I am up here. That counts as winning."),
+    ],
+    shrines: [
+      StoryPage('Saena', 'Waves never reach the top of the cliff, and they never stop trying. That is not failure. That is the sea.'),
+      StoryPage('Saena', 'The talking tree will tell you the truth, and you will not like it. Go anyway. Truth is lighter to carry than fear.'),
+    ],
+    sigil: StoryPage('Saena', 'The sixth and last sigil, in the hold of a galley lost three hundred years ago. All six are yours, Ra. The edge of the world is waiting.'),
   ),
   'lightless': Chapter(
     title: 'Chapter Seven: The Water of Life',
@@ -362,5 +439,15 @@ const chapters = <String, Chapter>{
       'He took a few. In the daylight they turned to jewels, and he regretted that he had not taken more.',
       'The guide still walks the world in green, they say, and helps lost travellers. If you meet him, ask him the way.',
     ],
+    captives: [
+      StoryPage('A seeker of the spring', 'Forty years I searched for the Water of Life, and a cage found me first. If you find the spring, drink a little for me.'),
+      StoryPage('A blind lantern maker', 'I have made lanterns all my life and never needed one. Down here, that made me the only one who was not afraid.'),
+      StoryPage('A child who followed a light', 'It was a pretty light. It moved. Mother always said never follow the lights that move. I will listen next time.'),
+    ],
+    shrines: [
+      StoryPage('Saena', 'Here there is no sun, so listen instead of looking. Your own heartbeat is a drum that leads you home.'),
+      StoryPage('Saena', 'The Dawnfire was first struck from a spark in the dark. Every light begins in a place like this.'),
+    ],
+    sigil: StoryPage('Saena', 'The Water of Life. It looks like any other water, Ra, and that is why so few ever find it. Carry it home in your hands.'),
   ),
 };
