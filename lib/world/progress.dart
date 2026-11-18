@@ -48,6 +48,7 @@ class Progress extends ChangeNotifier {
 
   // True the first time a part of the saga comes up, so each one is told only once
   bool firstTelling(String part) => _told.add(part);
+  bool wasTold(String part) => _told.contains(part);
 
   // Returns true the first time a location is cleared
   bool clear(Location l) {

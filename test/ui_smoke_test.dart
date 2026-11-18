@@ -48,6 +48,9 @@ void main() {
         game.progress.findVerse(l);
         game.progress.clear(l);
       }
+      game.progress
+        ..firstTelling('intro:${r.id}')
+        ..firstTelling('after:${r.id}');
     }
     for (final r in realms) {
       await show(tester, BookScreen(game, key: UniqueKey(), w: 960, realm: r.index));

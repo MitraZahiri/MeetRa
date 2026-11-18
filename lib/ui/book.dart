@@ -99,6 +99,9 @@ class _BookScreenState extends State<BookScreen> {
                   ],
                 ),
               ),
+              // The chapter of the chosen realm, as far as it has been told, to read again
+              if (_chapter(r).isNotEmpty)
+                Positioned(left: 40, bottom: 34, child: _button('Read the chapter', () => g.tell(StoryScroll(c.title, _chapter(r))))),
               // The legend of the chosen realm
               Positioned(
                 left: 280,
@@ -151,6 +154,17 @@ class _BookScreenState extends State<BookScreen> {
         ),
       ),
     );
+  }
+
+  // The pages of a realm's chapter told so far; Hearthvale's begins with the prologue
+  List<StoryPage> _chapter(Realm r) {
+    final p = widget.game.progress;
+    final c = chapterOf(r);
+    return [
+      if (r.index == 0 && p.wasTold('intro:${r.id}')) ...prologue,
+      if (p.wasTold('intro:${r.id}')) ...c.intro,
+      if (p.wasTold('after:${r.id}')) ...c.after,
+    ];
   }
 
   Widget _verse(String text, Location at) {
