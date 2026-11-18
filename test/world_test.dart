@@ -144,6 +144,9 @@ void main() {
       ..clear(realms[0].locations[0])
       ..moveTo(place)
       ..openChest('${place.id}#0');
+    p
+      ..findVerse(realms[0].locations[2])
+      ..free(realms[0].locations[14]);
     expect(p.firstTelling('intro:hearthvale'), isTrue);
     expect(p.firstTelling('intro:hearthvale'), isFalse);
     s.gold = 120;
@@ -158,6 +161,9 @@ void main() {
     expect(p2.isChestOpen('${place.id}#1'), isFalse);
     expect(p2.lastLocation, place.id);
     expect(s2.gold, 120);
+    expect(p2.versesIn(realms[0]), 1);
+    expect(p2.isFreed(realms[0].locations[14]), isTrue);
+    expect(p2.freedIn(realms[0]), 1);
     expect(p2.firstTelling('intro:hearthvale'), isFalse);
     expect(p2.firstTelling('intro:crownhold'), isTrue);
 
@@ -166,6 +172,7 @@ void main() {
     await p3.load(GameState());
     expect(p3.hasSave, isFalse);
     expect(p3.isChestOpen('${place.id}#0'), isFalse);
+    expect(p3.freedIn(realms[0]), 0);
   });
 
   test('every realm has a chapter: an opening, guardian words, an ending and a legend in seven verses', () {

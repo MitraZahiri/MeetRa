@@ -105,6 +105,17 @@ class Sign {
   final bool post; // a wooden signpost; a read Verse Stone keeps its words without one
 }
 
+// An iron cage with a captive inside; three sword strikes break it open
+class Cage {
+  Cage(this.x, this.y, this.index, {this.freed = false});
+  final double x, y;
+  final int index; // 0..2
+  bool freed;
+  int hp = 3;
+  double shake = 0;
+  Rect get bounds => Rect.fromLTWH(x - 10, y - 24, 20, 24);
+}
+
 // A stone carved with one verse of the realm's legend, waiting off the road
 class VerseStone {
   VerseStone(this.x, this.y, this.index, {this.read = false});
@@ -194,6 +205,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   Offset checkpoint = Offset.zero;
   Sign? activeSign;
   VerseStone? verseStone;
+  Cage? cage;
   double? arenaLeft, arenaRight;
   Offset? lionSpawn;
   Offset? waveSpawn; // a trial of waves instead of the lion
@@ -236,6 +248,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     ambience = Ambience(level, location?.realm.theme ?? RealmTheme.vale, cave: location?.kind == LocKind.cave);
     featherPickup = null;
     verseStone = null;
+    cage = null;
     gate = null;
     activeSign = null;
     arenaLeft = arenaRight = null;
@@ -320,6 +333,13 @@ class MeetRaGame extends Game with KeyboardEvents {
             final read = progress.hasVerse(loc);
             verseStone = VerseStone(o.x, o.y, i, read: read);
             if (read) signs.add(_verseSign(verseStone!));
+          }
+        case 'R':
+          final loc = location;
+          final i = loc == null ? null : captiveIndex(loc);
+          if (loc != null && i != null) {
+            cage = Cage(o.x, o.y, i, freed: progress.isFreed(loc));
+            if (cage!.freed) signs.add(Sign(o.x, o.y, '${chapterOf(loc.realm).captives[i].speaker} was freed from this cage and has gone home.', post: false));
           }
         case 'C':
           final id = '${location?.id ?? def.title}#${chestIndex++}';
@@ -622,6 +642,25 @@ class MeetRaGame extends Game with KeyboardEvents {
   Sign _verseSign(VerseStone v) =>
       Sign(v.x, v.y, 'Verse ${numerals[v.index]}:  ${chapterOf(location!.realm).verses[v.index]}', post: false);
 
+  void _freeCaptive(Cage cg) {
+    final loc = location!;
+    cg.freed = true;
+    progress.free(loc);
+    sfx.breakIt();
+    burst(cg.x, cg.y - 12, [0xff5a5a6a, 0xff8a8a9a, 0xffd0d0e0], 18, 140);
+    particles.ring(cg.x, cg.y - 12, 0xfffff0c0, r1: 36, life: 650, width: 2.5);
+    spawnGold(cg.x, cg.y - 14, 15);
+    spawnHeart(cg.x, cg.y - 14);
+    final page = chapterOf(loc.realm).captives[cg.index];
+    signs.add(Sign(cg.x, cg.y, '${page.speaker} was freed from this cage and has gone home.', post: false));
+    final n = progress.freedIn(loc.realm);
+    tell(StoryScroll('A captive set free', [
+      page,
+      StoryPage(narrator, n < 3 ? '$n of the three captives of ${loc.realm.name} freed. The others wait in its caves and ruins.' : 'All three captives of ${loc.realm.name} are free and on their way home.'),
+    ]));
+    progress.save(state);
+  }
+
   // Touching an unread Verse Stone reads it aloud; after that its words show like a signpost's
   void _updateVerse(Rect pr) {
     final v = verseStone, loc = location;
@@ -729,6 +768,8 @@ class MeetRaGame extends Game with KeyboardEvents {
       if (b.kind == 'bush' && player.body.vx.abs() > 30 && overlaps(pr, b.bounds) && b.wobble < 0.4) b.wobble = 1;
       b.wobble = math.max(0, b.wobble - dt / 700);
     }
+    final cg = cage;
+    if (cg != null) cg.shake = math.max(0, cg.shake - dt / 250);
   }
 
   double _dist(double x1, double y1, double x2, double y2) => math.sqrt(math.pow(x2 - x1, 2) + math.pow(y2 - y1, 2));
@@ -753,6 +794,15 @@ class MeetRaGame extends Game with KeyboardEvents {
         _breakObject(b);
         hits++;
       }
+    }
+    final cg = cage;
+    if (cg != null && !cg.freed && overlaps(rect, cg.bounds)) {
+      hits++;
+      cg
+        ..hp -= 1
+        ..shake = 1;
+      particles.spark(cg.x + dir * -6, cg.y - 12, size: 10, color: 0xffd0d0e0);
+      if (cg.hp <= 0) _freeCaptive(cg);
     }
     if (hits > 0) {
       sfx.hit();
@@ -1406,6 +1456,30 @@ class MeetRaGame extends Game with KeyboardEvents {
     paintSunEye(c, sun, z, look: look, open: _eyeOpen * sunBlink(_realT));
   }
 
+  // Iron bars on a heavy base with the captive inside; once broken, only the base and two bent bars stay
+  void _drawCage(Canvas c, Cage cg) {
+    final x = (cg.x + math.sin(_realT * 50) * cg.shake * 1.5).roundToDouble(), y = cg.y;
+    void box(double l, double t, double w, double h, int color) => c.drawRect(Rect.fromLTWH(x + l, y + t, w, h), Paint()..color = Color(color));
+    box(-10, -3, 20, 3, 0xff2a2a34); // base
+    if (cg.freed) {
+      box(-9, -9, 1.5, 6, 0xff5a5a6a);
+      box(7, -7, 1.5, 4, 0xff5a5a6a);
+      return;
+    }
+    // The captive: a robed figure, sitting with its head bowed and now and then looking up
+    final look = math.sin(_realT * 0.9 + cg.x) > 0.6 ? -1.0 : 0.0;
+    box(-4, -13, 8, 10, 0xff7a4a6a); // robe
+    box(-3, -18 + look, 6, 5, 0xffd9a37a); // head
+    box(-3, -19 + look, 6, 2, 0xff3a2418); // hair
+    // Bars and the domed top
+    box(-9, -24, 18, 2, 0xff2a2a34);
+    box(-7, -26, 14, 2, 0xff2a2a34);
+    for (var bx = -9.0; bx <= 8; bx += 4.25) {
+      box(bx, -22, 1.5, 19, 0xff5a5a6a);
+    }
+    box(-1, -29, 2, 3, 0xff2a2a34); // ring on top
+  }
+
   // A grey standing stone with a rounded top and three carved lines, glowing turquoise until it is read
   void _drawVerseStone(Canvas c, VerseStone v) {
     final x = v.x.roundToDouble(), y = v.y;
@@ -1455,6 +1529,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       for (final o in orbs) Light(o.x, o.y, 12, 0xff8ae0d8, 0.8),
       for (final co in coins) Light(co.body.x, co.body.y - 3, 9, 0xffffd060, 0.5),
       for (final h in hearts) Light(h.body.x, h.body.y - 4, 10, 0xffff6a7a, 0.5),
+      if (cage != null && !cage!.freed) Light(cage!.x, cage!.y - 12, 20, 0xffffd090, 0.45),
       if (verseStone != null)
         Light(verseStone!.x, verseStone!.y - 9, verseStone!.read ? 12 : 24 + math.sin(t * 2.2) * 3, 0xff8ae0d8, verseStone!.read ? 0.3 : 0.6),
       for (final ch in chests)
@@ -1480,6 +1555,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     final vs = verseStone;
     if (vs != null) _drawVerseStone(c, vs);
+    final cg = cage;
+    if (cg != null) _drawCage(c, cg);
     final g = gate;
     if (g != null) {
       drawFrame(c, a.gate, 0, g.x, g.y);
