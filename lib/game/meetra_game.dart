@@ -252,6 +252,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   final houses = <House>[];
   final stalls = <Stall>[];
   Offset? inn; // the inn's door
+  bool _downWas = false, _downTapped = false; // ▽ pressed this frame: trade or rest
   bool _atInn = false;
   int _nights = 0;
   Cage? cage;
@@ -506,6 +507,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     final c = controls.update();
     final P = player;
     if (c.drinkPressed) _drink();
+    _downTapped = c.down && !_downWas;
+    _downWas = c.down;
     P.update(c, dt);
     // Until the fight starts the guardian only breathes
     if (bossStarted || bossDefeated) {
@@ -693,8 +696,18 @@ class MeetRaGame extends Game with KeyboardEvents {
       if ((P.x - s.x).abs() < 22 && (P.y - s.y).abs() < 30) near = s;
     }
     activeSign = near;
-    // Without a sign close by, the nearest townsperson speaks
+    // Without a sign close by: how to trade or rest, or else the nearest townsperson speaks
     var text = near?.text;
+    final loc = location;
+    for (final st in stalls) {
+      if (text == null && loc != null && (P.x - st.x).abs() < 16 && (P.y - st.y).abs() < 24) {
+        text = 'Press ▽ to trade with ${(st.travelling ? travellingMerchant : townMerchants[loc.realm.id]!).$1}.';
+      }
+    }
+    final d = inn;
+    if (text == null && d != null && (P.x - d.dx).abs() < 12 && (P.y - d.dy).abs() < 24) {
+      text = 'The inn. Press ▽ at the door to rest the night: health and aura come back, and the journey is saved.';
+    }
     for (final t in townsfolk) {
       t.talking = text == null && (P.x - t.x).abs() < 26 && (P.y - t.y).abs() < 30;
       if (t.talking) text = t.line;
@@ -717,7 +730,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     final d = inn;
     if (d == null) return;
     final close = (player.x - d.dx).abs() < 12 && (player.y - d.dy).abs() < 24 && !player.dead;
-    if (close && !_atInn) {
+    if (close && _downTapped && !_atInn) {
       touch.clear();
       player.frozen = true;
       camera.fadeOut(600, () {
@@ -730,9 +743,10 @@ class MeetRaGame extends Game with KeyboardEvents {
         player.frozen = false;
         ui.banner.value = BannerMsg('A night at the inn', 'Health and aura restored  ·  the journey is saved');
         tell(StoryScroll(location?.name ?? 'The inn', [StoryPage('The innkeeper', _innkeeper[_nights++ % _innkeeper.length])]));
+        _atInn = false;
       });
+      _atInn = true; // resting: no second night until this one is over
     }
-    _atInn = close;
   }
 
   void _updateStalls() {
@@ -740,7 +754,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (loc == null) return;
     for (final st in stalls) {
       final close = (player.x - st.x).abs() < 16 && (player.y - st.y).abs() < 24 && !player.dead;
-      if (close && !st.near) {
+      if (close && _downTapped) {
         final (name, greeting) = st.travelling ? travellingMerchant : townMerchants[loc.realm.id]!;
         openShop(ShopVisit(name, greeting, loc.realm, travelling: st.travelling));
       }
