@@ -11,6 +11,7 @@ import '../config.dart';
 import '../game/meetra_game.dart';
 import '../levels/build.dart' show trialWaves;
 import '../world/saga.dart';
+import '../world/shop.dart';
 import '../world/world.dart';
 import 'common.dart';
 import 'ink.dart';
@@ -814,7 +815,7 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
             ? 'Enter town'
             : l.kind.playable
                 ? (cleared ? 'Replay' : 'Enter')
-                : 'Rest';
+                : 'Rest by the fire';
     return _infoPanel(
       lines: [
         Row(children: [
@@ -824,11 +825,11 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
               size: 15, color: statusColor),
         ]),
         const SizedBox(height: 6),
-        _bodyText(_message.isNotEmpty ? _message.join('  ') : l.desc, lines: _message.isEmpty && _guardian(l) != null ? 1 : 2),
-        // Fights are named before Ra walks in
-        if (_message.isEmpty && _guardian(l) != null) ...[
+        _bodyText(_message.isNotEmpty ? _message.join('  ') : l.desc, lines: _message.isEmpty && _note(l) != null ? 1 : 2),
+        // Fights, shops and inns are named before Ra walks in
+        if (_message.isEmpty && _note(l) != null) ...[
           const SizedBox(height: 4),
-          OutlinedText(_guardian(l)!, size: 15, color: gold),
+          OutlinedText(_note(l)!, size: 15, color: gold),
         ],
       ],
       action: action == null
@@ -844,8 +845,11 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
   }
 }
 
-// Who or what waits at the end of a place's road, or null when no fight does
-String? _guardian(Location l) => switch (l.kind) {
+// What a place holds beyond its description: the fight at the end of its road, the town's
+// stall and inn, or a travelling merchant; null when there is nothing to add
+String? _note(Location l) => switch (l.kind) {
+      LocKind.town => "Inside: ${townMerchants[l.realm.id]!.$1}'s stall, the inn and the townsfolk",
+      LocKind.trail when merchantStops.contains(l.index) && !(l.realm.index == 0 && l.index == 1) => 'By the hearth: a travelling merchant',
       LocKind.boss => 'Waiting at the end: ${l.realm.bossName}, ${l.realm.bossTitle}',
       LocKind.arena => 'Waiting at the end: a trial of ${trialWaves(l.realm.index)} waves',
       _ when l.realm.index == 0 && l.index == 1 => 'Waiting at the end: the Reed Lion, Terror of the Marsh',
@@ -945,6 +949,13 @@ class _RealmPainter extends CustomPainter {
           c.drawPath(d, _fill(const Color(0xfffbf3df)));
           c.drawPath(d, inkPen(1.8, _redInk.withValues(alpha: 0.55 + 0.45 * math.sin(t * math.pi * 2))));
         }
+      }
+      // A gold coin where a merchant trades
+      if ((l.kind == LocKind.town || (l.kind == LocKind.trail && merchantStops.contains(l.index))) && (open || cleared)) {
+        final q = p + Offset(0, -r - 6);
+        c.drawCircle(q, 5, _fill(const Color(0xfff7d774)));
+        c.drawCircle(q, 5, inkPen(1.5));
+        c.drawLine(q + const Offset(0, -2.5), q + const Offset(0, 2.5), inkPen(1.2));
       }
       // A small barred square for a captive: filled once freed, a beating outline while still caged
       if (captiveIndex(l) != null && (open || cleared)) {
