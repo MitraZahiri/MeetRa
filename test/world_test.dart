@@ -379,8 +379,8 @@ Set<Offset> _standable(Level level, Offset from) {
 
   while (queue.isNotEmpty) {
     final (x, y) = queue.removeLast();
-    // Drop through a ledge, or blow a cracked slab open and drop
-    if (level.tileAt(x, y + 1) == T.platform || level.tileAt(x, y + 1) == T.slab) {
+    // Blow a cracked slab open and drop (wooden ledges can no longer be dropped through)
+    if (level.tileAt(x, y + 1) == T.slab) {
       final l = land(x, y + 2);
       if (l != null) visit(x, l);
     }

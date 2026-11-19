@@ -88,7 +88,7 @@ const level1 = LevelDef(
   // Signposts are matched to 'S' tiles in map order
   signs: [
     '◁ ▷ to walk, △ to jump.\nTap △ again in the air to double jump!',
-    'Swing your sword: three swings make a combo!\nIn the air, hold ▽ and swing to strike down.',
+    'Swing your sword: three swings make a combo!\nSwing while falling onto a foe to strike down on it.',
     'Old Mehr: "A feather of Saena waits on the hill.\nWhoever carries it is never alone in the dark."',
     'Thorns! Cross on the platforms.\nIf you fall, you return to the last safe ground.',
     'A roar rises from the reeds: the Reed Lion waits ahead.\nRest at the hearth. Once you step in, the way back closes.',

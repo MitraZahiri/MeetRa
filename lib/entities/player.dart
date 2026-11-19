@@ -90,7 +90,6 @@ class Player {
   double invuln = 0;
   double hurtLock = 0;
   double dropTimer = 0;
-  double _downHold = 0; // ms down has been held while standing
   bool dead = false;
   bool frozen = false;
   Offset safe;
@@ -147,19 +146,9 @@ class Player {
       body.vx = approach(body.vx, dir * PlayerTuning.speed * slow, accel);
     }
 
-    // Holding down for a moment on a one-way ledge drops through it
-    _downHold = c.down && ground && attackTimer <= 0 && hurtLock <= 0 ? _downHold + dt : 0;
-    if (_downHold > 140 && dropTimer <= 0 && tileUnderIs(T.platform)) {
-      dropTimer = 250;
-      _downHold = 0;
-    }
-
-    // Jumping (coyote time + buffer + double jump + drop through platforms)
+    // Jumping (coyote time + buffer + double jump)
     if (jumpBuffer > 0 && hurtLock <= 0) {
-      if (c.down && ground && tileUnderIs(T.platform)) {
-        dropTimer = 250;
-        jumpBuffer = 0;
-      } else if (coyote > 0) {
+      if (coyote > 0) {
         jump(PlayerTuning.jump);
         coyote = 0;
         game.particles.dust(x, y, count: 4, spread: 35);
@@ -220,7 +209,9 @@ class Player {
   }
 
   void attack(ControlState c, bool ground) {
-    final down = !ground && c.down;
+    // Swinging while falling onto something strikes down on it (and bounces off)
+    final below = Rect.fromLTWH(body.centerX - 11, body.bottom - 4, 22, 22);
+    final down = !ground && body.vy > -40 && game.targetIn(below);
     comboStep = comboWindow > 0 && !down ? (comboStep + 1) % 3 : 0;
     final step = down ? -1 : comboStep; // -1 = down-strike
     attackTimer = step == 2 ? 300 : 190;

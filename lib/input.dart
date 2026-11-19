@@ -32,13 +32,13 @@ final touch = Touch();
 
 class ControlState {
   bool left = false, right = false, down = false, jump = false;
-  bool jumpPressed = false, attackPressed = false, spellPressed = false, drinkPressed = false, bombPressed = false;
+  bool jumpPressed = false, attackPressed = false, spellPressed = false, drinkPressed = false, bombPressed = false, actPressed = false;
 }
 
 // Merges keyboard and touch input into one state
 class Controls {
   Set<LogicalKeyboardKey> keys = const {};
-  bool _prevJump = false, _prevAttack = false, _prevSpell = false, _prevDrink = false, _prevBomb = false;
+  bool _prevJump = false, _prevAttack = false, _prevSpell = false, _prevDrink = false, _prevBomb = false, _prevAct = false;
   final state = ControlState();
 
   bool _any(List<LogicalKeyboardKey> ks) => ks.any(keys.contains);
@@ -64,6 +64,9 @@ class Controls {
     final bomb = _any([LogicalKeyboardKey.keyB, LogicalKeyboardKey.keyL]) || touch.bomb;
     s.bombPressed = bomb && !_prevBomb;
     _prevBomb = bomb;
+    final act = _any([LogicalKeyboardKey.keyE, LogicalKeyboardKey.enter]);
+    s.actPressed = act && !_prevAct;
+    _prevAct = act;
     return s;
   }
 }

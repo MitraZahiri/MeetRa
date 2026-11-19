@@ -20,10 +20,30 @@ class TouchControls extends StatelessWidget {
         builder: (context, _) => Stack(children: [
           _Button(x: 85, y: h - 90, r: 62, icon: ButtonIcon.left, keyName: 'left'),
           _Button(x: 230, y: h - 90, r: 62, icon: ButtonIcon.right, keyName: 'right'),
-          _Button(x: 158, y: h - 205, r: 42, icon: ButtonIcon.down, keyName: 'down'),
           _Button(x: w - 90, y: h - 90, r: 66, icon: ButtonIcon.up, keyName: 'jump'),
           _Button(x: w - 240, y: h - 80, r: 56, icon: ButtonIcon.sword, keyName: 'attack'),
           if (game.state.hasFeather) _Button(x: w - 130, y: h - 235, r: 46, icon: ButtonIcon.star, keyName: 'spell'),
+          // Trade or Rest, only while Ra stands at a stall or the inn's door
+          ValueListenableBuilder<String?>(
+            valueListenable: game.ui.action,
+            builder: (context, a, _) => a == null
+                ? const SizedBox.shrink()
+                : At(w / 2, h - 215,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapDown: (_) => game.act(),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xff1b2a6b),
+                          borderRadius: BorderRadius.circular(26),
+                          border: Border.all(color: const Color(0xffd4a845), width: 3),
+                          boxShadow: [BoxShadow(color: gold.withValues(alpha: 0.4), blurRadius: 16)],
+                        ),
+                        child: OutlinedText(a, size: 26, color: gold),
+                      ),
+                    )),
+          ),
           // Bombs, with how many are left in the bag
           _Button(x: w - 375, y: h - 105, r: 44, icon: ButtonIcon.bomb, keyName: 'bomb'),
           At(w - 343, h - 140,

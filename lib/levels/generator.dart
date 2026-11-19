@@ -250,7 +250,7 @@ LevelDef levelFor(Location loc) {
       signs: [
         loc.desc,
         tier == 0 && loc.index <= 5
-            ? 'The gate is sealed by the sun. Follow the golden arrow to the Sun Key. Hold down on a wooden ledge to drop through it.'
+            ? 'The gate is sealed by the sun. Follow the golden arrow to the Sun Key. A cracked slab hides each way down: bomb it. Bomb flowers grow beside it.'
             : chapterOf(r).rumours[_seed('${loc.id}:rumour') % chapterOf(r).rumours.length],
       ],
       boss: const BossDef('', ''),

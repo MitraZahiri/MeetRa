@@ -72,6 +72,7 @@ class UiBus {
   final rewards = ValueNotifier<List<String>>(const []); // shown on the 'location cleared' screen
   final session = ValueNotifier<int>(0); // bumps on restart so overlays rebuild fresh
   final story = ValueNotifier<StoryScroll?>(null); // the scroll being read; the game waits meanwhile
+  final action = ValueNotifier<String?>(null); // 'Trade' or 'Rest' when Ra stands at a stall or the inn
   final curtain = ValueNotifier<bool>(false); // a black curtain drawn between two screens
   final bossIntro = ValueNotifier<BossDef?>(null); // the guardian's name card during its entrance
   final shop = ValueNotifier<ShopVisit?>(null); // a merchant's counter; the game waits meanwhile
@@ -268,7 +269,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   final houses = <House>[];
   final stalls = <Stall>[];
   Offset? inn; // the inn's door
-  bool _downWas = false, _downTapped = false; // ▽ pressed this frame: trade or rest
+  bool _actWanted = false, _downTapped = false; // the Trade / Rest button (or E on a keyboard) was pressed
   bool _atInn = false;
   int _nights = 0;
   Cage? cage;
@@ -332,6 +333,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     gate = null;
     activeSign = null;
     _talkShown = null;
+    ui.action.value = null;
     townsfolk.clear();
     arenaLeft = arenaRight = null;
     lionSpawn = waveSpawn = sunKey = null;
@@ -551,8 +553,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (c.bombPressed) _placeBomb();
     _updateBombs(dt);
     _updateFlowers(dt);
-    _downTapped = c.down && !_downWas;
-    _downWas = c.down;
+    _downTapped = _actWanted || c.actPressed;
+    _actWanted = false;
     P.update(c, dt);
     // Until the fight starts the guardian only breathes
     if (bossStarted || bossDefeated) {
@@ -746,16 +748,20 @@ class MeetRaGame extends Game with KeyboardEvents {
     activeSign = near;
     // Without a sign close by: how to trade or rest, or else the nearest townsperson speaks
     var text = near?.text;
+    String? action;
     final loc = location;
     for (final st in stalls) {
       if (text == null && loc != null && (P.x - st.x).abs() < 16 && (P.y - st.y).abs() < 24) {
-        text = 'Press ▽ to trade with ${(st.travelling ? travellingMerchant : townMerchants[loc.realm.id]!).$1}.';
+        text = '${(st.travelling ? travellingMerchant : townMerchants[loc.realm.id]!).$1}: tap Trade to see the wares.';
+        action = 'Trade';
       }
     }
     final d = inn;
     if (text == null && d != null && (P.x - d.dx).abs() < 12 && (P.y - d.dy).abs() < 24) {
-      text = 'The inn. Press ▽ at the door to rest the night: health and aura come back, and the journey is saved.';
+      text = 'The inn. Tap Rest to sleep the night: health and aura come back, and the journey is saved.';
+      action = 'Rest';
     }
+    if (ui.action.value != action) ui.action.value = action;
     for (final t in townsfolk) {
       t.talking = text == null && (P.x - t.x).abs() < 26 && (P.y - t.y).abs() < 30;
       if (t.talking) text = t.line;
@@ -796,6 +802,16 @@ class MeetRaGame extends Game with KeyboardEvents {
       _atInn = true; // resting: no second night until this one is over
     }
   }
+
+  // Called by the Trade / Rest button
+  void act() => _actWanted = true;
+
+  // Something Ra's sword can hit inside [r]: a foe, the guardian in a fight, a vase or bush, or a cage
+  bool targetIn(Rect r) =>
+      enemies.any((e) => !e.dying && !e.untouchable && overlaps(r, e.body.rect)) ||
+      (bossStarted && lion != null && lion!.state != LionState.dead && overlaps(r, lion!.body.rect)) ||
+      breakables.any((b) => overlaps(r, b.bounds)) ||
+      (cage != null && !cage!.freed && overlaps(r, cage!.bounds));
 
   void _updateStalls() {
     final loc = location;
