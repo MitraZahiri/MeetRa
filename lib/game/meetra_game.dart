@@ -229,7 +229,8 @@ class MeetRaGame extends Game with KeyboardEvents {
   double _cineT = 0;
   Offset? _cineAt;
   static const cineMs = 2300.0;
-  double _wallRise = 1; // 0 -> 1 while the wall behind Ra rises
+  double _wallRise = 1;
+  double _slow = 0; // real ms of slow motion left // 0 -> 1 while the wall behind Ra rises
   double timeNow = 0;
   double _hitstop = 0;
   double _drift = 0;
@@ -267,6 +268,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     leftWall = rightWall = null;
     lion = null;
     bossStarted = bossDefeated = victory = false;
+    _slow = 0;
     _cineT = 0;
     _cineAt = null;
     ui.bossIntro.value = null;
@@ -415,7 +417,7 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   @override
   void update(double dtSeconds) {
-    final dt = math.min(dtSeconds * 1000, 50.0);
+    var dt = math.min(dtSeconds * 1000, 50.0);
     _drift += dt * 0.004;
     _realT += dt / 1000;
     if (mapOpen) return;
@@ -423,6 +425,11 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (simPaused) {
       state.flush();
       return;
+    }
+    // The world slows for a moment when a guardian falls
+    if (_slow > 0) {
+      _slow -= dt;
+      dt *= 0.3;
     }
     timeNow += dt;
     timers.update(dt);
@@ -1098,6 +1105,7 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   void onBossDefeated(double x, double y, {String? won}) {
     bossDefeated = true;
+    _slow = 1100;
     spawnGold(x, y - 16, 25);
     spawnXp(x, y - 16, 60);
     spawnHeart(x, y - 16);
