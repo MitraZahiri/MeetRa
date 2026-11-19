@@ -517,6 +517,12 @@ class MeetRaGame extends Game with KeyboardEvents {
       if (_cineT <= 0) {
         P.frozen = false;
         _cineAt = null;
+        // How to beat it, as the fight begins
+        ui.banner.value = BannerMsg(
+            'Jump over its charge',
+            def.boss.kind == BossKind.elephant
+                ? 'Leap its shockwaves; a charge into the wall dazes it: strike then!'
+                : 'A charge into the wall dazes it: strike then!');
       }
     } else {
       camera.follow(P.x, P.y - 20, dt, snap: _snapCamera);
