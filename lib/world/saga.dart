@@ -28,6 +28,7 @@ class Chapter {
     required this.captives,
     required this.shrines,
     required this.sigil,
+    required this.people,
   });
 
   final String title;
@@ -42,6 +43,7 @@ class Chapter {
   final List<StoryPage> captives; // three, one in each cage in the caves and the ruin
   final List<StoryPage> shrines; // two visions, one at each shrine
   final StoryPage sigil; // when the secret place is cleared
+  final List<StoryPage> people; // ordinary folk living in the town
 }
 
 const narrator = '';
@@ -135,6 +137,10 @@ const chapters = <String, Chapter>{
       StoryPage('Saena', 'You hear me because you are listening. Most people only wait for their turn to speak. Rest. The road is long.'),
     ],
     sigil: StoryPage('Saena', 'The first Dawn Sigil. My nest kept it while the vale slept. Six were made, one for every land the dawn first touched. Gather them all, and the last land will show itself.'),
+    people: [
+      StoryPage('A baker', "Bread at dawn, every dawn, fire or no fire. Today it came out flat. Tomorrow it will rise, you'll see."),
+      StoryPage('A boy with a wooden sword', "When I grow up I'll walk the short road too. Mother says I have to finish my porridge first."),
+    ],
   ),
   'crownhold': Chapter(
     title: 'Chapter Two: The First Darkness',
@@ -187,6 +193,10 @@ const chapters = <String, Chapter>{
       StoryPage('Saena', 'A fire that never smokes is a fire that hides nothing. Be like that, and no shadow will find a place to sit in you.'),
     ],
     sigil: StoryPage('Saena', 'The second sigil, locked in the library behind a seal of my own feathers. The old writers knew I would send someone. I am glad it was you.'),
+    people: [
+      StoryPage("A merchant's wife", "Since the king went blind, the tax men can't read the ledgers either. Every cloud, as they say."),
+      StoryPage('An old soldier', 'I stood guard at the palace for thirty years. Now I stand guard at this bench. It is quieter.'),
+    ],
   ),
   'sands': Chapter(
     title: 'Chapter Three: The Hungry King',
@@ -239,6 +249,10 @@ const chapters = <String, Chapter>{
       StoryPage('Saena', 'Hunger is the oldest serpent of all. Feed the ones beside you, and it will never grow on your shoulders.'),
     ],
     sigil: StoryPage('Saena', 'The third sigil, buried under the dunes where the serpents could not smell it. Sand keeps secrets better than stone.'),
+    people: [
+      StoryPage('A camel driver', 'Never argue with a camel. You lose, and then the camel tells all the other camels.'),
+      StoryPage('A girl carrying water', 'Two jars every morning, two every evening. When the wells were bitter it was four.'),
+    ],
   ),
   'skyspine': Chapter(
     title: 'Chapter Four: The Thief in the Ice',
@@ -292,6 +306,10 @@ const chapters = <String, Chapter>{
       StoryPage('Saena', 'Storms do not hate the mountain. They only pass over it. Let what is cold pass over you, and keep your fire inside.'),
     ],
     sigil: StoryPage('Saena', 'The fourth sigil. It was frozen in the heart of the storm, and still it is warm to the touch. Dawn does not forget what it is.'),
+    people: [
+      StoryPage("A goat herder's son", 'The goats climbed onto the roof again. They like the view. So do I.'),
+      StoryPage('A furrier', 'Wolf, fox, bear. All bought, never hunted, I swear it. Mostly.'),
+    ],
   ),
   'duskland': Chapter(
     title: 'Chapter Five: The Khan Beyond the River',
@@ -344,6 +362,10 @@ const chapters = <String, Chapter>{
       StoryPage('Saena', 'Seekers find what they look for. Be careful what you look for in your enemies. You will find that too.'),
     ],
     sigil: StoryPage('Saena', 'The fifth sigil, hidden in the whirlwind where no rider can follow. The khan rode past it a hundred times and never looked up.'),
+    people: [
+      StoryPage('A horse breeder', 'A horse knows its rider before the rider knows the horse. Remember that if you ever meet a red one.'),
+      StoryPage('A felt maker', 'We beat the felt with sticks for a whole day. It is the only thing on the steppe that never fights back.'),
+    ],
   ),
   'marble': Chapter(
     title: 'Chapter Six: The Edge of the Map',
@@ -395,6 +417,10 @@ const chapters = <String, Chapter>{
       StoryPage('Saena', 'The talking tree will tell you the truth, and you will not like it. Go anyway. Truth is lighter to carry than fear.'),
     ],
     sigil: StoryPage('Saena', 'The sixth and last sigil, in the hold of a galley lost three hundred years ago. All six are yours, Ra. The edge of the world is waiting.'),
+    people: [
+      StoryPage('A fisherman', 'The dragon ate my nets, my boat and my best hat. I miss the hat most.'),
+      StoryPage('A young poet', "I am writing an ode to the sea. So far I have: 'Oh, sea.' It is a start."),
+    ],
   ),
   'lightless': Chapter(
     title: 'Chapter Seven: The Water of Life',
@@ -449,5 +475,9 @@ const chapters = <String, Chapter>{
       StoryPage('Saena', 'The Dawnfire was first struck from a spark in the dark. Every light begins in a place like this.'),
     ],
     sigil: StoryPage('Saena', 'The Water of Life. It looks like any other water, Ra, and that is why so few ever find it. Carry it home in your hands.'),
+    people: [
+      StoryPage('A lamp trimmer', 'Trim the wick, and the light lasts twice as long. Trim your words, and so do friendships.'),
+      StoryPage('A sleepy child', 'Is it night? It is always night here. Mother says that is why we sing so much.'),
+    ],
   ),
 };

@@ -201,6 +201,9 @@ void main() {
       expect(c.townTalk, isNotEmpty, reason: r.id);
       expect(c.hearthTalk.length, r.locations.where((l) => l.kind == LocKind.hearth).length, reason: r.id);
       expect(c.verses.length, 7, reason: r.id);
+      // The town's folk are all different people
+      final folk = [c.townTalk.first.speaker, ...c.people.map((p) => p.speaker)];
+      expect(folk.toSet().length, folk.length, reason: r.id);
       expect(c.captives.length, captiveStops.length, reason: r.id);
       expect(c.shrines.length, shrineStops.length, reason: r.id);
       for (final i in captiveStops) {

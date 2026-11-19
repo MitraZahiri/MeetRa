@@ -162,6 +162,19 @@ class FeatherItem {
   double get y => baseY - 6 * (0.5 - 0.5 * math.cos(math.pi * t / 900));
 }
 
+// Someone who lives in town: strolls up and down near home, and stops to talk when Ra comes close
+class Townsperson {
+  Townsperson(this.x, this.y, this.index, this.page) : home = x;
+  double x;
+  final double y, home;
+  final int index;
+  final StoryPage page;
+  int facing = 1;
+  double walkT = 0, pause = 0;
+  bool talking = false;
+  String get line => '${page.speaker}:  ${page.text}';
+}
+
 // A house on a town street, drawn in the realm's own style
 class House {
   House(this.x, this.y, this.variant);
@@ -224,6 +237,8 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   Offset checkpoint = Offset.zero;
   Sign? activeSign;
+  String? _talkShown; // the words of the sign or person next to Ra, as shown
+  final townsfolk = <Townsperson>[];
   VerseStone? verseStone;
   final houses = <House>[];
   Cage? cage;
@@ -279,6 +294,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     houses.clear();
     gate = null;
     activeSign = null;
+    _talkShown = null;
+    townsfolk.clear();
     arenaLeft = arenaRight = null;
     lionSpawn = waveSpawn = sunKey = null;
     keyFound = _waveComing = false;
@@ -372,6 +389,16 @@ class MeetRaGame extends Game with KeyboardEvents {
           if (loc != null && i != null) {
             cage = Cage(o.x, o.y, i, freed: progress.isFreed(loc));
             if (cage!.freed) signs.add(Sign(o.x, o.y, '${chapterOf(loc.realm).captives[i].speaker} was freed from this cage and has gone home.', post: false));
+          }
+        case 'N':
+          final loc = location;
+          if (loc != null) {
+            // The first is the town's keeper, with new words on each visit; the others are its folk
+            final c = chapterOf(loc.realm);
+            final n = townsfolk.length;
+            final visit = _townVisits[loc.id] ?? 0;
+            final page = n == 0 ? c.townTalk[visit % c.townTalk.length] : c.people[(n - 1) % c.people.length];
+            townsfolk.add(Townsperson(o.x, o.y, n, page));
           }
         case '&':
           houses.add(House(o.x, o.y, houses.length));
@@ -483,6 +510,7 @@ class MeetRaGame extends Game with KeyboardEvents {
 
     final pr = P.body.rect;
     _updateAltars(pr, dt);
+    _updateTownsfolk(dt);
     _updateSigns();
     _updatePickups(dt);
     _updateOrbs(dt);
@@ -642,9 +670,37 @@ class MeetRaGame extends Game with KeyboardEvents {
     for (final s in signs) {
       if ((P.x - s.x).abs() < 22 && (P.y - s.y).abs() < 30) near = s;
     }
-    if (near != activeSign) {
-      activeSign = near;
-      ui.sign.value = near?.text;
+    activeSign = near;
+    // Without a sign close by, the nearest townsperson speaks
+    var text = near?.text;
+    for (final t in townsfolk) {
+      t.talking = text == null && (P.x - t.x).abs() < 26 && (P.y - t.y).abs() < 30;
+      if (t.talking) text = t.line;
+    }
+    if (text != _talkShown) {
+      _talkShown = text;
+      ui.sign.value = text;
+    }
+  }
+
+  // Townsfolk stroll a little way from home and back, pausing now and then; a talker turns to Ra
+  void _updateTownsfolk(double dt) {
+    for (final t in townsfolk) {
+      if (t.talking) {
+        t.facing = player.x >= t.x ? 1 : -1;
+        continue;
+      }
+      if (t.pause > 0) {
+        t.pause -= dt;
+        continue;
+      }
+      t.x += t.facing * 14 * dt / 1000;
+      t.walkT += dt;
+      if ((t.x - t.home).abs() > 22 + t.index * 6) {
+        t.x = t.home + (t.x - t.home).sign * (22 + t.index * 6);
+        t.facing = -t.facing;
+        t.pause = 900 + rand.nextDouble() * 1800;
+      }
     }
   }
 
@@ -1424,8 +1480,11 @@ class MeetRaGame extends Game with KeyboardEvents {
       ..moveTo(loc)
       ..save(state);
     def = levelFor(loc);
-    // Walking into a town is visiting it: the roads beyond open
-    if (loc.kind == LocKind.town && progress.clear(loc)) progress.save(state);
+    // Walking into a town is visiting it: the roads beyond open, and its keeper has something new to say
+    if (loc.kind == LocKind.town) {
+      if (progress.clear(loc)) progress.save(state);
+      _townVisits[loc.id] = (_townVisits[loc.id] ?? -1) + 1;
+    }
     state
       ..hp = state.maxHp
       ..aura = state.auraMax.toDouble();
@@ -1699,6 +1758,41 @@ class MeetRaGame extends Game with KeyboardEvents {
     c.drawRect(Rect.fromLTWH(x - side * w / 4 - 4, y - h + 8, 8, 6), Paint()..color = const Color(0xffffd27a).withValues(alpha: glow));
   }
 
+  static const _robes = [0xff7a4a6a, 0xff3a6a8a, 0xff8a6a2a, 0xff4a7a4a, 0xffa04a3a];
+
+  // A small person in a robe, with headwear in the fashion of the realm, legs moving as they walk
+  void _drawTownsperson(Canvas c, Townsperson t) {
+    final x = t.x.roundToDouble(), y = t.y;
+    void box(double l, double tp, double w, double h, int color) => c.drawRect(Rect.fromLTWH(x + l, y + tp, w, h), Paint()..color = Color(color));
+    final walking = t.pause <= 0 && !t.talking;
+    final step = walking && (t.walkT / 180).floor().isEven;
+    final robe = _robes[(t.index + (location?.realm.index ?? 0)) % _robes.length];
+    box(-3, -4, 2, 4, 0xff3a2418); // legs
+    box(1, step ? -3 : -4, 2, step ? 3 : 4, 0xff3a2418);
+    box(-4, -15, 8, 11, 0xff2a1e16); // robe outline
+    box(-3, -14, 6, 10, robe);
+    box(-3, -9, 6, 1, 0xff2a1e16); // sash
+    box(-3, -20, 6, 6, 0xffd9a37a); // head
+    box(t.facing > 0 ? 1 : -2, -18, 1, 1, 0xff2a1e16); // eye
+    final bob = t.talking ? math.sin(_realT * 6).abs() : 0.0;
+    switch (location?.realm.theme ?? RealmTheme.vale) {
+      case RealmTheme.desert:
+        box(-4, -23 - bob, 8, 4, 0xfff0e6d0); // turban
+      case RealmTheme.mountain:
+      case RealmTheme.dark:
+        box(-4, -22 - bob, 8, 3, robe); // hood
+        box(-4, -20, 1, 5, robe);
+        box(3, -20, 1, 5, robe);
+      case RealmTheme.steppe:
+        box(-4, -22 - bob, 8, 2, 0xff5a3a2a); // fur cap
+        box(-3, -24 - bob, 6, 2, 0xff5a3a2a);
+      case RealmTheme.city:
+        box(-3, -23 - bob, 6, 3, 0xff1b2a6b); // tall cap
+      default:
+        box(-3, -21 - bob, 6, 2, 0xff3a2418); // hair
+    }
+  }
+
   // Iron bars on a heavy base with the captive inside; once broken, only the base and two bent bars stay
   void _drawCage(Canvas c, Cage cg) {
     final x = (cg.x + math.sin(_realT * 50) * cg.shake * 1.5).roundToDouble(), y = cg.y;
@@ -1801,6 +1895,9 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     for (final s in signs) {
       if (s.post) drawFrame(c, a.sign, 0, s.x, s.y);
+    }
+    for (final t in townsfolk) {
+      _drawTownsperson(c, t);
     }
     final vs = verseStone;
     if (vs != null) _drawVerseStone(c, vs);
