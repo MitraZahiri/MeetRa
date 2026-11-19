@@ -41,6 +41,15 @@ class BannerMsg {
 
 enum AppScreen { title, world, realm, playing }
 
+// Ra at a merchant's counter: who sells, what they say, and in which realm (prices follow the realm)
+class ShopVisit {
+  ShopVisit(this.merchant, this.greeting, this.realm, {this.travelling = false});
+  final String merchant;
+  final String greeting;
+  final Realm realm;
+  final bool travelling;
+}
+
 // Pages of the saga to read on a parchment scroll; [onDone] runs when the last page is turned
 class StoryScroll {
   StoryScroll(this.title, this.pages, {this.onDone});
@@ -65,6 +74,7 @@ class UiBus {
   final story = ValueNotifier<StoryScroll?>(null); // the scroll being read; the game waits meanwhile
   final curtain = ValueNotifier<bool>(false); // a black curtain drawn between two screens
   final bossIntro = ValueNotifier<BossDef?>(null); // the guardian's name card during its entrance
+  final shop = ValueNotifier<ShopVisit?>(null); // a merchant's counter; the game waits meanwhile
   final book = ValueNotifier<int?>(null); // the Book of Verses, open on this realm's page
 }
 
@@ -239,7 +249,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   double _winT = -1;
   bool _snapCamera = true;
 
-  bool get simPaused => !started || ui.screen.value != AppScreen.playing || ui.levelUps.value > 0 || ui.story.value != null;
+  bool get simPaused => !started || ui.screen.value != AppScreen.playing || ui.levelUps.value > 0 || ui.story.value != null || ui.shop.value != null;
   // The map screens cover the whole level, so it is neither animated nor drawn behind them
   bool get mapOpen => ui.screen.value == AppScreen.world || ui.screen.value == AppScreen.realm;
   double get uiScale => size.y / gameH;
@@ -687,6 +697,29 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   Sign _verseSign(VerseStone v) =>
       Sign(v.x, v.y, 'Verse ${numerals[v.index]}:  ${chapterOf(location!.realm).verses[v.index]}', post: false);
+
+  void openShop(ShopVisit v) {
+    touch.clear();
+    sfx.pickup();
+    ui.shop.value = v;
+  }
+
+  void closeShop() => ui.shop.value = null;
+
+  static const _thanks = [
+    'A fine choice. May it serve you on the road.',
+    'Paid in full. Come back alive, and buy more.',
+    'My grandmother swore by those. She lived to a hundred.',
+    'Spend it well, hearth-keeper.',
+  ];
+
+  // Called by the shop: pays, hands the ware over, saves, and returns the merchant's words
+  String buyWare(Ware w, ShopVisit v) {
+    if (!buy(w, v.realm, state, progress)) return 'Not today, I think.';
+    sfx.altar();
+    progress.save(state);
+    return _thanks[rand.nextInt(_thanks.length)];
+  }
 
   // A healing draught from the satchel mends three hearts
   void _drink() {

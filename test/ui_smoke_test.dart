@@ -5,6 +5,7 @@ import 'package:meetra/game/meetra_game.dart';
 import 'package:meetra/levels/build.dart';
 import 'package:meetra/ui/book.dart';
 import 'package:meetra/ui/hud.dart';
+import 'package:meetra/ui/shop.dart';
 import 'package:meetra/ui/story.dart';
 import 'package:meetra/world/saga.dart';
 import 'package:meetra/world/world.dart';
@@ -48,6 +49,17 @@ void main() {
     for (final r in realms) {
       await show(tester, BossIntroView(game, BossDef(r.bossName, r.bossTitle), key: UniqueKey(), w: 960));
       expect(tester.takeException(), isNull, reason: r.id);
+    }
+  });
+
+  testWidgets('the shop fits, town and travelling, in every realm', (tester) async {
+    await tester.runAsync(() async => game = MeetRaGame(await Art.generate()));
+    game.state.gold = 5;
+    for (final r in realms) {
+      for (final travelling in [false, true]) {
+        await show(tester, ShopView(game, ShopVisit('Hask the Woodcutter', 'Wood, rope and draughts. Mostly draughts.', r, travelling: travelling), key: UniqueKey(), w: 960));
+        expect(tester.takeException(), isNull, reason: r.id);
+      }
     }
   });
 
