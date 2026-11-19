@@ -810,9 +810,11 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
     final statusColor = cleared ? const Color(0xff8ae0d8) : (open ? gold : const Color(0xffc8bca0));
     final action = !open && !cleared
         ? null
-        : l.kind.playable
-            ? (cleared ? 'Replay' : 'Enter')
-            : 'Rest';
+        : l.kind == LocKind.town
+            ? 'Enter town'
+            : l.kind.playable
+                ? (cleared ? 'Replay' : 'Enter')
+                : 'Rest';
     return _infoPanel(
       lines: [
         Row(children: [
@@ -832,7 +834,7 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
       action: action == null
           ? null
           : _TextButton(action, () {
-              if (l.kind.playable) {
+              if (l.kind.enterable) {
                 g.enterLocation(l);
               } else {
                 setState(() => _message = g.visit(l));

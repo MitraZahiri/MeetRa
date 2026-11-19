@@ -163,7 +163,23 @@ int _seed(String s) {
   return h;
 }
 
+// A town is one peaceful street of houses, with its people, a merchant's stall and an inn
+const _street = '..P..S....&...N....\$.......&....N.......I.......&...N....&.....G...';
+final _town = [_street, for (var i = 0; i < 3; i++) '#' * _street.length];
+
+LevelDef _townLevel(Location loc) => LevelDef(
+      id: loc.id,
+      title: loc.name,
+      subtitle: loc.realm.name,
+      rows: 17,
+      chunks: [_town],
+      signs: [loc.desc],
+      boss: const BossDef('', ''),
+      town: true,
+    );
+
 LevelDef levelFor(Location loc) {
+  if (loc.kind == LocKind.town) return _townLevel(loc);
   // The tutorial trial is hand-made
   if (loc.realm.index == 0 && loc.index == 1) return level1;
 

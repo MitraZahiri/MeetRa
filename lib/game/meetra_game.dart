@@ -162,6 +162,13 @@ class FeatherItem {
   double get y => baseY - 6 * (0.5 - 0.5 * math.cos(math.pi * t / 900));
 }
 
+// A house on a town street, drawn in the realm's own style
+class House {
+  House(this.x, this.y, this.variant);
+  final double x, y;
+  final int variant;
+}
+
 class Gate {
   Gate(this.x, this.y);
   final double x, y;
@@ -218,6 +225,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   Offset checkpoint = Offset.zero;
   Sign? activeSign;
   VerseStone? verseStone;
+  final houses = <House>[];
   Cage? cage;
   double? arenaLeft, arenaRight;
   Offset? lionSpawn;
@@ -268,6 +276,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     featherPickup = null;
     verseStone = null;
     cage = null;
+    houses.clear();
     gate = null;
     activeSign = null;
     arenaLeft = arenaRight = null;
@@ -364,6 +373,8 @@ class MeetRaGame extends Game with KeyboardEvents {
             cage = Cage(o.x, o.y, i, freed: progress.isFreed(loc));
             if (cage!.freed) signs.add(Sign(o.x, o.y, '${chapterOf(loc.realm).captives[i].speaker} was freed from this cage and has gone home.', post: false));
           }
+        case '&':
+          houses.add(House(o.x, o.y, houses.length));
         case 'C':
           final id = '${location?.id ?? def.title}#${chestIndex++}';
           chests.add(Chest(o.x, o.y, id, opened: progress.isChestOpen(id)));
@@ -509,7 +520,11 @@ class MeetRaGame extends Game with KeyboardEvents {
     final g = gate;
     _sealedHint = math.max(0, _sealedHint - dt);
     if (g != null && !victory && (P.x - g.x).abs() < 10 && P.body.blockedDown) {
-      if (g.opening) {
+      if (def.town) {
+        // A town's gate leads straight back to the realm map
+        victory = true;
+        leaveLevel();
+      } else if (g.opening) {
         _win();
       } else if (def.sealed && _sealedHint <= 0) {
         _sealedHint = 4000;
@@ -1409,6 +1424,8 @@ class MeetRaGame extends Game with KeyboardEvents {
       ..moveTo(loc)
       ..save(state);
     def = levelFor(loc);
+    // Walking into a town is visiting it: the roads beyond open
+    if (loc.kind == LocKind.town && progress.clear(loc)) progress.save(state);
     state
       ..hp = state.maxHp
       ..aura = state.auraMax.toDouble();
@@ -1434,6 +1451,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       if (captiveIndex(loc) != null && !progress.isFreed(loc)) 'A captive waits here',
     ];
     final goal = switch (loc.kind) {
+      LocKind.town => 'Talk to the people, trade, and rest at the inn',
       LocKind.boss => 'At the end of the road: ${r.bossName}',
       LocKind.arena => 'At the end of the road: a trial of $waves waves',
       _ when lionSpawn != null => 'At the end of the road: ${def.boss.name}',
@@ -1646,6 +1664,41 @@ class MeetRaGame extends Game with KeyboardEvents {
     paintSunEye(c, sun, z, look: look, open: _eyeOpen * sunBlink(_realT));
   }
 
+  // Wall, roof and trim colours of the houses in each realm
+  static const _houseStyle = {
+    RealmTheme.vale: (0xffe0cfa6, 0xff9a4a32, 0xff6a4a2a),
+    RealmTheme.city: (0xffeee3c8, 0xff2a4a9a, 0xffd4a845),
+    RealmTheme.desert: (0xffd8a868, 0xffb07a40, 0xff7a4a22),
+    RealmTheme.mountain: (0xff8a5a3a, 0xfff0f4f8, 0xff4a2e1c),
+    RealmTheme.steppe: (0xffd6c6a8, 0xff7a4a8e, 0xff5a3a2a),
+    RealmTheme.coast: (0xfff4f0e6, 0xff2bb3a8, 0xff6a7a8a),
+    RealmTheme.dark: (0xff5a5868, 0xff2a2838, 0xff8a7ab8),
+  };
+
+  // A small house: walls, a stepped roof, a door and a warm window. [wide] makes it bigger (the inn)
+  void _drawHouse(Canvas c, double cx, double ground, int variant, {double wide = 1}) {
+    final style = _houseStyle[location?.realm.theme ?? RealmTheme.vale]!;
+    final x = cx.roundToDouble(), y = ground;
+    final w = (40 + (variant % 3) * 6) * wide, h = (26 + (variant % 2) * 6) * wide;
+    void box(double l, double t, double bw, double bh, int color) => c.drawRect(Rect.fromLTWH(x + l, y + t, bw, bh), Paint()..color = Color(color));
+    box(-w / 2 - 1, -h - 1, w + 2, h + 1, 0xff2a1e16); // outline
+    box(-w / 2, -h, w, h, style.$1);
+    box(-w / 2, -h, w, 2, style.$3); // beam under the roof
+    // The roof, built up in steps
+    final steps = (10 * wide).round();
+    for (var i = 0; i < steps; i++) {
+      final rw = w + 6 - i * (w + 6) / steps;
+      box(-rw / 2, -h - 2 - i * 2, rw, 2, i == steps - 1 ? 0xff2a1e16 : style.$2);
+    }
+    // Door and window; windows glow, brighter at night in the Lightless Land
+    final side = variant.isEven ? -1 : 1;
+    box(side * w / 4 - 5, -16, 10, 16, style.$3);
+    box(side * w / 4 - 4, -15, 8, 15, 0xff3a2418);
+    final glow = 0.75 + 0.25 * math.sin(_realT * 1.3 + variant);
+    box(-side * w / 4 - 5, -h + 7, 10, 8, 0xff2a1e16);
+    c.drawRect(Rect.fromLTWH(x - side * w / 4 - 4, y - h + 8, 8, 6), Paint()..color = const Color(0xffffd27a).withValues(alpha: glow));
+  }
+
   // Iron bars on a heavy base with the captive inside; once broken, only the base and two bent bars stay
   void _drawCage(Canvas c, Cage cg) {
     final x = (cg.x + math.sin(_realT * 50) * cg.shake * 1.5).roundToDouble(), y = cg.y;
@@ -1719,6 +1772,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       for (final o in orbs) Light(o.x, o.y, 12, 0xff8ae0d8, 0.8),
       for (final co in coins) Light(co.body.x, co.body.y - 3, 9, 0xffffd060, 0.5),
       for (final h in hearts) Light(h.body.x, h.body.y - 4, 10, 0xffff6a7a, 0.5),
+      for (final h in houses) Light(h.x, h.y - 18, 34, 0xffffd27a, 0.45),
       if (cage != null && !cage!.freed) Light(cage!.x, cage!.y - 12, 20, 0xffffd090, 0.45),
       if (verseStone != null)
         Light(verseStone!.x, verseStone!.y - 9, verseStone!.read ? 12 : 24 + math.sin(t * 2.2) * 3, 0xff8ae0d8, verseStone!.read ? 0.3 : 0.6),
@@ -1742,6 +1796,9 @@ class MeetRaGame extends Game with KeyboardEvents {
       drawFrame(c, a.wall, 0, w.x, w.rect.bottom + sunk);
     }
     // depth 3: signs and the gate
+    for (final h in houses) {
+      _drawHouse(c, h.x, h.y, h.variant);
+    }
     for (final s in signs) {
       if (s.post) drawFrame(c, a.sign, 0, s.x, s.y);
     }

@@ -114,6 +114,22 @@ void main() {
     }
   });
 
+  test('every town is a peaceful street with houses, people, a merchant, an inn and a way out', () {
+    for (final r in realms) {
+      final def = levelFor(r.locations.first);
+      expect(def.town, isTrue, reason: r.id);
+      final level = buildLevel(def);
+      final types = level.objects.map((o) => o.type).toList();
+      for (final t in ['P', 'G', '\$', 'I']) {
+        expect(types.where((x) => x == t).length, 1, reason: '${r.id}: $t');
+      }
+      expect(types.where((t) => t == '&').length, greaterThanOrEqualTo(4), reason: r.id);
+      expect(types.where((t) => t == 'N').length, greaterThanOrEqualTo(3), reason: r.id);
+      expect(types.where((t) => 'DVUKMHL'.contains(t)), isEmpty, reason: r.id);
+      expect(types.where((t) => t == 'S').length, def.signs.length, reason: r.id);
+    }
+  });
+
   test('on every road to an arena or a realm boss, even the hard ones, Ra can reach the gate', () {
     for (final r in realms) {
       for (final l in r.locations.where((l) => l.kind == LocKind.arena || l.kind == LocKind.boss)) {

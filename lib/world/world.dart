@@ -25,6 +25,8 @@ extension LocKindInfo on LocKind {
 
   // Towns and hearths are visited, not played
   bool get playable => this != LocKind.town && this != LocKind.hearth;
+  // Towns can be walked through too; hearths are only rested at from the map
+  bool get enterable => this != LocKind.hearth;
 }
 
 enum RealmTheme { vale, city, desert, mountain, steppe, coast, dark }

@@ -37,6 +37,7 @@ class LevelDef {
     required this.boss,
     this.enemyBonus = 0,
     this.sealed = false,
+    this.town = false,
   });
 
   final String id;
@@ -48,6 +49,7 @@ class LevelDef {
   final BossDef boss;
   final int enemyBonus; // extra health for every enemy in later realms
   final bool sealed; // the exit gate stays shut until Ra finds the Sun Key
+  final bool town; // a peaceful street: no foes, and the gate leads straight back to the map
 }
 
 class Level {
@@ -83,6 +85,7 @@ class Level {
 //   F  Saena's feather   L  the boss   W  trial of waves   [ ]  arena walls   G  exit gate
 //   O  the Sun Key that unseals the gate
 //   T  a Verse Stone, carved with one verse of the realm's legend
+//   &  a house in town (scenery)   N  a townsperson   $  a merchant's stall   I  the inn
 //   R  a cage with a captive inside, broken open with the sword
 Level buildLevel(LevelDef def) {
   final height = def.rows;
