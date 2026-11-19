@@ -103,6 +103,19 @@ The story is told in play, on parchment scrolls that pause the game. All text li
 
 **Captives.** Both caves (road stops 14 and 17) and the ruin (16) of every realm hold a captive in a cage in the farthest room off the road. Three sword strikes free them: gold, a heart and a few words of thanks. The realm map marks the cages and counts the captives freed.
 
+## 3d. Towns and Trade
+
+**Towns** are walkable streets with no foes: houses in the realm's style, three townsfolk (the keeper, whose words change every visit, and two ordinary folk), a merchant's stall, an inn and a gate back to the map. Walking in visits the town and opens the roads beyond it. Stand at the stall or the inn's door and press down to trade or to rest.
+
+| Ware | Effect | Limit | Price (realm index t) |
+|---|---|---|---|
+| Healing Draught | Drink in a fight: mends three hearts | Satchel holds 3 | 12 + 4t |
+| Heart Vessel | +1 heart | Once per realm, town only | 100 + 50t |
+| Aura Tonic | +20 aura | Once per realm | 60 + 30t |
+| Whetstone | +1 might | Once per realm, town only | 140 + 60t |
+
+A **travelling merchant** stands by the hearth on road stops 5 and 10 of every realm, selling draughts and tonics. The **inn** is free: health and aura come back and the game is saved.
+
 ## 4. Gameplay
 
 ### 4.1 Controls (phone)

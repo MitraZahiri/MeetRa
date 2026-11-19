@@ -56,7 +56,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
   </tr>
 </table>
 
-## Status: playable prototype (v1.7.0)
+## Status: playable prototype (v1.8.0)
 
 ### The world
 
@@ -67,6 +67,15 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 - Levels are **rooms to explore**: doors, drops through the floor, climbs back up. The way out is sealed until Ra finds the **Sun Key**, hidden in the room farthest from the start.
 - The Reed Marsh is the hand-made tutorial; the other places are built from level chunks and get harder realm by realm: more obstacles and wider thorn beds in every room, and from the Serpent Sands on the roads to arenas and bosses lead through **thorn gauntlets**, **pillar chasms** and **dark halls**.
 - Progress is saved on the phone: cleared places, opened chests, found verses and Ra's stats. The title screen offers **Continue** or a **New game**.
+
+### Towns, merchants and inns
+
+- **Towns are places to walk into**: a peaceful street of houses in the realm's own style, with three **townsfolk** who stroll about and stop to talk (the town's keeper has something new to say on every visit).
+- A **merchant's stall** in every town sells healing draughts, heart vessels, aura tonics and whetstones; the lasting goods once per realm, and prices rise realm by realm.
+- An **inn** in every town: rest the night to restore health and aura and save the journey.
+- A **travelling merchant** waits by the hearth halfway along every realm's road, with draughts and tonics.
+- **Healing draughts** go in Ra's satchel (up to three) and are drunk with the bottle button in a fight.
+- The realm map marks with a gold coin where Ra can trade.
 
 ### The saga
 
