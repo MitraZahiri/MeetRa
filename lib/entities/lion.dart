@@ -66,6 +66,12 @@ class Lion {
   // Hazards it leaves behind, such as shockwaves along the ground
   Iterable<Rect> get hazards => const [];
 
+  // Waiting for Ra before the fight: it lies still and breathes, facing the way Ra will come
+  void rest(double dt) {
+    _t += dt / 1000;
+    body.vx = 0;
+  }
+
   void update(double time, double dt) {
     _t += dt / 1000;
     _flash = math.max(0, _flash - dt);

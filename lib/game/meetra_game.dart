@@ -361,6 +361,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     player = p!;
     checkpoint = Offset(player.x, player.y);
+    // The guardian rests in its arena from the start, so Ra sees what waits at the end of the road
+    if (lionSpawn != null) lion = _makeBoss();
     // Levels without a fight have their exit gate open from the start, unless it is sealed
     if (lionSpawn == null && waveSpawn == null) {
       bossDefeated = true;
@@ -418,7 +420,12 @@ class MeetRaGame extends Game with KeyboardEvents {
     final c = controls.update();
     final P = player;
     P.update(c, dt);
-    lion?.update(timeNow, dt);
+    // Until the fight starts the guardian only breathes
+    if (bossStarted || bossDefeated) {
+      lion?.update(timeNow, dt);
+    } else {
+      lion?.rest(dt);
+    }
     // Like the old consoles: creatures far off screen sleep until Ra comes near again
     final awake = _view.inflate(160);
     for (final e in enemies) {
@@ -443,7 +450,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     _updateVerse(pr);
 
     final l = lion;
-    if (l != null && l.state != LionState.dead && l.state != LionState.stunned && !P.dead) {
+    if (l != null && bossStarted && l.state != LionState.dead && l.state != LionState.stunned && !P.dead) {
       if (overlaps(pr, l.body.rect)) P.hurt(l.contactDamage, l.x);
     }
     if (l != null && !P.dead) {
@@ -451,7 +458,7 @@ class MeetRaGame extends Game with KeyboardEvents {
         if (overlaps(pr, h)) P.hurt(1, h.center.dx);
       }
     }
-    if (l != null && l.state != LionState.dead) {
+    if (l != null && bossStarted && l.state != LionState.dead) {
       for (final f in feathers) {
         if (!f.removed && overlaps(f.body.rect, l.body.rect)) {
           l.hurt(f.dmg);
@@ -785,7 +792,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       }
     }
     final l = lion;
-    if (l != null && l.state != LionState.dead && overlaps(rect, l.body.rect)) {
+    if (l != null && bossStarted && l.state != LionState.dead && overlaps(rect, l.body.rect)) {
       l.hurt(dmg);
       hits++;
     }
@@ -946,11 +953,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       _spawnWave();
       return;
     }
-    final at = lionSpawn!;
-    lion = switch (def.boss.kind) {
-      BossKind.elephant => Elephant(this, at.dx, at.dy, maxHp: def.boss.hp),
-      BossKind.lion => Lion(this, at.dx, at.dy, maxHp: def.boss.hp),
-    };
+    lion ??= _makeBoss();
     ui.boss.value = def.boss;
     // A realm's guardian speaks before the first fight
     final loc = location;
@@ -1057,9 +1060,18 @@ class MeetRaGame extends Game with KeyboardEvents {
     gate?.opening = true;
   }
 
+  Lion _makeBoss() {
+    final at = lionSpawn!;
+    return switch (def.boss.kind) {
+      BossKind.elephant => Elephant(this, at.dx, at.dy, maxHp: def.boss.hp),
+      BossKind.lion => Lion(this, at.dx, at.dy, maxHp: def.boss.hp),
+    };
+  }
+
   void _resetBoss() {
     if (!bossStarted || bossDefeated) return;
-    lion = null;
+    // A fresh guardian lies down in the arena again
+    lion = _makeBoss();
     for (final e in _waveFoes) {
       e.removed = true;
     }
