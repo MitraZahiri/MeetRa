@@ -128,9 +128,9 @@ class Physics {
     if (tiles) {
       for (final (t, r) in _tilesIn(b.rect)) {
         if (!overlaps(b.rect, r)) continue;
-        if (t == T.platform) {
-          // One-way: only lands from above
-          if (skipPlatforms || dy <= 0 || b.bottom - dy > r.top + _eps) continue;
+        if (t == T.platform || t == T.slab) {
+          // One-way: only lands from above (a slab cannot be dropped through, only blown open)
+          if ((skipPlatforms && t == T.platform) || dy <= 0 || b.bottom - dy > r.top + _eps) continue;
         } else if (!_solid(t)) {
           continue;
         }

@@ -187,8 +187,9 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
       for (var x = hx - 1; x <= hx + 4; x++) {
         set(x, oy + roomH, '.');
       }
+      // The way down is a cracked slab: Ra can jump up through it from below, but going down takes a bomb
       for (var x = hx; x <= hx + 3; x++) {
-        set(x, oy + 10, '=');
+        set(x, oy + 10, 'Z');
       }
       // Three steps of about three tiles each; the top one sits half under the drop,
       // so Ra can jump straight up through it
@@ -230,6 +231,13 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
     if (g[y - lift][x] != '.') return false;
     g[y - lift][x] = ch;
     return true;
+  }
+
+  bool placeAny(_Room a, List<int> cols, String ch) => cols.any((c) => place(a, c, ch));
+
+  // A bomb flower grows beside every way down, so Ra can never be stuck without a bomb
+  void flower(_Room a) {
+    if (a.down) placeAny(a, [a.hole + 6, a.hole + 7, a.hole - 3, a.hole - 4, a.hole + 9, a.hole + 10, a.hole - 5], 'Q');
   }
 
   final deadEnds = side.where((r) => r.links == 1 && r != keyRoom).toList();
@@ -298,14 +306,16 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
       if (a == start) {
         place(a, 2, 'A');
         place(a, 4, 'P');
-        place(a, 7, 'S');
-        place(a, 10, 'S');
+        // Nothing stands on a cracked slab, so each sign takes the first column that is solid ground
+        placeAny(a, const [7, 11, 12, 5, 6], 'S');
+        placeAny(a, const [10, 13, 14, 15, 6, 5], 'S');
+        flower(a);
         continue;
       }
       if (a == end) place(a, roomW - 5, 'G');
       if (a == hearthRoom) {
         place(a, 3, 'A');
-        if (plan.merchant) place(a, 8, r'$');
+        if (plan.merchant) placeAny(a, const [8, 12, 13, 14, 5], r'$');
       }
       if (a == keyRoom) {
         if (!place(a, roomW ~/ 2, 'O', lift: 1)) place(a, roomW - 6, 'O', lift: 1);
@@ -320,6 +330,7 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
           place(a, 12 + i * 3, 'C');
         }
       }
+      flower(a);
       final spots = [...free]..shuffle(rnd);
       var foes = 0;
       final maxFoes = 2 + (hard >= 0.5 ? 1 : 0);

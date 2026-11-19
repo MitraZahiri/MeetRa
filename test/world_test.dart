@@ -141,6 +141,23 @@ void main() {
     }
   });
 
+  test('every way down is a cracked slab with a bomb flower growing beside it', () {
+    for (final r in realms) {
+      for (final l in r.locations.where((l) => levelFor(l).sealed)) {
+        final level = buildLevel(levelFor(l));
+        // Slabs come in runs of four, one run per drop
+        var drops = 0;
+        for (final row in level.data) {
+          for (var x = 0; x < row.length; x++) {
+            if (row[x] == T.slab && (x == 0 || row[x - 1] != T.slab)) drops++;
+          }
+        }
+        final flowers = level.objects.where((o) => o.type == 'Q').length;
+        expect(flowers, drops, reason: l.id);
+      }
+    }
+  });
+
   test('on every road to an arena or a realm boss, even the hard ones, Ra can reach the gate', () {
     for (final r in realms) {
       for (final l in r.locations.where((l) => l.kind == LocKind.arena || l.kind == LocKind.boss)) {
@@ -336,7 +353,7 @@ Set<Offset> _standable(Level level, Offset from) {
     return x >= 0 && x < level.cols && y < level.rows && (t == T.empty);
   }
 
-  bool passUp(int x, int y) => air(x, y) || level.tileAt(x, y) == T.platform;
+  bool passUp(int x, int y) => air(x, y) || level.tileAt(x, y) == T.platform || level.tileAt(x, y) == T.slab;
   bool floor(int x, int y) => level.tileAt(x, y) != T.empty && level.tileAt(x, y) != T.spikes;
   bool stand(int x, int y) => air(x, y) && floor(x, y + 1);
 
@@ -362,8 +379,8 @@ Set<Offset> _standable(Level level, Offset from) {
 
   while (queue.isNotEmpty) {
     final (x, y) = queue.removeLast();
-    // Drop through a ledge
-    if (level.tileAt(x, y + 1) == T.platform) {
+    // Drop through a ledge, or blow a cracked slab open and drop
+    if (level.tileAt(x, y + 1) == T.platform || level.tileAt(x, y + 1) == T.slab) {
       final l = land(x, y + 2);
       if (l != null) visit(x, l);
     }

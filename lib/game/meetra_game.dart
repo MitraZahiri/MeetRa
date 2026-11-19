@@ -126,6 +126,14 @@ class Bomb {
   bool removed = false;
 }
 
+// A bomb flower: its round fruit is a bomb for Ra's bag, and it grows a new one a while later
+class BombFlower {
+  BombFlower(this.x, this.y);
+  final double x, y;
+  double regrow = 0; // ms until the next fruit; 0 means one is ripe
+  Rect get bounds => Rect.fromLTWH(x - 7, y - 14, 14, 14);
+}
+
 // An iron cage with a captive inside; three sword strikes break it open
 class Cage {
   Cage(this.x, this.y, this.index, {this.freed = false});
@@ -265,6 +273,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   int _nights = 0;
   Cage? cage;
   final bombs = <Bomb>[];
+  final flowers = <BombFlower>[];
   double? arenaLeft, arenaRight;
   Offset? lionSpawn;
   Offset? waveSpawn; // a trial of waves instead of the lion
@@ -316,6 +325,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     cage = null;
     houses.clear();
     bombs.clear();
+    flowers.clear();
     stalls.clear();
     inn = null;
     _atInn = false;
@@ -374,7 +384,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       for (var tx = 0; tx < level.cols; tx++) {
         final t = level.data[ty][tx];
         if (t < 0) continue;
-        if (t == T.cracked) {
+        if (t == T.cracked || t == T.slab) {
           _drawCracked(c, tiles, tx, ty, p);
           continue;
         }
@@ -448,6 +458,8 @@ class MeetRaGame extends Game with KeyboardEvents {
           }
         case 'I':
           inn = Offset(o.x, o.y);
+        case 'Q':
+          flowers.add(BombFlower(o.x, o.y));
         case r'$':
           stalls.add(Stall(o.x, o.y, travelling: !def.town));
         case '&':
@@ -538,6 +550,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (c.drinkPressed) _drink();
     if (c.bombPressed) _placeBomb();
     _updateBombs(dt);
+    _updateFlowers(dt);
     _downTapped = c.down && !_downWas;
     _downWas = c.down;
     P.update(c, dt);
@@ -931,6 +944,23 @@ class MeetRaGame extends Game with KeyboardEvents {
     bombs.removeWhere((b) => b.removed);
   }
 
+  void _updateFlowers(double dt) {
+    final pr = player.body.rect;
+    for (final f in flowers) {
+      if (f.regrow > 0) {
+        f.regrow = math.max(0, f.regrow - dt);
+        continue;
+      }
+      if (player.dead || !overlaps(pr, f.bounds)) continue;
+      if (state.bombs >= maxBombs) continue;
+      state.bombs += 1;
+      f.regrow = 7000;
+      sfx.pickup();
+      particles.spark(f.x, f.y - 10, size: 10, color: 0xffffc040);
+      floatText(f.x, f.y - 20, '+1 bomb', const Color(0xffffd27a), size: 8);
+    }
+  }
+
   static const blastRadius = 30.0;
 
   // A bomb bursts: it hurts foes, the guardian and Ra if too close, and breaks vases, bushes and cages
@@ -962,7 +992,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     var broke = false;
     for (var ty = ((y - blastRadius) / tile).floor(); ty <= ((y + blastRadius) / tile).floor(); ty++) {
       for (var tx = ((x - blastRadius) / tile).floor(); tx <= ((x + blastRadius) / tile).floor(); tx++) {
-        if (level.tileAt(tx, ty) != T.cracked) continue;
+        final t = level.tileAt(tx, ty);
+        if (t != T.cracked && t != T.slab) continue;
         if ((Offset(tx * tile + tile / 2, ty * tile + tile / 2) - Offset(x, y)).distance > blastRadius + 6) continue;
         level.data[ty][tx] = T.empty;
         broke = true;
@@ -1941,6 +1972,28 @@ class MeetRaGame extends Game with KeyboardEvents {
     c.drawRect(Rect.fromLTWH(x - side * w / 4 - 4, y - h + 8, 8, 6), Paint()..color = const Color(0xffffd27a).withValues(alpha: glow));
   }
 
+  // Green leaves on a stalk; while ripe, a round dark fruit with a tiny spark of a fuse on top
+  void _drawFlower(Canvas c, BombFlower f) {
+    final x = f.x.roundToDouble(), y = f.y;
+    void box(double l, double t, double w, double h, int color) => c.drawRect(Rect.fromLTWH(x + l, y + t, w, h), Paint()..color = Color(color));
+    box(-1, -9, 2, 9, 0xff3f7a34); // stalk
+    box(-6, -4, 5, 2, 0xff5aa04a); // leaves
+    box(1, -6, 5, 2, 0xff5aa04a);
+    box(-5, -3, 3, 1, 0xff3f7a34);
+    if (f.regrow > 0) {
+      // A green bud swelling again
+      final k = 1 - f.regrow / 7000;
+      c.drawCircle(Offset(x, y - 11), 1 + 2 * k, Paint()..color = const Color(0xff4a6a3a));
+      return;
+    }
+    final sway = math.sin(_realT * 2 + x) * 0.6;
+    c.drawCircle(Offset(x + sway, y - 12), 4.5, Paint()..color = const Color(0xff15151c));
+    c.drawCircle(Offset(x + sway, y - 12), 3.6, Paint()..color = const Color(0xff3a3448));
+    c.drawRect(Rect.fromLTWH(x + sway - 1.5, y - 14, 1.5, 1.5), Paint()..color = const Color(0x99f2e6c9));
+    c.drawRect(Rect.fromLTWH(x + sway, y - 18, 1, 2), Paint()..color = const Color(0xff8a5a2a));
+    if ((_realT * 4).floor().isEven) c.drawRect(Rect.fromLTWH(x + sway - 0.5, y - 19.5, 2, 2), Paint()..color = const Color(0xffffc040));
+  }
+
   // A black bomb with a highlight; it flashes red faster as the fuse runs out
   void _drawBomb(Canvas c, Bomb b) {
     final x = b.body.x.roundToDouble(), y = b.body.y;
@@ -2135,6 +2188,9 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (d != null) _drawInn(c, d);
     for (final st in stalls) {
       _drawStall(c, st);
+    }
+    for (final f in flowers) {
+      _drawFlower(c, f);
     }
     for (final b in bombs) {
       _drawBomb(c, b);
