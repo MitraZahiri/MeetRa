@@ -228,6 +228,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   double _cineT = 0;
   Offset? _cineAt;
   static const cineMs = 2300.0;
+  double _wallRise = 1; // 0 -> 1 while the wall behind Ra rises
   double timeNow = 0;
   double _hitstop = 0;
   double _drift = 0;
@@ -797,6 +798,11 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     final cg = cage;
     if (cg != null) cg.shake = math.max(0, cg.shake - dt / 250);
+    if (_wallRise < 1) {
+      _wallRise = math.min(1, _wallRise + dt / 550);
+      final w = leftWall;
+      if (w != null && rand.nextDouble() < dt / 40) particles.dust(w.x, level.height - 3 * tile, count: 2, spread: 10, color: 0xffa88a60);
+    }
   }
 
   double _dist(double x1, double y1, double x2, double y2) => math.sqrt(math.pow(x2 - x1, 2) + math.pow(y2 - y1, 2));
@@ -959,6 +965,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     bossStarted = true;
     leftWall = Wall(Rect.fromCenter(center: Offset(arenaLeft! + tile / 2, rightWall!.y), width: 16, height: 224));
     physics.walls.add(leftWall!);
+    _wallRise = 0;
+    if (waveSpawn != null) ui.banner.value = BannerMsg('The way back is sealed', 'Win, or rise again at the hearth');
     burst(leftWall!.x, level.height - 3 * tile, [0xffa88a60, 0xff5a4a38], 16, 120);
     particles.dust(leftWall!.x, level.height - 3 * tile, count: 10, spread: 50, color: 0xffa88a60);
     music.play(Track.boss);
@@ -1619,7 +1627,9 @@ class MeetRaGame extends Game with KeyboardEvents {
     final a = art;
     // depth 0: arena walls
     for (final w in physics.walls) {
-      drawFrame(c, a.wall, 0, w.x, w.rect.bottom);
+      // The wall behind Ra rises out of the ground (the tiles, drawn later, hide what is still below)
+      final sunk = w == leftWall ? math.pow(1 - _wallRise, 3) * 160 : 0.0;
+      drawFrame(c, a.wall, 0, w.x, w.rect.bottom + sunk);
     }
     // depth 3: signs and the gate
     for (final s in signs) {
