@@ -138,6 +138,7 @@ class GameScreen extends StatelessWidget {
                     _when(game.ui.book, (r) => r != null, (r) => BookScreen(game, w: w, realm: r!)),
                     _when(game.ui.story, (s) => s != null, (s) => StoryView(game, s!, key: ObjectKey(s), w: w)),
                     _when(game.ui.title, (v) => v, (_) => TitleScreen(game, w: w)),
+                    Positioned.fill(child: Curtain(game.ui.curtain)),
                   ]),
                 ),
               ),

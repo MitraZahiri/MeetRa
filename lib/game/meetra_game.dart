@@ -62,6 +62,7 @@ class UiBus {
   final rewards = ValueNotifier<List<String>>(const []); // shown on the 'location cleared' screen
   final session = ValueNotifier<int>(0); // bumps on restart so overlays rebuild fresh
   final story = ValueNotifier<StoryScroll?>(null); // the scroll being read; the game waits meanwhile
+  final curtain = ValueNotifier<bool>(false); // a black curtain drawn between two screens
   final bossIntro = ValueNotifier<BossDef?>(null); // the guardian's name card during its entrance
   final book = ValueNotifier<int?>(null); // the Book of Verses, open on this realm's page
 }
@@ -1286,7 +1287,20 @@ class MeetRaGame extends Game with KeyboardEvents {
   }
 
   // The first time Ra reaches a realm, its chapter of the saga opens
-  void openRealm(Realm r) {
+  // Draws the black curtain, changes the screen behind it, then opens the curtain again
+  static const curtainMs = 260;
+  void _through(void Function() change) {
+    if (ui.curtain.value) return;
+    ui.curtain.value = true;
+    Timer(const Duration(milliseconds: curtainMs + 20), () {
+      change();
+      Timer(const Duration(milliseconds: 80), () => ui.curtain.value = false);
+    });
+  }
+
+  void openRealm(Realm r) => _through(() => _openRealm(r));
+
+  void _openRealm(Realm r) {
     progress.realm = r.index;
     ui.realm.value = r.index;
     ui.screen.value = AppScreen.realm;
@@ -1297,7 +1311,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
   }
 
-  void openWorld() => ui.screen.value = AppScreen.world;
+  void openWorld() => _through(() => ui.screen.value = AppScreen.world);
 
   // Towns and hearths: rest there, which clears them and opens the road beyond
   List<String> visit(Location loc) {
@@ -1312,7 +1326,9 @@ class MeetRaGame extends Game with KeyboardEvents {
     return first ? ['You rest by the fire. The road ahead opens.'] : ['You rest by the fire. Health restored.'];
   }
 
-  void enterLocation(Location loc) {
+  void enterLocation(Location loc) => _through(() => _enterLocation(loc));
+
+  void _enterLocation(Location loc) {
     location = loc;
     progress
       ..moveTo(loc)
@@ -1336,7 +1352,9 @@ class MeetRaGame extends Game with KeyboardEvents {
   }
 
   // Back to the realm map, from the victory screen or the in-level map button
-  void leaveLevel() {
+  void leaveLevel() => _through(_leaveLevel);
+
+  void _leaveLevel() {
     touch.clear();
     timers.clear();
     ui

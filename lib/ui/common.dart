@@ -265,3 +265,23 @@ class _SpeakerPainter extends CustomPainter {
   @override
   bool shouldRepaint(_SpeakerPainter old) => old.on != on;
 }
+
+// The black curtain between two screens; it also keeps taps from going through while drawn
+class Curtain extends StatelessWidget {
+  const Curtain(this.drawn, {super.key});
+  final ValueNotifier<bool> drawn;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+        valueListenable: drawn,
+        builder: (context, v, _) => IgnorePointer(
+          ignoring: !v,
+          child: AnimatedOpacity(
+            opacity: v ? 1 : 0,
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeInOut,
+            child: const ColoredBox(color: Color(0xff05060f), child: SizedBox.expand()),
+          ),
+        ),
+      );
+}
