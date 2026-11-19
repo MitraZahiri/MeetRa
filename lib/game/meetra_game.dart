@@ -1348,7 +1348,24 @@ class MeetRaGame extends Game with KeyboardEvents {
       ..rewards.value = const []
       ..screen.value = AppScreen.playing;
     ui.session.value++;
-    timers.after(400, () => ui.banner.value = BannerMsg(def.title, def.subtitle));
+    timers.after(400, () => ui.banner.value = BannerMsg(def.title, goalOf(loc)));
+  }
+
+  // What Ra has to do in a place, shown under its name on the way in
+  String goalOf(Location loc) {
+    final r = loc.realm;
+    final extra = [
+      if (verseIndex(loc) != null && !progress.hasVerse(loc)) 'A verse hides here',
+      if (captiveIndex(loc) != null && !progress.isFreed(loc)) 'A captive waits here',
+    ];
+    final goal = switch (loc.kind) {
+      LocKind.boss => 'At the end of the road: ${r.bossName}',
+      LocKind.arena => 'At the end of the road: a trial of $waves waves',
+      _ when lionSpawn != null => 'At the end of the road: ${def.boss.name}',
+      _ when def.sealed => 'Find the Sun Key to open the gate',
+      _ => 'Reach the gate',
+    };
+    return [goal, ...extra].join('  ·  ');
   }
 
   // Back to the realm map, from the victory screen or the in-level map button
