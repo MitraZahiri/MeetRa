@@ -60,6 +60,7 @@ class GameState extends ChangeNotifier {
   int level = 1;
   int xpNext = xpForLevel(1);
   bool hasFeather = false;
+  int draughts = 0; // healing draughts in Ra's satchel
 
   void reset() {
     hp = 6;
@@ -73,6 +74,7 @@ class GameState extends ChangeNotifier {
     level = 1;
     xpNext = xpForLevel(1);
     hasFeather = false;
+    draughts = 0;
     notifyListeners();
   }
 
@@ -85,6 +87,7 @@ class GameState extends ChangeNotifier {
         'xp': xp,
         'level': level,
         'hasFeather': hasFeather,
+        'draughts': draughts,
       };
 
   // Health and aura always start full
@@ -98,12 +101,13 @@ class GameState extends ChangeNotifier {
     level = j['level'] as int? ?? 1;
     xpNext = xpForLevel(level);
     hasFeather = j['hasFeather'] as bool? ?? false;
+    draughts = j['draughts'] as int? ?? 0;
     hp = maxHp;
     aura = auraMax.toDouble();
     notifyListeners();
   }
 
-  Object get _snapshot => (hp, maxHp, aura.floor(), auraMax, attack, magic, gold, xp, level, xpNext, hasFeather);
+  Object get _snapshot => (hp, maxHp, aura.floor(), auraMax, attack, magic, gold, xp, level, xpNext, hasFeather, draughts);
   Object? _last;
 
   // Called once per frame: the HUD only rebuilds when something visible changed

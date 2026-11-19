@@ -8,6 +8,7 @@ import 'package:meetra/levels/generator.dart';
 import 'package:meetra/levels/level1.dart';
 import 'package:meetra/world/progress.dart';
 import 'package:meetra/world/saga.dart';
+import 'package:meetra/world/shop.dart';
 import 'package:meetra/world/world.dart';
 
 void main() {
@@ -195,6 +196,34 @@ void main() {
       // One Verse Stone on each of seven trails
       expect([for (final l in r.locations) verseIndex(l)].nonNulls.toList(), [0, 1, 2, 3, 4, 5, 6], reason: r.id);
     }
+  });
+
+  test('shops sell for gold: draughts up to a full satchel, lasting goods once per realm', () {
+    final p = Progress();
+    final s = GameState()..gold = 1000;
+    final vale = realms[0];
+    final wares = waresFor(vale);
+    final draught = wares.firstWhere((w) => w.good == Good.draught);
+    final vessel = wares.firstWhere((w) => w.good == Good.vessel);
+    for (var i = 0; i < maxDraughts; i++) {
+      expect(buy(draught, vale, s, p), isTrue);
+    }
+    expect(cannotBuy(draught, vale, s, p), 'The satchel is full');
+    expect(s.draughts, maxDraughts);
+
+    final hp = s.maxHp;
+    expect(buy(vessel, vale, s, p), isTrue);
+    expect(s.maxHp, hp + 2);
+    expect(buy(vessel, vale, s, p), isFalse);
+    expect(cannotBuy(vessel, realms[1], s, p), isNull);
+    expect(s.gold, 1000 - maxDraughts * draught.price - vessel.price);
+
+    s.gold = 0;
+    expect(cannotBuy(waresFor(realms[1]).firstWhere((w) => w.good == Good.vessel), realms[1], s, p), 'Not enough gold');
+    // A travelling merchant carries no lasting goods but tonics
+    expect(waresFor(vale, travelling: true).map((w) => w.good), [Good.draught, Good.tonic]);
+    // Later realms cost more
+    expect(waresFor(realms[3]).first.price, greaterThan(draught.price));
   });
 
   test('levels are the same every time a place is generated', () {

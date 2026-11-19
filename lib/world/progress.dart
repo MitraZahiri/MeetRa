@@ -15,6 +15,7 @@ class Progress extends ChangeNotifier {
   final _chests = <String>{}; // opened chests, as '<location id>#<chest number>'
   final _verses = <String>{}; // ids of the places whose Verse Stone Ra has read
   final _freed = <String>{}; // ids of the places whose captive Ra set free
+  final _bought = <String>{}; // lasting goods bought, as '<realm id>:<good>'
   final _told = <String>{}; // parts of the saga already told, such as 'intro:<realm id>'
   int realm = 0; // the realm last opened on the world map
   String? lastLocation; // where Ra's marker stands on the realm map
@@ -50,6 +51,11 @@ class Progress extends ChangeNotifier {
   bool firstTelling(String part) => _told.add(part);
   bool wasTold(String part) => _told.contains(part);
 
+  bool hasBought(Realm r, Enum good) => _bought.contains('${r.id}:${good.name}');
+  void markBought(Realm r, Enum good) {
+    if (_bought.add('${r.id}:${good.name}')) notifyListeners();
+  }
+
   // Returns true the first time a location is cleared
   bool clear(Location l) {
     final first = _cleared.add(l.id);
@@ -67,7 +73,7 @@ class Progress extends ChangeNotifier {
   Future<void> save(GameState s) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_key, jsonEncode({'cleared': _cleared.toList(), 'chests': _chests.toList(), 'told': _told.toList(), 'verses': _verses.toList(), 'freed': _freed.toList(), 'realm': realm, 'last': lastLocation, 'state': s.toJson()}));
+      await prefs.setString(_key, jsonEncode({'cleared': _cleared.toList(), 'chests': _chests.toList(), 'told': _told.toList(), 'verses': _verses.toList(), 'freed': _freed.toList(), 'bought': _bought.toList(), 'realm': realm, 'last': lastLocation, 'state': s.toJson()}));
     } catch (e) {
       debugPrint('MeetRa: could not save progress: $e');
     }
@@ -91,6 +97,9 @@ class Progress extends ChangeNotifier {
       _freed
         ..clear()
         ..addAll((j['freed'] as List? ?? const []).cast<String>());
+      _bought
+        ..clear()
+        ..addAll((j['bought'] as List? ?? const []).cast<String>());
       _told
         ..clear()
         ..addAll((j['told'] as List? ?? const []).cast<String>());
@@ -109,6 +118,7 @@ class Progress extends ChangeNotifier {
     _told.clear();
     _verses.clear();
     _freed.clear();
+    _bought.clear();
     realm = 0;
     lastLocation = null;
     s.reset();
