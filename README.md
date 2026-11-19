@@ -56,7 +56,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
   </tr>
 </table>
 
-## Status: playable prototype (v1.8.0)
+## Status: playable prototype (v1.9.0)
 
 ### The world
 
@@ -64,7 +64,8 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 - Clearing a place opens its neighbours; beating a realm's boss opens the next realm. The 7th realm, **the Lightless Land**, stays hidden until all six **Dawn Sigils** (one per secret place) are found.
 - Every realm has its own **painted backdrop** in five parallax layers, plus its own ground, grass and weather: a forest glade, a domed city, a canyon of rock pillars, misty peaks with a demon carved in the rock, the steppe at dusk, white sea cliffs and a moonlit waste of dead trees.
 - Going down into the rooms below the surface, the sky fades into an **underground cavern** of hanging stone and glowing crystals.
-- Levels are **rooms to explore**: doors, drops through the floor, climbs back up. The way out is sealed until Ra finds the **Sun Key**, hidden in the room farthest from the start.
+- Levels are **mazes of rooms**: doors, loops, climbs back up and ways down sealed with **cracked slabs** that only a **bomb** opens (a bomb flower always grows beside them). Underground, cracked-rock walls hide shortcuts and **treasure vaults**. The way out is sealed until Ra finds the **Sun Key**, hidden in the room farthest from the start.
+- **Bombs**: the bag holds five; refilled at hearths and inns, picked from bomb flowers, found in vases and sold by merchants. A blast breaks cracked rock, vases and cages and hits foes hard (and Ra, if too close).
 - The Reed Marsh is the hand-made tutorial; the other places are built from level chunks and get harder realm by realm: more obstacles and wider thorn beds in every room, and from the Serpent Sands on the roads to arenas and bosses lead through **thorn gauntlets**, **pillar chasms** and **dark halls**.
 - Progress is saved on the phone: cleared places, opened chests, found verses and Ra's stats. The title screen offers **Continue** or a **New game**.
 
@@ -157,8 +158,10 @@ flutter run --release --dart-define=SHOT=world,realm:0,0:13,2:4
 | Walk | ◀ ▶ | ← → / A D |
 | Jump / double jump | ▲ | Space / ↑ / W |
 | Sword combo | ⚔ | J / X |
-| Down-strike | Hold ▼ in mid-air + ⚔ | ↓ + J |
-| Drop through platform | Hold ▼ + ▲ | ↓ + Space |
+| Down-strike | ⚔ while falling onto a foe | J while falling |
+| Bomb | Bomb button | B / L |
+| Healing draught | Bottle button | H / Q |
+| Trade / Rest | The button that appears at a stall or the inn | E / Enter |
 | Saena's Feather | ✦ | K / C |
 | Level-up choice | Tap a card | 1 / 2 / 3 |
 

@@ -124,7 +124,10 @@ Landscape. Left thumb moves; right thumb acts.
 | Button | Action |
 |---|---|
 | ◀ ▶ | Walk |
-| ▼ | Hold in mid-air and swing to strike down; hold and jump to drop through platforms |
+| 💣 | Bomb: breaks cracked rock (the only way down through a cracked slab) and hurts foes |
+| (context) | Trade / Rest, shown only at a stall or the inn's door |
+
+There is no down button: a sword swing while falling onto something strikes down on it.
 | ▲ | Jump; tap again in mid-air to double jump; hold to jump higher |
 | ⚔ | Sword: **3-hit combo** |
 | ✦ | Cast the selected spell (appears once a spell is earned) |
