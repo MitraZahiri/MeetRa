@@ -1248,6 +1248,11 @@ class MeetRaGame extends Game with KeyboardEvents {
       spawnGold(b.x, b.y - 8, betweenInt(1, b.kind == 'vase' ? 3 : 1));
     }
     if (b.kind == 'bush') spawnXp(b.x, b.y - 8, 1);
+    // One vase in eight hides a bomb, if the bag has room
+    if (b.kind == 'vase' && state.bombs < maxBombs && rand.nextDouble() < 0.125) {
+      state.bombs += 1;
+      floatText(b.x, b.y - 18, '+1 bomb', const Color(0xffffd27a), size: 8);
+    }
   }
 
   void spawnFeather(double x, double y, int dir, int dmg) {
