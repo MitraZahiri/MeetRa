@@ -2,9 +2,9 @@ import 'package:flutter/services.dart';
 
 // Live state of the on-screen buttons (written by the touch controls, read by Controls)
 class Touch {
-  bool left = false, right = false, down = false, jump = false, attack = false, spell = false;
+  bool left = false, right = false, down = false, jump = false, attack = false, spell = false, drink = false;
 
-  void clear() => left = right = down = jump = attack = spell = false;
+  void clear() => left = right = down = jump = attack = spell = drink = false;
 
   void set(String key, bool v) {
     switch (key) {
@@ -20,6 +20,8 @@ class Touch {
         attack = v;
       case 'spell':
         spell = v;
+      case 'drink':
+        drink = v;
     }
   }
 }
@@ -28,13 +30,13 @@ final touch = Touch();
 
 class ControlState {
   bool left = false, right = false, down = false, jump = false;
-  bool jumpPressed = false, attackPressed = false, spellPressed = false;
+  bool jumpPressed = false, attackPressed = false, spellPressed = false, drinkPressed = false;
 }
 
 // Merges keyboard and touch input into one state
 class Controls {
   Set<LogicalKeyboardKey> keys = const {};
-  bool _prevJump = false, _prevAttack = false, _prevSpell = false;
+  bool _prevJump = false, _prevAttack = false, _prevSpell = false, _prevDrink = false;
   final state = ControlState();
 
   bool _any(List<LogicalKeyboardKey> ks) => ks.any(keys.contains);
@@ -47,6 +49,7 @@ class Controls {
     final jump = _any([LogicalKeyboardKey.space, LogicalKeyboardKey.arrowUp, LogicalKeyboardKey.keyW, LogicalKeyboardKey.keyZ]) || touch.jump;
     final attack = _any([LogicalKeyboardKey.keyJ, LogicalKeyboardKey.keyX]) || touch.attack;
     final spell = _any([LogicalKeyboardKey.keyK, LogicalKeyboardKey.keyC]) || touch.spell;
+    final drink = _any([LogicalKeyboardKey.keyH, LogicalKeyboardKey.keyQ]) || touch.drink;
     s.jump = jump;
     s.jumpPressed = jump && !_prevJump;
     s.attackPressed = attack && !_prevAttack;
@@ -54,6 +57,8 @@ class Controls {
     _prevJump = jump;
     _prevAttack = attack;
     _prevSpell = spell;
+    s.drinkPressed = drink && !_prevDrink;
+    _prevDrink = drink;
     return s;
   }
 }

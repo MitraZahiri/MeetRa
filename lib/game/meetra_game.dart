@@ -27,6 +27,7 @@ import '../levels/rooms.dart' show roomH;
 import '../sfx.dart';
 import '../world/progress.dart';
 import '../world/saga.dart';
+import '../world/shop.dart';
 import '../world/world.dart';
 import 'ambience.dart';
 import 'effects.dart';
@@ -436,6 +437,7 @@ class MeetRaGame extends Game with KeyboardEvents {
 
     final c = controls.update();
     final P = player;
+    if (c.drinkPressed) _drink();
     P.update(c, dt);
     // Until the fight starts the guardian only breathes
     if (bossStarted || bossDefeated) {
@@ -685,6 +687,26 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   Sign _verseSign(VerseStone v) =>
       Sign(v.x, v.y, 'Verse ${numerals[v.index]}:  ${chapterOf(location!.realm).verses[v.index]}', post: false);
+
+  // A healing draught from the satchel mends three hearts
+  void _drink() {
+    final P = player;
+    if (state.draughts <= 0 || P.dead || victory) return;
+    if (state.hp >= state.maxHp) {
+      floatText(P.x, P.y - 26, 'Already whole', const Color(0xffc8bca0), size: 8);
+      return;
+    }
+    state
+      ..draughts -= 1
+      ..hp = math.min(state.maxHp, state.hp + draughtHeal);
+    sfx.pickup();
+    particles
+      ..ring(P.x, P.y - 10, 0xffff6a7a, r1: 26, life: 450)
+      ..spark(P.x, P.y - 12, size: 12, color: 0xffff8a9a);
+    burst(P.x, P.y - 10, [0xffff6a7a, 0xffffc0c8], 12, 80);
+    floatText(P.x, P.y - 26, '+3 hearts', const Color(0xffff8a9a), size: 9, rise: 18, duration: 900);
+    progress.save(state);
+  }
 
   void _freeCaptive(Cage cg) {
     final loc = location!;

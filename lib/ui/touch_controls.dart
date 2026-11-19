@@ -24,6 +24,12 @@ class TouchControls extends StatelessWidget {
           _Button(x: w - 90, y: h - 90, r: 66, icon: ButtonIcon.up, keyName: 'jump'),
           _Button(x: w - 240, y: h - 80, r: 56, icon: ButtonIcon.sword, keyName: 'attack'),
           if (game.state.hasFeather) _Button(x: w - 130, y: h - 235, r: 46, icon: ButtonIcon.star, keyName: 'spell'),
+          // Healing draughts, with how many are left
+          if (game.state.draughts > 0) ...[
+            _Button(x: w - 265, y: h - 205, r: 38, icon: ButtonIcon.flask, keyName: 'drink'),
+            At(w - 237, h - 233,
+                child: IgnorePointer(child: OutlinedText('${game.state.draughts}', size: 18, color: const Color(0xffff8a9a)))),
+          ],
         ]),
       );
 }
@@ -113,7 +119,7 @@ class _ButtonState extends State<_Button> {
   }
 }
 
-enum ButtonIcon { left, right, up, down, sword, star }
+enum ButtonIcon { left, right, up, down, sword, star, flask }
 
 // Button icons are drawn as shapes: glyphs like ◀ ⚔ turn into emoji on some Android versions
 class ButtonIconPainter extends CustomPainter {
@@ -190,6 +196,20 @@ class ButtonIconPainter extends CustomPainter {
           i == 0 ? p.moveTo(o.dx, o.dy) : p.lineTo(o.dx, o.dy);
         }
         shape(p..close());
+      case ButtonIcon.flask:
+        // A round-bellied bottle with a cork, the draught glowing red inside
+        final bottle = Path()
+          ..moveTo(s * 0.42, s * 0.12)
+          ..lineTo(s * 0.58, s * 0.12)
+          ..lineTo(s * 0.58, s * 0.36)
+          ..quadraticBezierTo(s * 0.86, s * 0.48, s * 0.82, s * 0.7)
+          ..quadraticBezierTo(s * 0.76, s * 0.92, s * 0.5, s * 0.92)
+          ..quadraticBezierTo(s * 0.24, s * 0.92, s * 0.18, s * 0.7)
+          ..quadraticBezierTo(s * 0.14, s * 0.48, s * 0.42, s * 0.36)
+          ..close();
+        shape(bottle);
+        c.drawOval(Rect.fromLTRB(s * 0.24, s * 0.56, s * 0.76, s * 0.88), Paint()..color = const Color(0xffe0485a));
+        c.drawRect(Rect.fromLTRB(s * 0.4, s * 0.04, s * 0.6, s * 0.14), Paint()..color = const Color(0xff8a5a2a));
     }
   }
 
