@@ -62,6 +62,9 @@ bool buy(Ware w, Realm r, GameState s, Progress p) {
   return true;
 }
 
+// The trails (road stops) where a travelling merchant waits by the hearth, halfway between towns and fights
+const merchantStops = [5, 10];
+
 // Who keeps the stall in each realm's town, and how they greet Ra
 const townMerchants = <String, (String, String)>{
   'hearthvale': ('Nessa the Trader', 'Fresh from the market at Willow Ford! Well, fresh-ish. What will it be?'),

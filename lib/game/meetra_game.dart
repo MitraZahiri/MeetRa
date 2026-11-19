@@ -419,7 +419,7 @@ class MeetRaGame extends Game with KeyboardEvents {
         case 'I':
           inn = Offset(o.x, o.y);
         case r'$':
-          stalls.add(Stall(o.x, o.y));
+          stalls.add(Stall(o.x, o.y, travelling: !def.town));
         case '&':
           houses.add(House(o.x, o.y, houses.length));
         case 'C':

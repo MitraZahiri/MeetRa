@@ -22,13 +22,14 @@ class _Room {
 
 // Shape of the room grid and how it plays, per kind of place
 class RoomPlan {
-  const RoomPlan({required this.cols, required this.rows, this.downward = false, this.underground = '#', this.chests = 1, this.verse = false, this.captive = false});
+  const RoomPlan({required this.cols, required this.rows, this.downward = false, this.underground = '#', this.chests = 1, this.verse = false, this.captive = false, this.merchant = false});
   final int cols, rows;
   final bool downward; // a cave: the road only ever goes down, to a gate at the bottom
   final String underground; // tile for the rock below the surface
   final int chests; // chests per dead-end room
   final bool verse; // hide a Verse Stone
   final bool captive; // lock a captive in a cage
+  final bool merchant; // a travelling merchant waits by the hearth
 }
 
 // [foe] picks what stands on a ground spot, from a random roll.
@@ -302,7 +303,10 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
         continue;
       }
       if (a == end) place(a, roomW - 5, 'G');
-      if (a == hearthRoom) place(a, 3, 'A');
+      if (a == hearthRoom) {
+        place(a, 3, 'A');
+        if (plan.merchant) place(a, 8, r'$');
+      }
       if (a == keyRoom) {
         if (!place(a, roomW ~/ 2, 'O', lift: 1)) place(a, roomW - 6, 'O', lift: 1);
       }

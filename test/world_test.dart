@@ -131,6 +131,16 @@ void main() {
     }
   });
 
+  test('a travelling merchant waits by the hearth on two trails of every realm', () {
+    for (final r in realms) {
+      for (final l in r.locations.where((l) => l.kind.playable)) {
+        final level = buildLevel(levelFor(l));
+        final stalls = level.objects.where((o) => o.type == r'$').length;
+        expect(stalls, merchantStops.contains(l.index) && l.kind == LocKind.trail ? 1 : 0, reason: l.id);
+      }
+    }
+  });
+
   test('on every road to an arena or a realm boss, even the hard ones, Ra can reach the gate', () {
     for (final r in realms) {
       for (final l in r.locations.where((l) => l.kind == LocKind.arena || l.kind == LocKind.boss)) {
