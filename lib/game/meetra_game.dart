@@ -118,6 +118,14 @@ class Sign {
   final bool post; // a wooden signpost; a read Verse Stone keeps its words without one
 }
 
+// A lit bomb: it falls, rolls to a stop and bursts when the fuse burns down
+class Bomb {
+  Bomb(double x, double y) : body = Body(x, y, 8, 8)..bounceY = 0.25;
+  final Body body;
+  double fuse = 1400;
+  bool removed = false;
+}
+
 // An iron cage with a captive inside; three sword strikes break it open
 class Cage {
   Cage(this.x, this.y, this.index, {this.freed = false});
@@ -256,6 +264,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   bool _atInn = false;
   int _nights = 0;
   Cage? cage;
+  final bombs = <Bomb>[];
   double? arenaLeft, arenaRight;
   Offset? lionSpawn;
   Offset? waveSpawn; // a trial of waves instead of the lion
@@ -306,6 +315,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     verseStone = null;
     cage = null;
     houses.clear();
+    bombs.clear();
     stalls.clear();
     inn = null;
     _atInn = false;
@@ -507,6 +517,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     final c = controls.update();
     final P = player;
     if (c.drinkPressed) _drink();
+    if (c.bombPressed) _placeBomb();
+    _updateBombs(dt);
     _downTapped = c.down && !_downWas;
     _downWas = c.down;
     P.update(c, dt);
@@ -641,6 +653,10 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     for (final c in [...coins, ...hearts]) {
       physics.step(c.body, s, useWalls: false);
+    }
+    for (final b in bombs) {
+      physics.step(b.body, s);
+      if (b.body.blockedDown) b.body.vx *= 0.85;
     }
     for (final f in feathers) {
       var hit = false;
@@ -869,6 +885,60 @@ class MeetRaGame extends Game with KeyboardEvents {
     sfx.altar();
     progress.save(state);
     return _thanks[rand.nextInt(_thanks.length)];
+  }
+
+  // Ra sets a bomb down at the feet, nudged a little forward
+  void _placeBomb() {
+    final P = player;
+    if (P.dead || victory || P.frozen || def.town) return;
+    if (state.bombs <= 0) {
+      floatText(P.x, P.y - 26, 'No bombs left', const Color(0xffff8a7a), size: 8);
+      return;
+    }
+    state.bombs -= 1;
+    bombs.add(Bomb(P.x + P.facing * 6, P.y - 4)..body.vx = P.facing * 40);
+    sfx.swing();
+  }
+
+  void _updateBombs(double dt) {
+    for (final b in bombs) {
+      b.fuse -= dt;
+      if (rand.nextDouble() < dt / 60) particles.sparkle(b.body.x + 2, b.body.y - 9, 0xffffc040);
+      if (b.fuse <= 0) {
+        b.removed = true;
+        explode(b.body.x, b.body.y - 4);
+      }
+    }
+    bombs.removeWhere((b) => b.removed);
+  }
+
+  static const blastRadius = 30.0;
+
+  // A bomb bursts: it hurts foes, the guardian and Ra if too close, and breaks vases, bushes and cages
+  void explode(double x, double y) {
+    sfx.thud();
+    sfx.breakIt();
+    camera
+      ..shake(300, 0.012)
+      ..flash(0xffffe0a0, 0.25, 300);
+    burst(x, y, [0xffffc040, 0xffff7a2a, 0xff5a4a38, 0xfffff4c0], 26, 190);
+    particles
+      ..ring(x, y, 0xffffe0a0, r1: blastRadius + 6, life: 380, width: 4)
+      ..dust(x, y + 4, count: 10, spread: 60, color: 0xff8a7a68);
+    bool inBlast(Rect r) => Rect.fromCircle(center: Offset(x, y), radius: blastRadius).overlaps(r);
+    final dmg = 2 + state.attack;
+    for (final e in enemies) {
+      if (!e.dying && !e.untouchable && inBlast(e.body.rect)) e.hurt(dmg, (e.x - x).sign, 1.6);
+    }
+    final l = lion;
+    if (l != null && bossStarted && l.state != LionState.dead && inBlast(l.body.rect)) l.hurt(dmg);
+    for (final b in [...breakables]) {
+      if (inBlast(b.bounds)) _breakObject(b);
+    }
+    final cg = cage;
+    if (cg != null && !cg.freed && inBlast(cg.bounds)) _freeCaptive(cg);
+    final P = player;
+    if (!P.dead && (Offset(P.x, P.y - 8) - Offset(x, y)).distance < blastRadius * 0.7) P.hurt(1, x);
   }
 
   // A healing draught from the satchel mends three hearts
@@ -1837,6 +1907,16 @@ class MeetRaGame extends Game with KeyboardEvents {
     c.drawRect(Rect.fromLTWH(x - side * w / 4 - 4, y - h + 8, 8, 6), Paint()..color = const Color(0xffffd27a).withValues(alpha: glow));
   }
 
+  // A black bomb with a highlight; it flashes red faster as the fuse runs out
+  void _drawBomb(Canvas c, Bomb b) {
+    final x = b.body.x.roundToDouble(), y = b.body.y;
+    final blink = ((1400 - b.fuse) / (b.fuse < 500 ? 70 : 160)).floor().isOdd;
+    c.drawCircle(Offset(x, y - 4.5), 5, Paint()..color = const Color(0xff15151c));
+    c.drawCircle(Offset(x, y - 4.5), 4, Paint()..color = Color(blink ? 0xffc0302a : 0xff2a2a34));
+    c.drawRect(Rect.fromLTWH(x - 1.5, y - 7.5, 1.5, 1.5), Paint()..color = const Color(0xaaf2e6c9));
+    c.drawRect(Rect.fromLTWH(x + 1, y - 11, 1.5, 3), Paint()..color = const Color(0xff8a5a2a));
+  }
+
   // The inn: a bigger house with its door in the middle and a hanging sign with a crescent moon
   void _drawInn(Canvas c, Offset d) {
     _drawHouse(c, d.dx, d.dy, 4, wide: 1.45);
@@ -2021,6 +2101,9 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (d != null) _drawInn(c, d);
     for (final st in stalls) {
       _drawStall(c, st);
+    }
+    for (final b in bombs) {
+      _drawBomb(c, b);
     }
     for (final t in townsfolk) {
       _drawTownsperson(c, t);

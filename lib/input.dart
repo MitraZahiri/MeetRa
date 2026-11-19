@@ -2,9 +2,9 @@ import 'package:flutter/services.dart';
 
 // Live state of the on-screen buttons (written by the touch controls, read by Controls)
 class Touch {
-  bool left = false, right = false, down = false, jump = false, attack = false, spell = false, drink = false;
+  bool left = false, right = false, down = false, jump = false, attack = false, spell = false, drink = false, bomb = false;
 
-  void clear() => left = right = down = jump = attack = spell = drink = false;
+  void clear() => left = right = down = jump = attack = spell = drink = bomb = false;
 
   void set(String key, bool v) {
     switch (key) {
@@ -22,6 +22,8 @@ class Touch {
         spell = v;
       case 'drink':
         drink = v;
+      case 'bomb':
+        bomb = v;
     }
   }
 }
@@ -30,13 +32,13 @@ final touch = Touch();
 
 class ControlState {
   bool left = false, right = false, down = false, jump = false;
-  bool jumpPressed = false, attackPressed = false, spellPressed = false, drinkPressed = false;
+  bool jumpPressed = false, attackPressed = false, spellPressed = false, drinkPressed = false, bombPressed = false;
 }
 
 // Merges keyboard and touch input into one state
 class Controls {
   Set<LogicalKeyboardKey> keys = const {};
-  bool _prevJump = false, _prevAttack = false, _prevSpell = false, _prevDrink = false;
+  bool _prevJump = false, _prevAttack = false, _prevSpell = false, _prevDrink = false, _prevBomb = false;
   final state = ControlState();
 
   bool _any(List<LogicalKeyboardKey> ks) => ks.any(keys.contains);
@@ -59,6 +61,9 @@ class Controls {
     _prevSpell = spell;
     s.drinkPressed = drink && !_prevDrink;
     _prevDrink = drink;
+    final bomb = _any([LogicalKeyboardKey.keyB, LogicalKeyboardKey.keyL]) || touch.bomb;
+    s.bombPressed = bomb && !_prevBomb;
+    _prevBomb = bomb;
     return s;
   }
 }

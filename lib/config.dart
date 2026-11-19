@@ -46,6 +46,9 @@ abstract final class PlayerTuning {
 // XP needed to go from level N to N+1
 int xpForLevel(int lv) => (20 + (lv - 1) * 15 + math.pow(lv - 1, 2) * 5).floor();
 
+const maxBombs = 5; // how many bombs Ra's bag holds
+const startBombs = 3;
+
 // Player progress, shared by the game and the HUD.
 // Health is counted in half hearts: 6 = 3 hearts.
 class GameState extends ChangeNotifier {
@@ -61,6 +64,7 @@ class GameState extends ChangeNotifier {
   int xpNext = xpForLevel(1);
   bool hasFeather = false;
   int draughts = 0; // healing draughts in Ra's satchel
+  int bombs = startBombs; // bombs in Ra's bag
 
   void reset() {
     hp = 6;
@@ -75,6 +79,7 @@ class GameState extends ChangeNotifier {
     xpNext = xpForLevel(1);
     hasFeather = false;
     draughts = 0;
+    bombs = startBombs;
     notifyListeners();
   }
 
@@ -88,6 +93,7 @@ class GameState extends ChangeNotifier {
         'level': level,
         'hasFeather': hasFeather,
         'draughts': draughts,
+        'bombs': bombs,
       };
 
   // Health and aura always start full
@@ -102,12 +108,13 @@ class GameState extends ChangeNotifier {
     xpNext = xpForLevel(level);
     hasFeather = j['hasFeather'] as bool? ?? false;
     draughts = j['draughts'] as int? ?? 0;
+    bombs = j['bombs'] as int? ?? startBombs;
     hp = maxHp;
     aura = auraMax.toDouble();
     notifyListeners();
   }
 
-  Object get _snapshot => (hp, maxHp, aura.floor(), auraMax, attack, magic, gold, xp, level, xpNext, hasFeather, draughts);
+  Object get _snapshot => (hp, maxHp, aura.floor(), auraMax, attack, magic, gold, xp, level, xpNext, hasFeather, draughts, bombs);
   Object? _last;
 
   // Called once per frame: the HUD only rebuilds when something visible changed

@@ -24,6 +24,11 @@ class TouchControls extends StatelessWidget {
           _Button(x: w - 90, y: h - 90, r: 66, icon: ButtonIcon.up, keyName: 'jump'),
           _Button(x: w - 240, y: h - 80, r: 56, icon: ButtonIcon.sword, keyName: 'attack'),
           if (game.state.hasFeather) _Button(x: w - 130, y: h - 235, r: 46, icon: ButtonIcon.star, keyName: 'spell'),
+          // Bombs, with how many are left in the bag
+          _Button(x: w - 375, y: h - 105, r: 44, icon: ButtonIcon.bomb, keyName: 'bomb'),
+          At(w - 343, h - 140,
+              child: IgnorePointer(
+                  child: OutlinedText('${game.state.bombs}', size: 18, color: game.state.bombs > 0 ? parch : const Color(0xffff8a7a)))),
           // Healing draughts, with how many are left
           if (game.state.draughts > 0) ...[
             _Button(x: w - 265, y: h - 205, r: 38, icon: ButtonIcon.flask, keyName: 'drink'),
@@ -119,7 +124,7 @@ class _ButtonState extends State<_Button> {
   }
 }
 
-enum ButtonIcon { left, right, up, down, sword, star, flask }
+enum ButtonIcon { left, right, up, down, sword, star, flask, bomb }
 
 // Button icons are drawn as shapes: glyphs like ◀ ⚔ turn into emoji on some Android versions
 class ButtonIconPainter extends CustomPainter {
@@ -196,6 +201,13 @@ class ButtonIconPainter extends CustomPainter {
           i == 0 ? p.moveTo(o.dx, o.dy) : p.lineTo(o.dx, o.dy);
         }
         shape(p..close());
+      case ButtonIcon.bomb:
+        // A round black bomb with a short fuse and a spark
+        c.drawCircle(Offset(s * 0.46, s * 0.58), s * 0.34, outline);
+        c.drawCircle(Offset(s * 0.46, s * 0.58), s * 0.34, Paint()..color = const Color(0xff2a2a34));
+        c.drawCircle(Offset(s * 0.36, s * 0.48), s * 0.08, Paint()..color = parch.withValues(alpha: 0.7));
+        c.drawRect(Rect.fromLTWH(s * 0.58, s * 0.2, s * 0.12, s * 0.14), Paint()..color = const Color(0xff8a5a2a));
+        c.drawCircle(Offset(s * 0.72, s * 0.16), s * 0.09, Paint()..color = const Color(0xffffc040));
       case ButtonIcon.flask:
         // A round-bellied bottle with a cork, the draught glowing red inside
         final bottle = Path()
