@@ -234,7 +234,10 @@ void main() {
     final game = MeetRaGame(art!);
     final vale = realms[0];
 
+    // Screens change behind a short black curtain
+    Future<void> curtain() => tester.pump(const Duration(milliseconds: 500));
     game.enterLocation(vale.locations[15]); // a shrine
+    await curtain();
     expect(game.ui.screen.value, AppScreen.playing);
     expect(game.def.title, vale.locations[15].name);
     final hp = game.state.maxHp;
@@ -244,12 +247,14 @@ void main() {
     expect(game.completeLocation(vale.locations[15]), isEmpty);
 
     game.enterLocation(vale.boss);
+    await curtain();
     expect(game.lionSpawn, isNotNull);
     final lines = game.completeLocation(vale.boss);
     expect(lines, contains('New realm unlocked: Crownhold'));
     expect(realmUnlocked(realms[1], game.progress), isTrue);
 
     game.leaveLevel();
+    await curtain();
     expect(game.ui.screen.value, AppScreen.realm);
   });
 
