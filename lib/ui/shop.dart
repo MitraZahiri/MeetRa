@@ -42,7 +42,7 @@ class _ShopViewState extends State<ShopView> {
             gameH / 2,
             child: Container(
               width: math.min(800, w - 60),
-              height: 430,
+              height: 490,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xfff8eed6), Color(0xffe3cd9f)]),
                 borderRadius: BorderRadius.circular(12),
@@ -82,12 +82,12 @@ class _ShopViewState extends State<ShopView> {
     final g = widget.game;
     final why = cannotBuy(ware, widget.visit.realm, g.state, g.progress);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _text(ware.name, 19, _brown),
-            _text(ware.desc, 14, ink),
+            _text(ware.name, 18, _brown),
+            _text(ware.desc, 13, ink),
           ]),
         ),
         const SizedBox(width: 12),

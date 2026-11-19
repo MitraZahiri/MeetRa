@@ -268,7 +268,15 @@ void main() {
     s.gold = 0;
     expect(cannotBuy(waresFor(realms[1]).firstWhere((w) => w.good == Good.vessel), realms[1], s, p), 'Not enough gold');
     // A travelling merchant carries no lasting goods but tonics
-    expect(waresFor(vale, travelling: true).map((w) => w.good), [Good.draught, Good.tonic]);
+    expect(waresFor(vale, travelling: true).map((w) => w.good), [Good.draught, Good.bombs, Good.tonic]);
+    // Bombs fill the bag up to its size
+    final pouch = wares.firstWhere((w) => w.good == Good.bombs);
+    s
+      ..gold = 100
+      ..bombs = maxBombs - 1;
+    expect(buy(pouch, vale, s, p), isTrue);
+    expect(s.bombs, maxBombs);
+    expect(cannotBuy(pouch, vale, s, p), 'The bag is full');
     // Later realms cost more
     expect(waresFor(realms[3]).first.price, greaterThan(draught.price));
   });

@@ -733,7 +733,8 @@ class MeetRaGame extends Game with KeyboardEvents {
         particles
           ..ring(a.x, a.y - 14, 0xffffc060, r1: 34, life: 600, width: 2.5)
           ..ring(a.x, a.y - 14, 0xfffff0b0, r1: 20, life: 420);
-        ui.banner.value = BannerMsg('Hearth lit', 'Checkpoint reached · health restored');
+        state.bombs = math.max(state.bombs, maxBombs);
+        ui.banner.value = BannerMsg('Hearth lit', 'Checkpoint reached · health restored · bombs refilled');
       }
       if (checkpoint.dx != a.x) checkpoint = Offset(a.x, a.y);
     }
@@ -790,12 +791,13 @@ class MeetRaGame extends Game with KeyboardEvents {
       camera.fadeOut(600, () {
         state
           ..hp = state.maxHp
-          ..aura = state.auraMax.toDouble();
+          ..aura = state.auraMax.toDouble()
+          ..bombs = math.max(state.bombs, maxBombs);
         progress.save(state);
         sfx.altar();
         camera.fadeIn(700);
         player.frozen = false;
-        ui.banner.value = BannerMsg('A night at the inn', 'Health and aura restored  ·  the journey is saved');
+        ui.banner.value = BannerMsg('A night at the inn', 'Health, aura and bombs restored  ·  the journey is saved');
         tell(StoryScroll(location?.name ?? 'The inn', [StoryPage('The innkeeper', _innkeeper[_nights++ % _innkeeper.length])]));
         _atInn = false;
       });
