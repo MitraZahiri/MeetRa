@@ -226,11 +226,12 @@ LevelDef levelFor(Location loc) {
   final fight = loc.kind == LocKind.arena || loc.kind == LocKind.boss;
   if (!fight) {
     final plan = switch (loc.kind) {
-      LocKind.cave => const RoomPlan(cols: 4, rows: 4, downward: true, underground: 'B', captive: true),
-      LocKind.ruin => const RoomPlan(cols: 4, rows: 3, underground: 'B', chests: 2, captive: true),
-      LocKind.shrine => const RoomPlan(cols: 3, rows: 2),
-      LocKind.secret => RoomPlan(cols: 5, rows: 3, underground: 'B', chests: 2),
-      _ => RoomPlan(cols: 4 + tier ~/ 3, rows: 2 + rnd.nextInt(2), verse: verseIndex(loc) != null, merchant: merchantStops.contains(loc.index)),
+      // Bigger grids than before, so every place is a maze worth exploring
+      LocKind.cave => const RoomPlan(cols: 5, rows: 5, downward: true, underground: 'B', captive: true),
+      LocKind.ruin => const RoomPlan(cols: 5, rows: 4, underground: 'B', chests: 2, captive: true),
+      LocKind.shrine => const RoomPlan(cols: 3, rows: 3),
+      LocKind.secret => RoomPlan(cols: 6, rows: 4, underground: 'B', chests: 2),
+      _ => RoomPlan(cols: 5 + tier ~/ 2, rows: 3 + rnd.nextInt(2), verse: verseIndex(loc) != null, merchant: merchantStops.contains(loc.index)),
     };
     return LevelDef(
       id: loc.id,

@@ -16,6 +16,7 @@ class _Room {
   final int c, r;
   bool path = false;
   bool left = false, right = false, up = false, down = false;
+  bool crackedRight = false; // the doorway to the right is walled with cracked rock, for a bomb to open
   int hole = 7; // first column of the drop in this room's floor
   int links = 0;
 }
@@ -102,12 +103,16 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
     }
     joined.add(b);
   }
-  // A few extra openings make loops, so the way back is not always the way in
+  // Extra openings make loops, so the level is a maze where the way back is not always the way in.
+  // Underground, half of the extra doorways are walled with cracked rock: shortcuts for a bomb.
   for (var r = 0; r < rows; r++) {
     for (var c = 0; c < cols; c++) {
       final a = at(c, r);
-      if (c < cols - 1 && !a.right && rnd.nextDouble() < 0.2) linkH(a);
-      if (r < rows - 1 && !a.down && rnd.nextDouble() < 0.15) linkV(a);
+      if (c < cols - 1 && !a.right && rnd.nextDouble() < 0.3) {
+        linkH(a);
+        if (r > 0 && rnd.nextBool()) a.crackedRight = true;
+      }
+      if (r < rows - 1 && !a.down && rnd.nextDouble() < 0.2) linkV(a);
     }
   }
 
@@ -170,11 +175,13 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
         }
       }
       if (a.right) {
-        // A doorway; on the surface the wall between two linked rooms is gone altogether
+        // A doorway; on the surface the wall between two linked rooms is gone altogether.
+        // A cracked one keeps a single wall of cracked rock, low enough for one bomb to clear
         for (var y = a.r == 0 ? oy : oy + 6; y <= oy + 9; y++) {
-          set(ox + roomW - 1, y, '.');
+          set(ox + roomW - 1, y, a.crackedRight && y >= oy + 7 ? 'X' : '.');
           set(ox + roomW, y, '.');
         }
+        if (a.crackedRight) set(ox + roomW - 1, oy + 6, rock);
       }
     }
   }
