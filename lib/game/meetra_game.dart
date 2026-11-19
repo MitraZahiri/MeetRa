@@ -223,6 +223,10 @@ class MeetRaGame extends Game with KeyboardEvents {
   int pendingLevelUps = 0;
 
   bool started = false; // title screen dismissed
+  // The guardian's entrance: the camera turns to it while Ra stands still
+  double _cineT = 0;
+  Offset? _cineAt;
+  static const cineMs = 2300.0;
   double timeNow = 0;
   double _hitstop = 0;
   double _drift = 0;
@@ -260,6 +264,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     leftWall = rightWall = null;
     lion = null;
     bossStarted = bossDefeated = victory = false;
+    _cineT = 0;
+    _cineAt = null;
     pendingLevelUps = 0;
     _hitstop = 0;
     _winT = -1;
@@ -498,7 +504,19 @@ class MeetRaGame extends Game with KeyboardEvents {
     camera
       ..viewW = size.x / (uiScale * zoom)
       ..viewH = size.y / (uiScale * zoom);
-    camera.follow(P.x, P.y - 20, dt, snap: _snapCamera);
+    final cine = _cineAt;
+    if (_cineT > 0 && cine != null) {
+      // Look at the guardian for most of the entrance, then swing back to Ra
+      _cineT -= dt;
+      final back = _cineT < 600;
+      camera.follow(back ? P.x : cine.dx, back ? P.y - 20 : cine.dy - 20, dt);
+      if (_cineT <= 0) {
+        P.frozen = false;
+        _cineAt = null;
+      }
+    } else {
+      camera.follow(P.x, P.y - 20, dt, snap: _snapCamera);
+    }
     _snapCamera = false;
     camera.update(dt, virtualW);
     state.flush();
@@ -953,8 +971,17 @@ class MeetRaGame extends Game with KeyboardEvents {
       _spawnWave();
       return;
     }
-    lion ??= _makeBoss();
+    final boss = lion ??= _makeBoss();
     ui.boss.value = def.boss;
+    _entrance(Offset(boss.x, boss.y));
+    // It wakes while the camera looks on, and only moves once the camera is back with Ra
+    boss.timer = cineMs + 250;
+    timers.after(800, () {
+      if (!bossStarted || bossDefeated) return;
+      sfx.roar();
+      camera.shake(500, 0.01);
+      burst(boss.x, boss.y - 6, [0xffa88a60, 0xff5a4a38], 14, 120);
+    });
     // A realm's guardian speaks before the first fight
     final loc = location;
     if (loc != null && loc.kind == LocKind.boss && progress.firstTelling('boss:${loc.realm.id}')) {
@@ -1058,6 +1085,16 @@ class MeetRaGame extends Game with KeyboardEvents {
     ui.boss.value = null;
     ui.banner.value = BannerMsg(won ?? '${def.boss.name} falls!', 'The way out is open');
     gate?.opening = true;
+  }
+
+  // Ra stops and the camera turns to [at] for the guardian's entrance
+  void _entrance(Offset at) {
+    _cineT = cineMs;
+    _cineAt = at;
+    touch.clear();
+    player
+      ..frozen = true
+      ..facing = at.dx >= player.x ? 1 : -1;
   }
 
   Lion _makeBoss() {
