@@ -553,6 +553,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (c.bombPressed) _placeBomb();
     _updateBombs(dt);
     _updateFlowers(dt);
+    _bombHint();
     _downTapped = _actWanted || c.actPressed;
     _actWanted = false;
     P.update(c, dt);
@@ -960,6 +961,22 @@ class MeetRaGame extends Game with KeyboardEvents {
       }
     }
     bombs.removeWhere((b) => b.removed);
+  }
+
+  // The first time Ra comes close to cracked rock, a banner explains what to do with it (once per save)
+  void _bombHint() {
+    if (progress.wasTold('hint:bombs') || player.dead) return;
+    final tx = (player.x / tile).floor(), ty = (player.y / tile).floor();
+    for (var y = ty - 2; y <= ty + 2; y++) {
+      for (var x = tx - 3; x <= tx + 3; x++) {
+        final t = level.tileAt(x, y);
+        if (t != T.cracked && t != T.slab) continue;
+        progress.firstTelling('hint:bombs');
+        progress.save(state);
+        ui.banner.value = BannerMsg('Cracked rock', 'Tap the bomb button beside it to blast it open  ·  bomb flowers grow nearby');
+        return;
+      }
+    }
   }
 
   void _updateFlowers(double dt) {
