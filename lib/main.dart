@@ -123,6 +123,7 @@ class GameScreen extends StatelessWidget {
                     Positioned.fill(child: IgnorePointer(child: SignBox(game, w: w))),
                     Positioned.fill(child: IgnorePointer(child: BannerView(game, w: w))),
                     Positioned.fill(child: IgnorePointer(child: BossBar(game, w: w))),
+                    _when(game.ui.bossIntro, (b) => b != null, (b) => IgnorePointer(child: BossIntroView(game, b!, key: ObjectKey(b), w: w))),
                     if (_shot.isEmpty) Positioned.fill(child: TouchControls(game, w: w, h: gameH)),
                     _when(game.ui.screen, (s) => s == AppScreen.playing, (_) => MapButton(game, w: w)),
                     _when(game.ui.screen, (s) => s == AppScreen.playing,

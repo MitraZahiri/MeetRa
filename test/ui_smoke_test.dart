@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meetra/art/sprites.dart';
 import 'package:meetra/game/meetra_game.dart';
+import 'package:meetra/levels/build.dart';
 import 'package:meetra/ui/book.dart';
+import 'package:meetra/ui/hud.dart';
 import 'package:meetra/ui/story.dart';
 import 'package:meetra/world/saga.dart';
 import 'package:meetra/world/world.dart';
@@ -38,6 +40,14 @@ void main() {
     for (final p in pages) {
       await show(tester, StoryView(game, StoryScroll('Chapter Six: The Edge of the Map', [p]), key: UniqueKey(), w: 960));
       expect(tester.takeException(), isNull, reason: p.text);
+    }
+  });
+
+  testWidgets("every guardian's name card fits during its entrance", (tester) async {
+    await tester.runAsync(() async => game = MeetRaGame(await Art.generate()));
+    for (final r in realms) {
+      await show(tester, BossIntroView(game, BossDef(r.bossName, r.bossTitle), key: UniqueKey(), w: 960));
+      expect(tester.takeException(), isNull, reason: r.id);
     }
   });
 

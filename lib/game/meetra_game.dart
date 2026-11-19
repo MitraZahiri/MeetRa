@@ -62,6 +62,7 @@ class UiBus {
   final rewards = ValueNotifier<List<String>>(const []); // shown on the 'location cleared' screen
   final session = ValueNotifier<int>(0); // bumps on restart so overlays rebuild fresh
   final story = ValueNotifier<StoryScroll?>(null); // the scroll being read; the game waits meanwhile
+  final bossIntro = ValueNotifier<BossDef?>(null); // the guardian's name card during its entrance
   final book = ValueNotifier<int?>(null); // the Book of Verses, open on this realm's page
 }
 
@@ -266,6 +267,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     bossStarted = bossDefeated = victory = false;
     _cineT = 0;
     _cineAt = null;
+    ui.bossIntro.value = null;
     pendingLevelUps = 0;
     _hitstop = 0;
     _winT = -1;
@@ -973,20 +975,28 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     final boss = lion ??= _makeBoss();
     ui.boss.value = def.boss;
-    _entrance(Offset(boss.x, boss.y));
-    // It wakes while the camera looks on, and only moves once the camera is back with Ra
+    // Ra stops before the guardian can move, even while it speaks
+    player.frozen = true;
     boss.timer = cineMs + 250;
-    timers.after(800, () {
-      if (!bossStarted || bossDefeated) return;
-      sfx.roar();
-      camera.shake(500, 0.01);
-      burst(boss.x, boss.y - 6, [0xffa88a60, 0xff5a4a38], 14, 120);
-    });
-    // A realm's guardian speaks before the first fight
+    void entrance() {
+      _entrance(Offset(boss.x, boss.y), def.boss);
+      // It wakes while the camera looks on, and only moves once the camera is back with Ra
+      boss.timer = cineMs + 250;
+      timers.after(800, () {
+        if (!bossStarted || bossDefeated) return;
+        sfx.roar();
+        camera.shake(500, 0.01);
+        burst(boss.x, boss.y - 6, [0xffa88a60, 0xff5a4a38], 14, 120);
+      });
+    }
+
+    // A realm's guardian speaks before the first fight; its entrance follows the last word
     final loc = location;
     if (loc != null && loc.kind == LocKind.boss && progress.firstTelling('boss:${loc.realm.id}')) {
-      tell(StoryScroll(loc.realm.name, [StoryPage(def.boss.name, chapterOf(loc.realm).bossWords)]));
+      tell(StoryScroll(loc.realm.name, [StoryPage(def.boss.name, chapterOf(loc.realm).bossWords)], onDone: entrance));
       progress.save(state);
+    } else {
+      entrance();
     }
   }
 
@@ -1088,7 +1098,9 @@ class MeetRaGame extends Game with KeyboardEvents {
   }
 
   // Ra stops and the camera turns to [at] for the guardian's entrance
-  void _entrance(Offset at) {
+  void _entrance(Offset at, BossDef card) {
+    ui.bossIntro.value = card;
+    timers.after(cineMs, () => ui.bossIntro.value = null);
     _cineT = cineMs;
     _cineAt = at;
     touch.clear();

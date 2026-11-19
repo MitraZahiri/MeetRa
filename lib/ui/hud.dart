@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../config.dart';
 import '../game/meetra_game.dart';
+import '../levels/build.dart' show BossDef;
 import 'common.dart';
 
 // Hearts, aura, gold, level and XP. Hearts pop when health changes and the last one
@@ -420,4 +421,61 @@ class _BossBarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BossBarPainter old) => true;
+}
+
+// The guardian's entrance: black bars close in from the top and bottom, and its name and title rise
+// in the lower third while the camera looks at it
+class BossIntroView extends StatefulWidget {
+  const BossIntroView(this.game, this.boss, {super.key, required this.w});
+  final MeetRaGame game;
+  final BossDef boss;
+  final double w;
+
+  @override
+  State<BossIntroView> createState() => _BossIntroViewState();
+}
+
+class _BossIntroViewState extends State<BossIntroView> with SingleTickerProviderStateMixin {
+  late final AnimationController _anim =
+      AnimationController(vsync: this, duration: Duration(milliseconds: MeetRaGame.cineMs.round()))..forward();
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final w = widget.w;
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) {
+        final t = _anim.value * MeetRaGame.cineMs; // ms since the entrance began
+        double ramp(double from, double len) => Curves.easeOut.transform(((t - from) / len).clamp(0.0, 1.0));
+        // Bars in over 0.35 s and out over the last 0.4 s; the name in after 0.6 s and out with the bars
+        final out = ramp(MeetRaGame.cineMs - 450, 400);
+        final bars = ramp(0, 350) * (1 - out);
+        final name = ramp(600, 450) * (1 - out);
+        return Stack(children: [
+          Positioned(left: 0, right: 0, top: 0, height: 58 * bars, child: const ColoredBox(color: Color(0xff05060f))),
+          Positioned(left: 0, right: 0, bottom: 0, height: 58 * bars, child: const ColoredBox(color: Color(0xff05060f))),
+          At(
+            w / 2,
+            gameH - 150 + 14 * (1 - name),
+            child: Opacity(
+              opacity: name,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                ShimmerText(widget.boss.name.toUpperCase(), size: 44, phase: t / 1500),
+                const SizedBox(height: 4),
+                Container(width: 260 * name, height: 2, color: const Color(Palette.gold)),
+                const SizedBox(height: 6),
+                OutlinedText(widget.boss.title, size: 20, color: parch),
+              ]),
+            ),
+          ),
+        ]);
+      },
+    );
+  }
 }
