@@ -91,7 +91,7 @@ const level1 = LevelDef(
     'Swing your sword: three swings make a combo!\nIn the air, hold ▽ and swing to strike down.',
     'Old Mehr: "A feather of Saena waits on the hill.\nWhoever carries it is never alone in the dark."',
     'Thorns! Cross on the platforms.\nIf you fall, you return to the last safe ground.',
-    'A roar rises from the reeds...\nRest at the hearth, then go on.',
+    'A roar rises from the reeds: the Reed Lion waits ahead.\nRest at the hearth. Once you step in, the way back closes.',
   ],
   boss: BossDef('The Reed Lion', 'Terror of the Marsh'),
 );

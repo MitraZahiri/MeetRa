@@ -17,6 +17,8 @@ List<String> _ground(String top) => [top, _g.substring(0, top.length), _g.substr
 
 final _start = _ground('..A.P...S.......');
 final _hearth = _ground('.....A........');
+// The last hearth before a fight, with a signpost that says what waits beyond it
+final _gateHearth = _ground('.....A....S...');
 final _end = _ground('..........G.....');
 
 final _flat = [
@@ -245,7 +247,7 @@ LevelDef levelFor(Location loc) {
     if (i == middle ~/ 2 && middle >= 4) chunks.add(_hearth);
     chunks.add(pool[rnd.nextInt(pool.length)]);
   }
-  chunks.addAll([_hearth, loc.kind == LocKind.arena ? _trial : _arena]);
+  chunks.addAll([_gateHearth, loc.kind == LocKind.arena ? _trial : _arena]);
   chunks.add(_end);
 
   String resolve(String row) {
@@ -276,7 +278,12 @@ LevelDef levelFor(Location loc) {
     subtitle: r.name,
     rows: 17,
     chunks: [for (final c in chunks) c.map(resolve).toList()],
-    signs: [loc.desc],
+    signs: [
+      loc.desc,
+      loc.kind == LocKind.arena
+          ? 'Beyond this hearth: the Trial of ${r.name}, ${trialWaves(tier)} waves of creatures. Rest first. Once you step in, the way back closes.'
+          : 'Beyond this hearth: ${r.bossName}, ${r.bossTitle}. Rest first. Once you step in, the way back closes.',
+    ],
     boss: boss,
     enemyBonus: tier,
   );
