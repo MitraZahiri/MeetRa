@@ -77,7 +77,7 @@ class Level {
 //
 // Legend:
 //   #  ground (grass on top, dirt below)   =  one-way platform
-//   B  stone brick   ^  thorns
+//   B  stone brick   ^  thorns   X  cracked rock, broken by a bomb
 //   P  player        A  hearth (checkpoint)   S  signpost
 //   D  demon         V  fly      U  ghoul    K  scorpion pair    M  manticore
 //   H  shade, hidden in the dark until Ra comes near
@@ -114,6 +114,8 @@ Level buildLevel(LevelDef def) {
         t = T.brick;
       } else if (c == '^') {
         t = T.spikes;
+      } else if (c == 'X') {
+        t = T.cracked;
       } else if (c != '.' && c != ' ') {
         objects.add(LevelObject(c, x, y));
       }

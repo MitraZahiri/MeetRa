@@ -51,7 +51,7 @@ class Physics {
 
   static const _eps = 0.001;
 
-  bool _solid(int t) => t == T.grass || t == T.dirt || t == T.brick || t == T.spikes;
+  bool _solid(int t) => t == T.grass || t == T.dirt || t == T.brick || t == T.spikes || t == T.cracked;
 
   // Moves a body for dt seconds and separates it from tiles and walls.
   // [skipPlatforms] lets the player drop through one-way platforms; [onTile] reports touched solid tiles.

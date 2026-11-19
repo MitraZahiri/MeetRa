@@ -29,6 +29,7 @@ abstract final class T {
   static const platform = 2;
   static const brick = 3;
   static const spikes = 4;
+  static const cracked = 5; // cracked rock: solid until a bomb breaks it (drawn over the brick tile)
 }
 
 abstract final class PlayerTuning {

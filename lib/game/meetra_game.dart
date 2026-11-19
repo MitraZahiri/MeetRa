@@ -374,10 +374,29 @@ class MeetRaGame extends Game with KeyboardEvents {
       for (var tx = 0; tx < level.cols; tx++) {
         final t = level.data[ty][tx];
         if (t < 0) continue;
+        if (t == T.cracked) {
+          _drawCracked(c, tiles, tx, ty, p);
+          continue;
+        }
         c.drawImageRect(tiles.image, tiles.src(t), Rect.fromLTWH(tx * tile, ty * tile, tile, tile), p);
       }
     }
     return rec.endRecording().toImageSync(level.width.toInt(), level.height.toInt());
+  }
+
+  // Cracked rock: the brick tile, darker, split by a zigzag crack and chipped at the corners
+  void _drawCracked(Canvas c, Sheet tiles, int tx, int ty, Paint p) {
+    final r = Rect.fromLTWH(tx * tile, ty * tile, tile, tile);
+    c.drawImageRect(tiles.image, tiles.src(T.brick), r, p);
+    c.drawRect(r, Paint()..color = const Color(0x3a1a1008));
+    final crack = Paint()..color = const Color(0xff1a1008);
+    final light = Paint()..color = const Color(0x55f2e6c9);
+    final x = r.left, y = r.top;
+    for (final (cx, cy, w, h) in const [(7.0, 1.0, 2.0, 4.0), (5.0, 5.0, 3.0, 2.0), (4.0, 7.0, 2.0, 4.0), (6.0, 11.0, 2.0, 4.0), (9.0, 6.0, 4.0, 1.5), (12.0, 7.0, 2.0, 3.0)]) {
+      c.drawRect(Rect.fromLTWH(x + cx, y + cy, w, h), crack);
+    }
+    c.drawRect(Rect.fromLTWH(x + 9, y + 2, 2, 1), light);
+    c.drawRect(Rect.fromLTWH(x + 2, y + 12, 2, 1), light);
   }
 
   void _spawnObjects() {
@@ -939,6 +958,21 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (cg != null && !cg.freed && inBlast(cg.bounds)) _freeCaptive(cg);
     final P = player;
     if (!P.dead && (Offset(P.x, P.y - 8) - Offset(x, y)).distance < blastRadius * 0.7) P.hurt(1, x);
+    // Cracked rock in reach shatters, and the map is redrawn without it
+    var broke = false;
+    for (var ty = ((y - blastRadius) / tile).floor(); ty <= ((y + blastRadius) / tile).floor(); ty++) {
+      for (var tx = ((x - blastRadius) / tile).floor(); tx <= ((x + blastRadius) / tile).floor(); tx++) {
+        if (level.tileAt(tx, ty) != T.cracked) continue;
+        if ((Offset(tx * tile + tile / 2, ty * tile + tile / 2) - Offset(x, y)).distance > blastRadius + 6) continue;
+        level.data[ty][tx] = T.empty;
+        broke = true;
+        burst(tx * tile + tile / 2, ty * tile + tile / 2, [0xff6a5a4a, 0xff8a7a68, 0xff3a2a1a], 6, 120);
+      }
+    }
+    if (broke) {
+      _mapImage?.dispose();
+      _mapImage = _renderMap();
+    }
   }
 
   // A healing draught from the satchel mends three hearts

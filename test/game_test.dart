@@ -42,6 +42,35 @@ void main() {
     expect(fromBelow.blockedUp, isFalse);
   });
 
+  test('cracked rock is solid until it is broken', () {
+    final lv = buildLevel(const LevelDef(
+      id: 'test',
+      title: 't',
+      subtitle: '',
+      rows: 6,
+      chunks: [
+        ['P....', '.....', 'XXXXX', '.....', '.....', '#####'],
+      ],
+      signs: [],
+      boss: BossDef('', ''),
+    ));
+    final physics = Physics(lv);
+    expect(lv.tileAt(1, 2), T.cracked);
+    final b = Body(24, 20, 8, 16);
+    for (var i = 0; i < 60; i++) {
+      physics.step(b, 1 / 60);
+    }
+    expect(b.y, 2 * tile);
+    // A bomb clears the rock and Ra falls through to the floor below
+    for (var x = 0; x < 5; x++) {
+      lv.data[2][x] = T.empty;
+    }
+    for (var i = 0; i < 120; i++) {
+      physics.step(b, 1 / 60);
+    }
+    expect(b.y, 5 * tile);
+  });
+
   test('xp curve matches the web version', () {
     expect([1, 2, 3, 4].map(xpForLevel), [20, 40, 70, 110]);
   });
