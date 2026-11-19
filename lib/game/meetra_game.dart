@@ -175,6 +175,15 @@ class Townsperson {
   String get line => '${page.speaker}:  ${page.text}';
 }
 
+// A merchant's stall: a striped awning over a counter, the merchant behind it.
+// Stepping up to it opens the counter; Ra has to step away before it opens again.
+class Stall {
+  Stall(this.x, this.y, {this.travelling = false});
+  final double x, y;
+  final bool travelling;
+  bool near = false;
+}
+
 // A house on a town street, drawn in the realm's own style
 class House {
   House(this.x, this.y, this.variant);
@@ -241,6 +250,7 @@ class MeetRaGame extends Game with KeyboardEvents {
   final townsfolk = <Townsperson>[];
   VerseStone? verseStone;
   final houses = <House>[];
+  final stalls = <Stall>[];
   Cage? cage;
   double? arenaLeft, arenaRight;
   Offset? lionSpawn;
@@ -292,6 +302,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     verseStone = null;
     cage = null;
     houses.clear();
+    stalls.clear();
     gate = null;
     activeSign = null;
     _talkShown = null;
@@ -400,6 +411,8 @@ class MeetRaGame extends Game with KeyboardEvents {
             final page = n == 0 ? c.townTalk[visit % c.townTalk.length] : c.people[(n - 1) % c.people.length];
             townsfolk.add(Townsperson(o.x, o.y, n, page));
           }
+        case r'$':
+          stalls.add(Stall(o.x, o.y));
         case '&':
           houses.add(House(o.x, o.y, houses.length));
         case 'C':
@@ -511,6 +524,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     final pr = P.body.rect;
     _updateAltars(pr, dt);
     _updateTownsfolk(dt);
+    _updateStalls();
     _updateSigns();
     _updatePickups(dt);
     _updateOrbs(dt);
@@ -680,6 +694,19 @@ class MeetRaGame extends Game with KeyboardEvents {
     if (text != _talkShown) {
       _talkShown = text;
       ui.sign.value = text;
+    }
+  }
+
+  void _updateStalls() {
+    final loc = location;
+    if (loc == null) return;
+    for (final st in stalls) {
+      final close = (player.x - st.x).abs() < 16 && (player.y - st.y).abs() < 24 && !player.dead;
+      if (close && !st.near) {
+        final (name, greeting) = st.travelling ? travellingMerchant : townMerchants[loc.realm.id]!;
+        openShop(ShopVisit(name, greeting, loc.realm, travelling: st.travelling));
+      }
+      st.near = close;
     }
   }
 
@@ -1758,6 +1785,31 @@ class MeetRaGame extends Game with KeyboardEvents {
     c.drawRect(Rect.fromLTWH(x - side * w / 4 - 4, y - h + 8, 8, 6), Paint()..color = const Color(0xffffd27a).withValues(alpha: glow));
   }
 
+  // The stall: posts, a striped awning, the merchant behind the counter, and jars on top
+  void _drawStall(Canvas c, Stall st) {
+    final x = st.x.roundToDouble(), y = st.y;
+    void box(double l, double t, double w, double h, int color) => c.drawRect(Rect.fromLTWH(x + l, y + t, w, h), Paint()..color = Color(color));
+    box(-15, -34, 2, 34, 0xff4a2e1c); // posts
+    box(13, -34, 2, 34, 0xff4a2e1c);
+    // The merchant, standing behind the counter
+    box(-4, -24, 8, 12, 0xff2a1e16);
+    box(-3, -23, 6, 11, st.travelling ? 0xff6a5a3a : 0xff8a2a3a);
+    box(-3, -29, 6, 6, 0xffd9a37a);
+    box(-4, -31, 8, 3, st.travelling ? 0xff5a4a2a : 0xffd4a845);
+    // Awning in two colours, with a scalloped edge
+    for (var i = 0; i < 8; i++) {
+      box(-17 + i * 4.25, -40, 4.25, 6, i.isEven ? 0xffb83a2e : 0xfff2e6c9);
+      box(-17 + i * 4.25 + 1, -34, 2.25, 2, i.isEven ? 0xffb83a2e : 0xfff2e6c9);
+    }
+    // Counter with jars and a flask
+    box(-16, -13, 32, 13, 0xff2a1e16);
+    box(-15, -12, 30, 12, 0xff8a5a3a);
+    box(-15, -12, 30, 2, 0xffa47450);
+    box(-12, -18, 4, 5, 0xffe0485a);
+    box(-6, -17, 4, 4, 0xff8ae0d8);
+    box(7, -19, 5, 6, 0xffd4a845);
+  }
+
   static const _robes = [0xff7a4a6a, 0xff3a6a8a, 0xff8a6a2a, 0xff4a7a4a, 0xffa04a3a];
 
   // A small person in a robe, with headwear in the fashion of the realm, legs moving as they walk
@@ -1895,6 +1947,9 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     for (final s in signs) {
       if (s.post) drawFrame(c, a.sign, 0, s.x, s.y);
+    }
+    for (final st in stalls) {
+      _drawStall(c, st);
     }
     for (final t in townsfolk) {
       _drawTownsperson(c, t);

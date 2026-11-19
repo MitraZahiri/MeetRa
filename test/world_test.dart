@@ -127,6 +127,7 @@ void main() {
       expect(types.where((t) => t == 'N').length, greaterThanOrEqualTo(3), reason: r.id);
       expect(types.where((t) => 'DVUKMHL'.contains(t)), isEmpty, reason: r.id);
       expect(types.where((t) => t == 'S').length, def.signs.length, reason: r.id);
+      expect(townMerchants[r.id], isNotNull, reason: r.id);
     }
   });
 

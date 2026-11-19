@@ -61,3 +61,16 @@ bool buy(Ware w, Realm r, GameState s, Progress p) {
   s.flush();
   return true;
 }
+
+// Who keeps the stall in each realm's town, and how they greet Ra
+const townMerchants = <String, (String, String)>{
+  'hearthvale': ('Nessa the Trader', 'Fresh from the market at Willow Ford! Well, fresh-ish. What will it be?'),
+  'crownhold': ('Corvin of the Market', 'The finest goods in the capital, and the only stall still open. Take your time.'),
+  'sands': ('Sela the Spice Seller', 'Draughts, tonics, and a whetstone that has seen three wars. All cheaper than thirst.'),
+  'skyspine': ('Brannoc the Peddler', 'I carried all of this up the mountain on my back. Please buy something heavy.'),
+  'duskland': ('Ulla the Felt Trader', 'The khan takes a tax on everything I sell. Buy from me and spite him.'),
+  'marble': ('Pio of the Harbor', 'Salvaged, bartered and only slightly damp. Best prices on the coast.'),
+  'lightless': ('The Lantern Merchant', 'You found my stall in the dark. That alone deserves a discount. Not much of one.'),
+};
+
+const travellingMerchant = ('A travelling merchant', 'Draughts! Tonics! Cheaper than a funeral, and I take any coin.');
