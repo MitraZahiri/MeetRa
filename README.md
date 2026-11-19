@@ -56,7 +56,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
   </tr>
 </table>
 
-## Status: playable prototype (v1.6.0)
+## Status: playable prototype (v1.7.0)
 
 ### The world
 
@@ -88,6 +88,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 - Gold, breakable vases and bushes, hidden chests, heart drops
 - **Hearth** checkpoints that also heal you; pits and thorns send you back to the last safe ground
 - Fights get harder in every realm: creatures gain health, and from the Sky Spine on their touch costs a whole heart
+- **Fights you see coming**: the guardian rests in its arena from the start of the level, and a signpost by the last hearth says who waits beyond it. Stepping in stops Ra, turns the camera to the guardian, frames its name and title between black bars and raises the wall out of the ground; then a banner tells its weakness. The world slows for a moment when it falls.
 - **Trials of waves**: three waves at first, four from the Sky Spine on and five in the Lightless Land, ending with man-eaters
 
 ### Creatures from old Persian lore
@@ -109,6 +110,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 - A living world: grass that sways and parts around feet, weather for each realm (pollen and fireflies, dust, sand, snow, leaves, sea spray, embers), glowing hearths, darkness and light in caves and the Lightless Land
 - Juice: Ra's flowing scarf, breathing, landing squash and dust; hit sparks, shockwave rings, popping damage numbers, screen flashes
 - Procedural music in Persian modes: a santur and daf theme for exploring (Shur) and a tense boss theme (Chahargah)
+- A black curtain between screens, and a banner on the way into every place that says what it asks of Ra
 - Landscape lock and fullscreen on Android and iOS, drawn under the camera cutout
 
 All art and sound are generated from code. Final art arrives in M1.
