@@ -518,11 +518,13 @@ class MeetRaGame extends Game with KeyboardEvents {
         P.frozen = false;
         _cineAt = null;
         // How to beat it, as the fight begins
-        ui.banner.value = BannerMsg(
-            'Jump over its charge',
-            def.boss.kind == BossKind.elephant
-                ? 'Leap its shockwaves; a charge into the wall dazes it: strike then!'
-                : 'A charge into the wall dazes it: strike then!');
+        if (lion != null) {
+          ui.banner.value = BannerMsg(
+              'Jump over its charge',
+              def.boss.kind == BossKind.elephant
+                  ? 'Leap its shockwaves; a charge into the wall dazes it: strike then!'
+                  : 'A charge into the wall dazes it: strike then!');
+        }
       }
     } else {
       camera.follow(P.x, P.y - 20, dt, snap: _snapCamera);
@@ -973,7 +975,6 @@ class MeetRaGame extends Game with KeyboardEvents {
     leftWall = Wall(Rect.fromCenter(center: Offset(arenaLeft! + tile / 2, rightWall!.y), width: 16, height: 224));
     physics.walls.add(leftWall!);
     _wallRise = 0;
-    if (waveSpawn != null) ui.banner.value = BannerMsg('The way back is sealed', 'Win, or rise again at the hearth');
     burst(leftWall!.x, level.height - 3 * tile, [0xffa88a60, 0xff5a4a38], 16, 120);
     particles.dust(leftWall!.x, level.height - 3 * tile, count: 10, spread: 50, color: 0xffa88a60);
     music.play(Track.boss);
@@ -984,8 +985,12 @@ class MeetRaGame extends Game with KeyboardEvents {
     ui.bossFrac.value = 1;
     ui.sign.value = null;
     if (waveSpawn != null) {
+      // The trial's entrance: the camera looks over the empty arena, then the first wave rises
       wave = 0;
-      _spawnWave();
+      _entrance(Offset((arenaLeft! + arenaRight!) / 2, waveSpawn!.dy), BossDef(def.boss.name, '$waves waves  ·  the way back is sealed'));
+      timers.after(cineMs - 400, () {
+        if (bossStarted && !bossDefeated && wave == 0 && _waveFoes.isEmpty) _spawnWave();
+      });
       return;
     }
     final boss = lion ??= _makeBoss();
@@ -1055,7 +1060,8 @@ class MeetRaGame extends Game with KeyboardEvents {
   }
 
   void _updateWaves() {
-    if (waveSpawn == null || !bossStarted || bossDefeated || _waveComing) return;
+    // Nothing to count before the first wave has risen
+    if (waveSpawn == null || !bossStarted || bossDefeated || _waveComing || _waveFoes.isEmpty) return;
     final alive = _waveFoes.where((e) => !e.dying && !e.removed).length;
     ui.bossFrac.value = _waveFoes.isEmpty ? 0 : alive / _waveFoes.length;
     if (alive > 0) return;
