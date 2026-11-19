@@ -158,6 +158,16 @@ void main() {
     }
   });
 
+  test('the mazes hide cracked-rock walls for bombs in every realm', () {
+    for (final r in realms) {
+      var walls = 0;
+      for (final l in r.locations.where((l) => levelFor(l).sealed)) {
+        walls += buildLevel(levelFor(l)).data.expand((row) => row).where((t) => t == T.cracked).length;
+      }
+      expect(walls, greaterThan(20), reason: r.id);
+    }
+  });
+
   test('on every road to an arena or a realm boss, even the hard ones, Ra can reach the gate', () {
     for (final r in realms) {
       for (final l in r.locations.where((l) => l.kind == LocKind.arena || l.kind == LocKind.boss)) {

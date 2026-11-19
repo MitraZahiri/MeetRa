@@ -150,6 +150,16 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
     if (pool.isNotEmpty) hiddenRoom = pool.reduce((a, b) => dist[a]! >= dist[b]! ? a : b);
   }
 
+  // Treasure vaults: about half of the dead ends underground, with nothing Ra needs inside, are walled
+  // off with cracked rock and hold an extra chest for whoever brings a bomb
+  final vaults = <_Room>{};
+  for (final a in side) {
+    if (a.links != 1 || a.r == 0 || a == keyRoom || a == hiddenRoom || !(a.left || a.right)) continue;
+    if (rnd.nextBool()) continue;
+    vaults.add(a);
+    (a.right ? a : at(a.c - 1, a.r)).crackedRight = true;
+  }
+
   // ---- Carve the rock ----
   final rock = plan.underground;
   final g = List.generate(h, (y) => List.filled(w, y < roomH ? '#' : rock));
@@ -333,8 +343,9 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
         }
       }
       if (deadEnds.contains(a)) {
-        for (var i = 0; i < plan.chests; i++) {
-          place(a, 12 + i * 3, 'C');
+        final cols = vaults.contains(a) ? const [9, 12, 15] : const [12, 15];
+        for (var i = 0; i < math.min(cols.length, plan.chests + (vaults.contains(a) ? 1 : 0)); i++) {
+          place(a, cols[i], 'C');
         }
       }
       flower(a);
