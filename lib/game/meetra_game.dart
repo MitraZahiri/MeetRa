@@ -251,6 +251,9 @@ class MeetRaGame extends Game with KeyboardEvents {
   VerseStone? verseStone;
   final houses = <House>[];
   final stalls = <Stall>[];
+  Offset? inn; // the inn's door
+  bool _atInn = false;
+  int _nights = 0;
   Cage? cage;
   double? arenaLeft, arenaRight;
   Offset? lionSpawn;
@@ -303,6 +306,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     cage = null;
     houses.clear();
     stalls.clear();
+    inn = null;
+    _atInn = false;
     gate = null;
     activeSign = null;
     _talkShown = null;
@@ -411,6 +416,8 @@ class MeetRaGame extends Game with KeyboardEvents {
             final page = n == 0 ? c.townTalk[visit % c.townTalk.length] : c.people[(n - 1) % c.people.length];
             townsfolk.add(Townsperson(o.x, o.y, n, page));
           }
+        case 'I':
+          inn = Offset(o.x, o.y);
         case r'$':
           stalls.add(Stall(o.x, o.y));
         case '&':
@@ -525,6 +532,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     _updateAltars(pr, dt);
     _updateTownsfolk(dt);
     _updateStalls();
+    _updateInn();
     _updateSigns();
     _updatePickups(dt);
     _updateOrbs(dt);
@@ -695,6 +703,36 @@ class MeetRaGame extends Game with KeyboardEvents {
       _talkShown = text;
       ui.sign.value = text;
     }
+  }
+
+  static const _innkeeper = [
+    'A bed, a bowl of soup and a quiet night. The road will still be there in the morning.',
+    'Sleep well? I kept the door barred and the fire high all night.',
+    "You talked in your sleep. Something about a giant. Don't worry, I've heard worse.",
+    'Breakfast is bread and honey. The honey comes from Hearthvale, if you are homesick.',
+  ];
+
+  // Stepping through the inn's door: a night passes, health and aura come back and the game is saved
+  void _updateInn() {
+    final d = inn;
+    if (d == null) return;
+    final close = (player.x - d.dx).abs() < 12 && (player.y - d.dy).abs() < 24 && !player.dead;
+    if (close && !_atInn) {
+      touch.clear();
+      player.frozen = true;
+      camera.fadeOut(600, () {
+        state
+          ..hp = state.maxHp
+          ..aura = state.auraMax.toDouble();
+        progress.save(state);
+        sfx.altar();
+        camera.fadeIn(700);
+        player.frozen = false;
+        ui.banner.value = BannerMsg('A night at the inn', 'Health and aura restored  ·  the journey is saved');
+        tell(StoryScroll(location?.name ?? 'The inn', [StoryPage('The innkeeper', _innkeeper[_nights++ % _innkeeper.length])]));
+      });
+    }
+    _atInn = close;
   }
 
   void _updateStalls() {
@@ -1785,6 +1823,22 @@ class MeetRaGame extends Game with KeyboardEvents {
     c.drawRect(Rect.fromLTWH(x - side * w / 4 - 4, y - h + 8, 8, 6), Paint()..color = const Color(0xffffd27a).withValues(alpha: glow));
   }
 
+  // The inn: a bigger house with its door in the middle and a hanging sign with a crescent moon
+  void _drawInn(Canvas c, Offset d) {
+    _drawHouse(c, d.dx, d.dy, 4, wide: 1.45);
+    final x = d.dx.roundToDouble(), y = d.dy;
+    void box(double l, double t, double w, double h, int color) => c.drawRect(Rect.fromLTWH(x + l, y + t, w, h), Paint()..color = Color(color));
+    box(-7, -20, 14, 20, 0xff2a1e16); // wide door in the middle
+    box(-6, -19, 12, 19, 0xff5a3420);
+    box(-1, -19, 2, 19, 0xff3a2418);
+    // A sign on an arm over the door
+    box(10, -34, 14, 2, 0xff4a2e1c);
+    box(12, -32, 10, 10, 0xff2a1e16);
+    box(13, -31, 8, 8, 0xff1b2a6b);
+    c.drawCircle(Offset(x + 17, y - 27), 3, Paint()..color = const Color(0xfff7d774));
+    c.drawCircle(Offset(x + 18.5, y - 28), 2.6, Paint()..color = const Color(0xff1b2a6b));
+  }
+
   // The stall: posts, a striped awning, the merchant behind the counter, and jars on top
   void _drawStall(Canvas c, Stall st) {
     final x = st.x.roundToDouble(), y = st.y;
@@ -1919,6 +1973,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       for (final co in coins) Light(co.body.x, co.body.y - 3, 9, 0xffffd060, 0.5),
       for (final h in hearts) Light(h.body.x, h.body.y - 4, 10, 0xffff6a7a, 0.5),
       for (final h in houses) Light(h.x, h.y - 18, 34, 0xffffd27a, 0.45),
+      if (inn != null) Light(inn!.dx, inn!.dy - 16, 46, 0xffffd27a, 0.55),
       if (cage != null && !cage!.freed) Light(cage!.x, cage!.y - 12, 20, 0xffffd090, 0.45),
       if (verseStone != null)
         Light(verseStone!.x, verseStone!.y - 9, verseStone!.read ? 12 : 24 + math.sin(t * 2.2) * 3, 0xff8ae0d8, verseStone!.read ? 0.3 : 0.6),
@@ -1948,6 +2003,8 @@ class MeetRaGame extends Game with KeyboardEvents {
     for (final s in signs) {
       if (s.post) drawFrame(c, a.sign, 0, s.x, s.y);
     }
+    final d = inn;
+    if (d != null) _drawInn(c, d);
     for (final st in stalls) {
       _drawStall(c, st);
     }
