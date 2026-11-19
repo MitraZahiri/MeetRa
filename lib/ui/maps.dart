@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../config.dart';
 import '../game/meetra_game.dart';
+import '../levels/build.dart' show trialWaves;
 import '../world/saga.dart';
 import '../world/world.dart';
 import 'common.dart';
@@ -179,10 +180,10 @@ Widget _infoPanel({required List<Widget> lines, Widget? action}) => Container(
       ]),
     );
 
-Widget _bodyText(String text) => Text(
+Widget _bodyText(String text, {int lines = 2}) => Text(
       text,
       style: const TextStyle(fontFamily: fontFamily, fontSize: 16, color: parch, decoration: TextDecoration.none),
-      maxLines: 2,
+      maxLines: lines,
       overflow: TextOverflow.ellipsis,
     );
 
@@ -821,7 +822,12 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
               size: 15, color: statusColor),
         ]),
         const SizedBox(height: 6),
-        _bodyText(_message.isNotEmpty ? _message.join('  ') : l.desc),
+        _bodyText(_message.isNotEmpty ? _message.join('  ') : l.desc, lines: _message.isEmpty && _guardian(l) != null ? 1 : 2),
+        // Fights are named before Ra walks in
+        if (_message.isEmpty && _guardian(l) != null) ...[
+          const SizedBox(height: 4),
+          OutlinedText(_guardian(l)!, size: 15, color: gold),
+        ],
       ],
       action: action == null
           ? null
@@ -835,6 +841,14 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
     );
   }
 }
+
+// Who or what waits at the end of a place's road, or null when no fight does
+String? _guardian(Location l) => switch (l.kind) {
+      LocKind.boss => 'Waiting at the end: ${l.realm.bossName}, ${l.realm.bossTitle}',
+      LocKind.arena => 'Waiting at the end: a trial of ${trialWaves(l.realm.index)} waves',
+      _ when l.realm.index == 0 && l.index == 1 => 'Waiting at the end: the Reed Lion, Terror of the Marsh',
+      _ => null,
+    };
 
 class _RealmPainter extends CustomPainter {
   _RealmPainter(this.game, this.realm, this.area, this.art, this.fog, this.px, this.pulse, this.selected, this.visible, this.reveals)
