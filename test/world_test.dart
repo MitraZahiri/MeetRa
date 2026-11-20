@@ -6,6 +6,7 @@ import 'package:meetra/config.dart';
 import 'package:meetra/levels/build.dart';
 import 'package:meetra/levels/generator.dart';
 import 'package:meetra/levels/level1.dart';
+import 'package:meetra/world/arms.dart';
 import 'package:meetra/world/progress.dart';
 import 'package:meetra/world/saga.dart';
 import 'package:meetra/world/shop.dart';
@@ -419,4 +420,26 @@ Set<Offset> _standable(Level level, Offset from) {
     }
   }
   return seen;
+
+  test('seven inn arms, one for each realm, every one stronger than the last, kept by the save', () async {
+    expect(arms.length, realms.length);
+    for (var i = 1; i < arms.length; i++) {
+      expect(arms[i].bonus, greaterThan(arms[i - 1].bonus));
+    }
+    expect(arms.map((a) => a.kind).toSet().length, arms.length);
+    SharedPreferences.setMockInitialValues({});
+    final p = Progress();
+    final s = GameState()
+      ..arms.addAll([0, 2])
+      ..wield = 2;
+    p.clear(realms[0].locations[0]);
+    await p.save(s);
+    final s2 = GameState();
+    await Progress().load(s2);
+    expect(s2.arms, {0, 2});
+    expect(s2.wield, 2);
+    s2.reset();
+    expect(s2.arms, isEmpty);
+    expect(s2.wield, -1);
+  });
 }

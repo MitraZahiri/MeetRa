@@ -67,6 +67,8 @@ class GameState extends ChangeNotifier {
   bool hasFeather = false;
   int draughts = 0; // healing draughts in Ra's satchel
   int bombs = startBombs; // bombs in Ra's bag
+  final arms = <int>{}; // the inn arms Ra carries, by realm index (see world/arms.dart)
+  int wield = -1; // the arm in Ra's hand: -1 is Ra's own sword
 
   void reset() {
     hp = 6;
@@ -82,6 +84,8 @@ class GameState extends ChangeNotifier {
     hasFeather = false;
     draughts = 0;
     bombs = startBombs;
+    arms.clear();
+    wield = -1;
     notifyListeners();
   }
 
@@ -96,6 +100,8 @@ class GameState extends ChangeNotifier {
         'hasFeather': hasFeather,
         'draughts': draughts,
         'bombs': bombs,
+        'arms': arms.toList()..sort(),
+        'wield': wield,
       };
 
   // Health and aura always start full
@@ -111,12 +117,17 @@ class GameState extends ChangeNotifier {
     hasFeather = j['hasFeather'] as bool? ?? false;
     draughts = j['draughts'] as int? ?? 0;
     bombs = j['bombs'] as int? ?? startBombs;
+    arms
+      ..clear()
+      ..addAll([for (final a in j['arms'] as List? ?? const []) a as int]);
+    wield = j['wield'] as int? ?? -1;
+    if (!arms.contains(wield)) wield = -1;
     hp = maxHp;
     aura = auraMax.toDouble();
     notifyListeners();
   }
 
-  Object get _snapshot => (hp, maxHp, aura.floor(), auraMax, attack, magic, gold, xp, level, xpNext, hasFeather, draughts, bombs);
+  Object get _snapshot => (hp, maxHp, aura.floor(), auraMax, attack, magic, gold, xp, level, xpNext, hasFeather, draughts, bombs, arms.length, wield);
   Object? _last;
 
   // Called once per frame: the HUD only rebuilds when something visible changed
