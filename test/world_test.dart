@@ -362,6 +362,28 @@ void main() {
     expect(shades(realms[2]), greaterThan(0));
     expect(shades(realms[6]), greaterThan(shades(realms[2])));
   });
+
+  test('seven inn arms, one for each realm, every one stronger than the last, kept by the save', () async {
+    expect(arms.length, realms.length);
+    for (var i = 1; i < arms.length; i++) {
+      expect(arms[i].bonus, greaterThan(arms[i - 1].bonus));
+    }
+    expect(arms.map((a) => a.kind).toSet().length, arms.length);
+    SharedPreferences.setMockInitialValues({});
+    final p = Progress();
+    final s = GameState()
+      ..arms.addAll([0, 2])
+      ..wield = 2;
+    p.clear(realms[0].locations[0]);
+    await p.save(s);
+    final s2 = GameState();
+    await Progress().load(s2);
+    expect(s2.arms, {0, 2});
+    expect(s2.wield, 2);
+    s2.reset();
+    expect(s2.arms, isEmpty);
+    expect(s2.wield, -1);
+  });
 }
 
 // Every tile Ra can stand in, starting from [from], with a rough model of Ra's moves:
@@ -421,25 +443,4 @@ Set<Offset> _standable(Level level, Offset from) {
   }
   return seen;
 
-  test('seven inn arms, one for each realm, every one stronger than the last, kept by the save', () async {
-    expect(arms.length, realms.length);
-    for (var i = 1; i < arms.length; i++) {
-      expect(arms[i].bonus, greaterThan(arms[i - 1].bonus));
-    }
-    expect(arms.map((a) => a.kind).toSet().length, arms.length);
-    SharedPreferences.setMockInitialValues({});
-    final p = Progress();
-    final s = GameState()
-      ..arms.addAll([0, 2])
-      ..wield = 2;
-    p.clear(realms[0].locations[0]);
-    await p.save(s);
-    final s2 = GameState();
-    await Progress().load(s2);
-    expect(s2.arms, {0, 2});
-    expect(s2.wield, 2);
-    s2.reset();
-    expect(s2.arms, isEmpty);
-    expect(s2.wield, -1);
-  });
 }
