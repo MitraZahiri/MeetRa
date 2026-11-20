@@ -89,11 +89,17 @@ class Pickup {
   bool removed = false;
 }
 
+enum Shot { feather, arrow, lasso, flame }
+
 class Projectile {
-  Projectile(this.body, this.dmg, this.dir);
+  Projectile(this.body, this.dmg, this.dir, {this.shot = Shot.feather, this.arm = -2, this.life = 1100});
   final Body body;
   final int dmg;
   final int dir;
+  final Shot shot;
+  final int arm; // which arm threw it (-2: Saena's feather)
+  final double life; // ms before it fades
+  final hit = <Object>{}; // a flame wave passes through foes, hurting each once
   double age = 0;
   double trailT = 0;
   bool removed = false;
@@ -552,6 +558,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     final P = player;
     if (c.drinkPressed) _drink();
     if (c.bombPressed) _placeBomb();
+    if (c.swapPressed) swapArm();
     _updateBombs(dt);
     _updateFlowers(dt);
     _bombHint();
@@ -601,9 +608,14 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     if (l != null && bossStarted && l.state != LionState.dead) {
       for (final f in feathers) {
-        if (!f.removed && overlaps(f.body.rect, l.body.rect)) {
-          l.hurt(f.dmg);
-          _killFeather(f);
+        if (!f.removed && !f.hit.contains(l) && overlaps(f.body.rect, l.body.rect)) {
+          l.hurt(f.dmg, arm: f.arm);
+          if (f.shot == Shot.lasso) l.stagger(1000);
+          if (f.shot == Shot.flame) {
+            f.hit.add(l);
+          } else {
+            _killFeather(f);
+          }
         }
       }
     }
@@ -716,9 +728,25 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     for (final f in feathers) {
       for (final e in enemies) {
-        if (f.removed || e.dying || e.untouchable || !overlaps(f.body.rect, e.body.rect)) continue;
-        e.hurt(f.dmg, f.body.vx.sign, 0.6);
-        _killFeather(f);
+        if (f.removed || e.dying || e.untouchable || f.hit.contains(e) || !overlaps(f.body.rect, e.body.rect)) continue;
+        switch (f.shot) {
+          case Shot.lasso:
+            // Caught: dragged to Ra's feet and held dazed
+            e.hurt(f.dmg, -f.dir.toDouble(), 0);
+            if (!e.dying) {
+              e.body
+                ..vx = (player.x - e.x).clamp(-1, 1) * 260
+                ..vy = -120;
+              e.stun = 1100;
+            }
+            _killFeather(f);
+          case Shot.flame:
+            e.hurt(f.dmg, f.dir.toDouble(), 0.8);
+            f.hit.add(e);
+          default:
+            e.hurt(f.dmg, f.body.vx.sign, 0.6);
+            _killFeather(f);
+        }
       }
     }
   }
@@ -1035,7 +1063,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       if (!e.dying && !e.untouchable && inBlast(e.body.rect)) e.hurt(dmg, (e.x - x).sign, 1.6);
     }
     final l = lion;
-    if (l != null && bossStarted && l.state != LionState.dead && inBlast(l.body.rect)) l.hurt(dmg);
+    if (l != null && bossStarted && l.state != LionState.dead && inBlast(l.body.rect)) l.hurt(dmg, arm: -3);
     for (final b in [...breakables]) {
       if (inBlast(b.bounds)) _breakObject(b);
     }
@@ -1044,12 +1072,18 @@ class MeetRaGame extends Game with KeyboardEvents {
     final P = player;
     if (!P.dead && (Offset(P.x, P.y - 8) - Offset(x, y)).distance < blastRadius * 0.7) P.hurt(1, x);
     // Cracked rock in reach shatters, and the map is redrawn without it
+    _shatter(Rect.fromCircle(center: Offset(x, y), radius: blastRadius),
+        (tx, ty) => (Offset(tx * tile + tile / 2, ty * tile + tile / 2) - Offset(x, y)).distance <= blastRadius + 6);
+  }
+
+  // Breaks the cracked rock (and, unless [slabs] is false, the cracked slabs) inside [r]
+  bool _shatter(Rect r, bool Function(int tx, int ty) inReach, {bool slabs = true}) {
     var broke = false;
-    for (var ty = ((y - blastRadius) / tile).floor(); ty <= ((y + blastRadius) / tile).floor(); ty++) {
-      for (var tx = ((x - blastRadius) / tile).floor(); tx <= ((x + blastRadius) / tile).floor(); tx++) {
+    for (var ty = (r.top / tile).floor(); ty <= (r.bottom / tile).floor(); ty++) {
+      for (var tx = (r.left / tile).floor(); tx <= (r.right / tile).floor(); tx++) {
         final t = level.tileAt(tx, ty);
-        if (t != T.cracked && t != T.slab) continue;
-        if ((Offset(tx * tile + tile / 2, ty * tile + tile / 2) - Offset(x, y)).distance > blastRadius + 6) continue;
+        if (t != T.cracked && (t != T.slab || !slabs)) continue;
+        if (!inReach(tx, ty)) continue;
         level.data[ty][tx] = T.empty;
         broke = true;
         burst(tx * tile + tile / 2, ty * tile + tile / 2, [0xff6a5a4a, 0xff8a7a68, 0xff3a2a1a], 6, 120);
@@ -1059,6 +1093,64 @@ class MeetRaGame extends Game with KeyboardEvents {
       _mapImage?.dispose();
       _mapImage = _renderMap();
     }
+    return broke;
+  }
+
+  // The Smith's Hammer smashes cracked rock walls in front of Ra (the slabs underfoot still need a bomb)
+  void smashRock(Rect r) {
+    if (_shatter(r, (tx, ty) => overlaps(r, Rect.fromLTWH(tx * tile, ty * tile, tile, tile)), slabs: false)) {
+      sfx.breakIt();
+      camera.shake(220, 0.008);
+    }
+  }
+
+  // The Ox-Head Mace strikes the ground: a shockwave along the floor both ways that dazes what it touches
+  void quake(double x, double y, int dmg, int arm) {
+    final color = arms[arm].color;
+    sfx.thud();
+    camera.shake(260, 0.01);
+    particles
+      ..dust(x, y, count: 12, spread: 80, color: 0xffc8b8a0)
+      ..ring(x, y - 2, color, r1: 40, life: 380, width: 3);
+    for (final d in const [-1, 1]) {
+      for (var i = 1; i <= 4; i++) {
+        timers.after(i * 45.0, () => burst(x + d * i * 14, y - 2, [color, 0xffc8b8a0], 4, 70));
+      }
+    }
+    final wave = Rect.fromLTRB(x - 64, y - 16, x + 64, y + 2);
+    resolveMelee(wave, dmg, player.facing, 1.4, arm: arm);
+    for (final e in enemies) {
+      if (!e.dying && overlaps(wave, e.body.rect)) e.stun = 900;
+    }
+    final l = lion;
+    if (l != null && bossStarted && l.body.blockedDown && overlaps(wave, l.body.rect)) l.stagger(800);
+  }
+
+  // A shot from an inn arm: an arrow, the lasso's loop, or the Dawnfire's wave of flame
+  void shoot(Shot shot, double x, double y, int dir, int dmg, int arm) {
+    final (speed, w, h, life) = switch (shot) {
+      Shot.arrow => (360.0, 10.0, 3.0, 900.0),
+      Shot.lasso => (300.0, 8.0, 8.0, 300.0),
+      Shot.flame => (230.0, 10.0, 18.0, 520.0),
+      Shot.feather => (270.0, 10.0, 4.0, 1100.0),
+    };
+    shot == Shot.lasso ? sfx.swing() : sfx.feather();
+    final body = Body(x, y + h / 2, w, h)
+      ..allowGravity = false
+      ..vx = dir * speed;
+    feathers.add(Projectile(body, dmg, dir, shot: shot, arm: arm, life: life));
+  }
+
+  // Ra changes weapons: the sword, then every arm carried, in the order they were won
+  void swapArm() {
+    final owned = [-1, ...state.arms.toList()..sort()];
+    if (owned.length < 2) return;
+    final next = owned[(owned.indexOf(state.wield) + 1) % owned.length];
+    state.wield = next;
+    sfx.pickup();
+    final color = next < 0 ? 0xfffff4c0 : arms[next].color;
+    floatText(player.x, player.y - 26, armName(next), Color(color), size: 8, duration: 900);
+    particles.ring(player.x, player.y - 10, color, r1: 16, life: 260, width: 1.5);
   }
 
   // A healing draught from the satchel mends three hearts
@@ -1167,9 +1259,14 @@ class MeetRaGame extends Game with KeyboardEvents {
       f.trailT += dt;
       while (f.trailT >= 25) {
         f.trailT -= 25;
-        particles.trail(f.body.x, f.body.centerY, [0xff8ae0d8, 0xffd4a845]);
+        particles.trail(f.body.x, f.body.centerY, switch (f.shot) {
+          Shot.feather => const [0xff8ae0d8, 0xffd4a845],
+          Shot.arrow => const [0xffe8c070, 0xfffff4c0],
+          Shot.lasso => const [0xffd8a868, 0xff8a5a2a],
+          Shot.flame => const [0xffffb040, 0xffff6a2a, 0xfffff0a0],
+        });
       }
-      if (f.age > 1100) _killFeather(f);
+      if (f.age > f.life) _killFeather(f);
     }
     final g = gate;
     if (g != null && g.opening) g.glow = math.min(1, g.glow + dt / 1200);
@@ -1220,7 +1317,7 @@ class MeetRaGame extends Game with KeyboardEvents {
 
   // ---------- Combat ----------
 
-  int resolveMelee(Rect rect, int dmg, int dir, double knock) {
+  int resolveMelee(Rect rect, int dmg, int dir, double knock, {int arm = -1}) {
     var hits = 0;
     for (final e in enemies) {
       if (!e.dying && !e.untouchable && overlaps(rect, e.body.rect)) {
@@ -1230,7 +1327,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     final l = lion;
     if (l != null && bossStarted && l.state != LionState.dead && overlaps(rect, l.body.rect)) {
-      l.hurt(dmg);
+      l.hurt(dmg, arm: arm);
       hits++;
     }
     for (final b in [...breakables]) {
@@ -2055,6 +2152,34 @@ class MeetRaGame extends Game with KeyboardEvents {
   }
 
   // A black bomb with a highlight; it flashes red faster as the fuse runs out
+  // Saena's feather, an arrow, the lasso's loop and its rope back to Ra, or a wave of Dawnfire
+  void _drawShot(Canvas c, Art a, Projectile f) {
+    final x = f.body.x, y = f.body.centerY;
+    final p = Paint()..isAntiAlias = false;
+    switch (f.shot) {
+      case Shot.feather:
+        drawFrame(c, a.feather, 0, x, y, oy: 0.5, flipX: f.dir < 0);
+      case Shot.arrow:
+        c.drawRect(Rect.fromCenter(center: Offset(x, y), width: 10, height: 1), p..color = const Color(0xff8a5a2a));
+        c.drawRect(Rect.fromCenter(center: Offset(x + f.dir * 5, y), width: 2, height: 3), p..color = const Color(0xffe8e8f0));
+        c.drawRect(Rect.fromCenter(center: Offset(x - f.dir * 5, y), width: 2, height: 3), p..color = const Color(0xffd83a2e));
+      case Shot.lasso:
+        final rope = Paint()
+          ..color = const Color(0xffd8a868)
+          ..strokeWidth = 1
+          ..style = PaintingStyle.stroke;
+        c.drawLine(Offset(player.x + f.dir * 4, player.y - 10), Offset(x, y), rope);
+        c.drawOval(Rect.fromCenter(center: Offset(x, y), width: 8, height: 6), rope..strokeWidth = 1.5);
+      case Shot.flame:
+        final k = f.age / f.life;
+        final glow = Paint()
+          ..color = const Color(0xffffb040).withValues(alpha: 0.7 * (1 - k))
+          ..blendMode = BlendMode.plus;
+        c.drawOval(Rect.fromCenter(center: Offset(x, y), width: 8, height: 18), glow);
+        c.drawOval(Rect.fromCenter(center: Offset(x + f.dir, y), width: 4, height: 12), glow..color = const Color(0xfffff0a0).withValues(alpha: 1 - k));
+    }
+  }
+
   void _drawBomb(Canvas c, Bomb b) {
     final x = b.body.x.roundToDouble(), y = b.body.y;
     final blink = ((1400 - b.fuse) / (b.fuse < 500 ? 70 : 160)).floor().isOdd;
@@ -2327,7 +2452,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       if (seen(e.x, e.y)) e.render(c);
     }
     for (final fe in feathers) {
-      drawFrame(c, a.feather, 0, fe.body.x, fe.body.centerY, oy: 0.5, flipX: fe.dir < 0);
+      _drawShot(c, a, fe);
     }
     // The Sun Key: a little sun bobbing in the air, its eye on Ra
     final k = sunKey;

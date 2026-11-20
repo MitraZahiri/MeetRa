@@ -2,9 +2,9 @@ import 'package:flutter/services.dart';
 
 // Live state of the on-screen buttons (written by the touch controls, read by Controls)
 class Touch {
-  bool left = false, right = false, down = false, jump = false, attack = false, spell = false, drink = false, bomb = false;
+  bool left = false, right = false, down = false, jump = false, attack = false, spell = false, drink = false, bomb = false, swap = false;
 
-  void clear() => left = right = down = jump = attack = spell = drink = bomb = false;
+  void clear() => left = right = down = jump = attack = spell = drink = bomb = swap = false;
 
   void set(String key, bool v) {
     switch (key) {
@@ -24,6 +24,8 @@ class Touch {
         drink = v;
       case 'bomb':
         bomb = v;
+      case 'swap':
+        swap = v;
     }
   }
 }
@@ -32,13 +34,13 @@ final touch = Touch();
 
 class ControlState {
   bool left = false, right = false, down = false, jump = false;
-  bool jumpPressed = false, attackPressed = false, spellPressed = false, drinkPressed = false, bombPressed = false, actPressed = false;
+  bool jumpPressed = false, attackPressed = false, spellPressed = false, drinkPressed = false, bombPressed = false, actPressed = false, swapPressed = false;
 }
 
 // Merges keyboard and touch input into one state
 class Controls {
   Set<LogicalKeyboardKey> keys = const {};
-  bool _prevJump = false, _prevAttack = false, _prevSpell = false, _prevDrink = false, _prevBomb = false, _prevAct = false;
+  bool _prevJump = false, _prevAttack = false, _prevSpell = false, _prevDrink = false, _prevBomb = false, _prevAct = false, _prevSwap = false;
   final state = ControlState();
 
   bool _any(List<LogicalKeyboardKey> ks) => ks.any(keys.contains);
@@ -64,6 +66,9 @@ class Controls {
     final bomb = _any([LogicalKeyboardKey.keyB, LogicalKeyboardKey.keyL]) || touch.bomb;
     s.bombPressed = bomb && !_prevBomb;
     _prevBomb = bomb;
+    final swap = _any([LogicalKeyboardKey.keyR, LogicalKeyboardKey.tab]) || touch.swap;
+    s.swapPressed = swap && !_prevSwap;
+    _prevSwap = swap;
     final act = _any([LogicalKeyboardKey.keyE, LogicalKeyboardKey.enter]);
     s.actPressed = act && !_prevAct;
     _prevAct = act;

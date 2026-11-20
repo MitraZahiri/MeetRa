@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meetra/art/sprites.dart';
 import 'package:meetra/game/meetra_game.dart';
 import 'package:meetra/config.dart';
+import 'package:meetra/input.dart';
 import 'package:meetra/levels/build.dart';
 import 'package:meetra/levels/generator.dart';
 import 'package:meetra/levels/level1.dart';
@@ -361,6 +362,30 @@ void main() {
     expect(shades(realms[0], where: (l) => l.kind == LocKind.trail), 0);
     expect(shades(realms[2]), greaterThan(0));
     expect(shades(realms[6]), greaterThan(shades(realms[2])));
+  });
+
+  testWidgets('every inn arm strikes in its own way, and the arms button cycles through them', (tester) async {
+    final art = await tester.runAsync(Art.generate);
+    final game = MeetRaGame(art!);
+    game.enterLocation(realms[0].locations[2]);
+    await tester.pump(const Duration(milliseconds: 500));
+    game.state.arms.addAll([for (var i = 0; i < arms.length; i++) i]);
+    final seen = <int>[];
+    for (var i = 0; i <= arms.length; i++) {
+      game.swapArm();
+      seen.add(game.state.wield);
+    }
+    expect(seen, [0, 1, 2, 3, 4, 5, 6, -1]);
+    final shots = <ArmKind, Shot>{ArmKind.bow: Shot.arrow, ArmKind.lasso: Shot.lasso, ArmKind.dawnfire: Shot.flame};
+    for (final (i, a) in arms.indexed) {
+      game.feathers.clear();
+      game.state.wield = i;
+      game.player
+        ..attackTimer = 0
+        ..attack(ControlState(), true);
+      expect(game.feathers.map((f) => f.shot), shots.containsKey(a.kind) ? [shots[a.kind]] : isEmpty, reason: a.name);
+      expect(game.player.attackTimer, greaterThan(0), reason: a.name);
+    }
   });
 
   test('seven inn arms, one for each realm, every one stronger than the last, kept by the save', () async {

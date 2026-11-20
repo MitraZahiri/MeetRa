@@ -201,7 +201,8 @@ class Lion {
     setState(LionState.pounce, 150);
   }
 
-  void hurt(int dmg) {
+  // [arm] is what struck: an inn arm's index, -1 for Ra's sword, -2 for a feather and -3 for a bomb
+  void hurt(int dmg, {int arm = -1}) {
     if (state == LionState.dead) return;
     final real = state == LionState.stunned ? (dmg * 1.5).ceil() : dmg;
     hp = math.max(0, hp - real);
@@ -221,6 +222,16 @@ class Lion {
         ..ring(x, y - 14, 0xffffd080, r1: 30, life: 380);
     }
     if (hp <= 0) die();
+  }
+
+  // A blow that rocks it on its feet (the mace's shockwave, the lasso's pull): dazed, open to attack
+  void stagger(double ms) {
+    if (state == LionState.dead || state == LionState.intro) return;
+    body.vx = 0;
+    scaleX = scaleY = scale;
+    tint = null;
+    angle = 0;
+    if (state != LionState.stunned || timer < ms) setState(LionState.stunned, ms);
   }
 
   void die() {

@@ -8,6 +8,7 @@ import '../game/meetra_game.dart';
 import '../game/physics.dart';
 import '../input.dart';
 import '../sfx.dart';
+import '../world/arms.dart';
 
 const _solidUnder = {T.grass, T.dirt, T.brick, T.platform};
 
@@ -90,6 +91,7 @@ class Player {
   double invuln = 0;
   double hurtLock = 0;
   double dropTimer = 0;
+  double dashTimer = 0; // ms left of the Sea-Glass Shield's rush
   bool dead = false;
   bool frozen = false;
   Offset safe;
@@ -132,6 +134,7 @@ class Player {
     invuln = math.max(0, invuln - dt);
     hurtLock = math.max(0, hurtLock - dt);
     dropTimer = math.max(0, dropTimer - dt);
+    dashTimer = math.max(0, dashTimer - dt);
     attackTimer = math.max(0, attackTimer - dt);
     comboWindow = math.max(0, comboWindow - dt);
     spellCooldown = math.max(0, spellCooldown - dt);
@@ -140,7 +143,9 @@ class Player {
     var dir = (c.right ? 1 : 0) - (c.left ? 1 : 0);
     if (hurtLock > 0) dir = 0;
     if (dir != 0 && attackTimer <= 0) facing = dir;
-    if (hurtLock <= 0) {
+    if (dashTimer > 0) {
+      body.vx = facing * 230;
+    } else if (hurtLock <= 0) {
       final slow = attackTimer > 0 && ground ? 0.35 : 1.0;
       final accel = (ground ? PlayerTuning.accelGround : PlayerTuning.accelAir) * (dt / 1000);
       body.vx = approach(body.vx, dir * PlayerTuning.speed * slow, accel);
@@ -214,12 +219,20 @@ class Player {
     final down = !ground && body.vy > -40 && game.targetIn(below);
     comboStep = comboWindow > 0 && !down ? (comboStep + 1) % 3 : 0;
     final step = down ? -1 : comboStep; // -1 = down-strike
+    // The arm in hand: Ra's own sword (-1) or one of the seven inn arms, each adding to every blow
+    final arm = reg.wield;
+    final kind = arm < 0 ? null : arms[arm].kind;
+    final atk = reg.attack + (arm < 0 ? 0 : arms[arm].bonus);
+    final color = arm < 0 ? null : arms[arm].color;
+    if (!down && kind != null && kind != ArmKind.dawnfire) {
+      _wieldArm(kind, arm, atk, color!, ground);
+      return;
+    }
     attackTimer = step == 2 ? 300 : 190;
     comboWindow = attackTimer + 260;
     sfx.swing();
 
     final b = body;
-    final atk = reg.attack;
     Rect rect;
     var dmg = atk;
     var knock = 1.0;
@@ -243,15 +256,76 @@ class Player {
       flipX: step != -1 && facing < 0,
       flipY: step == 1,
       scale: step == 2 ? 1.3 : 1,
-      tint: step == 2 ? 0xffffe28a : null,
+      tint: color ?? (step == 2 ? 0xffffe28a : null),
       angle: step == -1 ? 90 : 0,
     ));
 
-    final hits = game.resolveMelee(rect, dmg, facing, knock);
+    final hits = game.resolveMelee(rect, dmg, facing, knock, arm: arm);
+    // The Dawnfire Blade sends a wave of flame on from every swing
+    if (kind == ArmKind.dawnfire && step != -1) game.shoot(Shot.flame, x + facing * 14, y - 18, facing, (atk * 0.6).ceil(), arm);
     if (step == -1 && hits > 0) {
       body.vy = -270; // bounce off enemies with a down strike (pogo)
       canDouble = true;
       game.particles.ring(x, y + 4, 0xfffff4c0, r1: 14, life: 240);
+    }
+  }
+
+  // A blow with an inn arm other than the Dawnfire Blade (which swings like the sword)
+  void _wieldArm(ArmKind kind, int arm, int atk, int color, bool ground) {
+    final b = body;
+    comboStep = 0;
+    comboWindow = 0;
+    Rect ahead(double w, double top, double h) => Rect.fromLTWH(facing > 0 ? b.right - 2 : b.left - w + 2, b.top + top, w, h);
+    void slash(Rect r, {double scale = 1, bool flipY = false}) =>
+        game.slashes.add(Slash(r.center.dx, r.center.dy, flipX: facing < 0, flipY: flipY, scale: scale, tint: color));
+    switch (kind) {
+      case ArmKind.spear:
+        // A long, low thrust: twice the sword's reach
+        attackTimer = 230;
+        sfx.swing();
+        final r = ahead(42, 4, 8);
+        for (var i = 0; i < 5; i++) {
+          game.particles.trail(b.centerX + facing * (6 + i * 8), r.center.dy, [color, 0xfffff4c0]);
+        }
+        game.slashes.add(Slash(r.center.dx + facing * 12, r.center.dy, flipX: facing < 0, scale: 0.6, tint: color));
+        game.resolveMelee(r, atk, facing, 1.2, arm: arm);
+      case ArmKind.hammer:
+        // Slow and heavy: foes fly back, and cracked rock in front of Ra breaks
+        attackTimer = 380;
+        sfx.swing();
+        final r = ahead(30, -24, 44);
+        slash(r, scale: 1.5, flipY: true);
+        game.resolveMelee(r, atk, facing, 2.4, arm: arm);
+        game.smashRock(r);
+      case ArmKind.bow:
+        attackTimer = 320;
+        game.shoot(Shot.arrow, x + facing * 8, y - 11, facing, atk, arm);
+      case ArmKind.mace:
+        attackTimer = 440;
+        sfx.swing();
+        if (ground) {
+          // Into the ground: the shockwave runs both ways
+          game.quake(x, y, atk, arm);
+        } else {
+          final r = ahead(26, -6, 26);
+          slash(r, scale: 1.3);
+          game.resolveMelee(r, atk, facing, 2, arm: arm);
+        }
+      case ArmKind.lasso:
+        attackTimer = 360;
+        game.shoot(Shot.lasso, x + facing * 8, y - 12, facing, atk, arm);
+      case ArmKind.shield:
+        // A rush behind the shield: nothing can hurt Ra until it ends
+        attackTimer = 330;
+        dashTimer = 260;
+        invuln = math.max(invuln, 360);
+        sfx.swing();
+        final r = ahead(46, -2, 22);
+        game.particles.ring(x + facing * 8, y - 10, color, r1: 14, life: 260, width: 2);
+        slash(ahead(18, -2, 22), scale: 0.9);
+        game.resolveMelee(r, atk, facing, 2.6, arm: arm);
+      case ArmKind.dawnfire:
+        break;
     }
   }
 
