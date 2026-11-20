@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../game/meetra_game.dart';
 import '../input.dart';
+import '../world/arms.dart';
 import 'common.dart';
 
 // On-screen buttons. Left thumb: movement. Right thumb: actions.
@@ -28,7 +29,7 @@ class TouchControls extends StatelessWidget {
             valueListenable: game.ui.action,
             builder: (context, a, _) => a == null
                 ? const SizedBox.shrink()
-                : At(w / 2, h - 215,
+                : At(w / 2, h - 300,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTapDown: (_) => game.act(),
@@ -49,6 +50,13 @@ class TouchControls extends StatelessWidget {
           At(w - 343, h - 140,
               child: IgnorePointer(
                   child: OutlinedText('${game.state.bombs}', size: 18, color: game.state.bombs > 0 ? parch : const Color(0xffff8a7a)))),
+          // The arms button: shows the weapon in Ra's hand, tap to change to the next one
+          if (game.state.arms.isNotEmpty) ...[
+            _Button(x: w - 395, y: h - 225, r: 40, icon: ButtonIcon.arm, keyName: 'swap', arm: game.state.wield),
+            At(w - 395, h - 172,
+                child: IgnorePointer(
+                    child: OutlinedText(armName(game.state.wield), size: 13, color: game.state.wield < 0 ? parch : Color(arms[game.state.wield].color)))),
+          ],
           // Healing draughts, with how many are left
           if (game.state.draughts > 0) ...[
             _Button(x: w - 265, y: h - 205, r: 38, icon: ButtonIcon.flask, keyName: 'drink'),
@@ -60,11 +68,12 @@ class TouchControls extends StatelessWidget {
 }
 
 class _Button extends StatefulWidget {
-  const _Button({required this.x, required this.y, required this.r, required this.icon, required this.keyName});
+  const _Button({required this.x, required this.y, required this.r, required this.icon, required this.keyName, this.arm = -1});
 
   final double x, y, r;
   final ButtonIcon icon;
   final String keyName;
+  final int arm; // for the arms button: which weapon to draw
 
   @override
   State<_Button> createState() => _ButtonState();
@@ -136,7 +145,7 @@ class _ButtonState extends State<_Button> {
                   : const [BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 3))],
             ),
             alignment: Alignment.center,
-            child: CustomPaint(size: Size.square(r * 0.8), painter: ButtonIconPainter(widget.icon)),
+            child: CustomPaint(size: Size.square(r * 0.8), painter: ButtonIconPainter(widget.icon, arm: widget.arm)),
           ),
         ),
       ),
@@ -144,12 +153,13 @@ class _ButtonState extends State<_Button> {
   }
 }
 
-enum ButtonIcon { left, right, up, down, sword, star, flask, bomb }
+enum ButtonIcon { left, right, up, down, sword, star, flask, bomb, arm }
 
 // Button icons are drawn as shapes: glyphs like ◀ ⚔ turn into emoji on some Android versions
 class ButtonIconPainter extends CustomPainter {
-  const ButtonIconPainter(this.icon);
+  const ButtonIconPainter(this.icon, {this.arm = -1});
   final ButtonIcon icon;
+  final int arm;
 
   @override
   void paint(Canvas c, Size size) {
@@ -228,6 +238,8 @@ class ButtonIconPainter extends CustomPainter {
         c.drawCircle(Offset(s * 0.36, s * 0.48), s * 0.08, Paint()..color = parch.withValues(alpha: 0.7));
         c.drawRect(Rect.fromLTWH(s * 0.58, s * 0.2, s * 0.12, s * 0.14), Paint()..color = const Color(0xff8a5a2a));
         c.drawCircle(Offset(s * 0.72, s * 0.16), s * 0.09, Paint()..color = const Color(0xffffc040));
+      case ButtonIcon.arm:
+        _paintArm(c, s, arm < 0 ? null : arms[arm].kind, shape, outline);
       case ButtonIcon.flask:
         // A round-bellied bottle with a cork, the draught glowing red inside
         final bottle = Path()
@@ -245,6 +257,92 @@ class ButtonIconPainter extends CustomPainter {
     }
   }
 
+  // One small picture for each weapon, drawn on the diagonal like the sword button
+  void _paintArm(Canvas c, double s, ArmKind? kind, void Function(Path) shape, Paint outline) {
+    Paint paint(int color) => Paint()..color = Color(color);
+    final wood = paint(0xff8a5a2a);
+    final steel = paint(0xffd8dce8);
+    void stick(Offset a, Offset b, double w, Paint p) {
+      c.drawLine(a, b, Paint()
+        ..color = ink
+        ..strokeWidth = w + s * 0.07
+        ..strokeCap = StrokeCap.round);
+      c.drawLine(a, b, Paint()
+        ..color = p.color
+        ..strokeWidth = w
+        ..strokeCap = StrokeCap.round);
+    }
+
+    Path poly(List<Offset> pts) => Path()..addPolygon(pts, true);
+    switch (kind) {
+      case null:
+        // Ra's own sword
+        stick(Offset(s * 0.22, s * 0.78), Offset(s * 0.36, s * 0.64), s * 0.1, wood);
+        shape(poly([Offset(s * 0.34, s * 0.6), Offset(s * 0.8, s * 0.14), Offset(s * 0.86, s * 0.2), Offset(s * 0.4, s * 0.66)]));
+        stick(Offset(s * 0.26, s * 0.54), Offset(s * 0.46, s * 0.74), s * 0.07, paint(0xffd4a845));
+      case ArmKind.spear:
+        stick(Offset(s * 0.12, s * 0.88), Offset(s * 0.72, s * 0.28), s * 0.08, paint(0xffc8b070));
+        shape(poly([Offset(s * 0.66, s * 0.26), Offset(s * 0.9, s * 0.1), Offset(s * 0.74, s * 0.34)]));
+      case ArmKind.hammer:
+        stick(Offset(s * 0.2, s * 0.84), Offset(s * 0.6, s * 0.4), s * 0.1, wood);
+        c.save();
+        c.translate(s * 0.62, s * 0.36);
+        c.rotate(-math.pi / 4);
+        final head = Rect.fromCenter(center: Offset.zero, width: s * 0.56, height: s * 0.26);
+        c.drawRect(head.inflate(s * 0.035), Paint()..color = ink);
+        c.drawRect(head, steel);
+        c.restore();
+      case ArmKind.bow:
+        final arc = Path()
+          ..moveTo(s * 0.3, s * 0.1)
+          ..quadraticBezierTo(s * 0.95, s * 0.5, s * 0.3, s * 0.9);
+        c.drawPath(arc, Paint()
+          ..color = ink
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = s * 0.15);
+        c.drawPath(arc, Paint()
+          ..color = const Color(0xffe8c070)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = s * 0.08);
+        c.drawLine(Offset(s * 0.3, s * 0.1), Offset(s * 0.3, s * 0.9), Paint()
+          ..color = parch
+          ..strokeWidth = s * 0.03);
+        stick(Offset(s * 0.14, s * 0.5), Offset(s * 0.7, s * 0.5), s * 0.04, steel);
+      case ArmKind.mace:
+        stick(Offset(s * 0.2, s * 0.84), Offset(s * 0.56, s * 0.46), s * 0.1, wood);
+        c.drawCircle(Offset(s * 0.64, s * 0.36), s * 0.24, Paint()..color = ink);
+        c.drawCircle(Offset(s * 0.64, s * 0.36), s * 0.2, paint(0xffb0b8d0));
+        // The ox's horns
+        stick(Offset(s * 0.5, s * 0.2), Offset(s * 0.42, s * 0.06), s * 0.06, Paint()..color = parch);
+        stick(Offset(s * 0.8, s * 0.24), Offset(s * 0.92, s * 0.12), s * 0.06, Paint()..color = parch);
+      case ArmKind.lasso:
+        final loop = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = s * 0.08;
+        c.drawOval(Rect.fromLTRB(s * 0.3, s * 0.1, s * 0.9, s * 0.56), loop..color = ink..strokeWidth = s * 0.14);
+        c.drawOval(Rect.fromLTRB(s * 0.3, s * 0.1, s * 0.9, s * 0.56), loop..color = const Color(0xffd8a868)..strokeWidth = s * 0.07);
+        stick(Offset(s * 0.4, s * 0.5), Offset(s * 0.12, s * 0.9), s * 0.06, paint(0xffd8a868));
+      case ArmKind.shield:
+        final kite = Path()
+          ..moveTo(s * 0.5, s * 0.08)
+          ..quadraticBezierTo(s * 0.88, s * 0.14, s * 0.84, s * 0.4)
+          ..quadraticBezierTo(s * 0.78, s * 0.74, s * 0.5, s * 0.92)
+          ..quadraticBezierTo(s * 0.22, s * 0.74, s * 0.16, s * 0.4)
+          ..quadraticBezierTo(s * 0.12, s * 0.14, s * 0.5, s * 0.08)
+          ..close();
+        c.drawPath(kite, outline);
+        c.drawPath(kite, paint(0xff7ad8d0));
+        c.drawCircle(Offset(s * 0.5, s * 0.42), s * 0.1, paint(0xffd4a845));
+      case ArmKind.dawnfire:
+        stick(Offset(s * 0.22, s * 0.78), Offset(s * 0.36, s * 0.64), s * 0.1, wood);
+        final blade = poly([Offset(s * 0.34, s * 0.6), Offset(s * 0.82, s * 0.12), Offset(s * 0.88, s * 0.18), Offset(s * 0.4, s * 0.66)]);
+        c.drawPath(blade, outline);
+        c.drawPath(blade, paint(0xffffb040));
+        c.drawCircle(Offset(s * 0.78, s * 0.22), s * 0.1, paint(0xfffff0a0));
+        stick(Offset(s * 0.26, s * 0.54), Offset(s * 0.46, s * 0.74), s * 0.07, paint(0xffd4a845));
+    }
+  }
+
   @override
-  bool shouldRepaint(ButtonIconPainter old) => old.icon != icon;
+  bool shouldRepaint(ButtonIconPainter old) => old.icon != icon || old.arm != arm;
 }

@@ -7,6 +7,8 @@ import 'package:meetra/ui/book.dart';
 import 'package:meetra/ui/hud.dart';
 import 'package:meetra/ui/shop.dart';
 import 'package:meetra/ui/story.dart';
+import 'package:meetra/ui/touch_controls.dart';
+import 'package:meetra/world/arms.dart';
 import 'package:meetra/world/saga.dart';
 import 'package:meetra/world/world.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,6 +36,10 @@ void main() {
         ...c.intro, ...c.after, ...c.townTalk, ...c.hearthTalk, StoryPage('A guardian', c.bossWords),
         for (final v in c.verses) StoryPage('Carved on the stone', v),
         ...c.captives, ...c.shrines, c.sigil, ...c.people,
+      ],
+      for (final a in arms) ...[
+        StoryPage('The innkeeper', a.gift),
+        StoryPage(a.name, '${a.use} It adds ${a.bonus} to every blow. Tap the arms button beside the sword to change weapons.'),
       ],
       const StoryPage(narrator,
           "The seven verses of Sky Spine & Frostwood are whole again: The First Hero of the Short Road. The old poets' strength flows into Ra. Blessing: +1 might. The whole legend is kept in the Book of Verses."),
@@ -77,6 +83,19 @@ void main() {
     for (final r in realms) {
       await show(tester, BookScreen(game, key: UniqueKey(), w: 960, realm: r.index));
       expect(tester.takeException(), isNull, reason: r.id);
+    }
+  });
+
+  testWidgets('the touch buttons draw every arm in hand', (tester) async {
+    await tester.runAsync(() async => game = MeetRaGame(await Art.generate()));
+    game.state
+      ..arms.addAll([for (var i = 0; i < arms.length; i++) i])
+      ..draughts = 2
+      ..hasFeather = true;
+    for (var i = -1; i < arms.length; i++) {
+      game.state.wield = i;
+      await show(tester, TouchControls(game, key: UniqueKey(), w: 960, h: 540));
+      expect(tester.takeException(), isNull, reason: armName(i));
     }
   });
 }
