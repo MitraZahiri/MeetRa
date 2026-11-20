@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meetra/art/sprites.dart';
+import 'package:meetra/entities/lion.dart';
+import 'package:meetra/entities/mirror.dart';
 import 'package:meetra/game/meetra_game.dart';
 import 'package:meetra/config.dart';
 import 'package:meetra/input.dart';
@@ -386,6 +388,41 @@ void main() {
       expect(game.feathers.map((f) => f.shot), shots.containsKey(a.kind) ? [shots[a.kind]] : isEmpty, reason: a.name);
       expect(game.player.attackTimer, greaterThan(0), reason: a.name);
     }
+  });
+
+  testWidgets('the Mirror of Ra needs all seven arms: each ward breaks only to its own arm', (tester) async {
+    final art = await tester.runAsync(Art.generate);
+    final game = MeetRaGame(art!);
+    final last = realms[6].boss;
+    expect(levelFor(last).boss.kind, BossKind.mirror);
+    expect(needsAllArms(last), isTrue);
+    expect(needsAllArms(realms[5].boss), isFalse);
+    // Sealed until Ra carries every arm
+    final p = Progress();
+    for (final r in realms.take(6)) {
+      p.clear(r.secret);
+    }
+    final s = GameState()..arms.addAll([0, 1, 2, 3, 4, 5]);
+    p.clear(realms[6].locations[12]);
+    expect(isOpen(last, p, s), isFalse);
+    s.arms.add(6);
+    expect(isOpen(last, p, s), isTrue);
+
+    final m = Mirror(game, 100, 100);
+    final used = <int>{};
+    for (var w = 0; w < arms.length; w++) {
+      expect(m.ward, w);
+      final hp = m.hp;
+      for (final wrong in [-1, -2, -3, (m.open + 1) % arms.length]) {
+        m.hurt(999, arm: wrong);
+      }
+      expect(m.hp, hp, reason: 'ward $w turns other arms aside');
+      used.add(m.open);
+      m.hurt(999, arm: m.open);
+    }
+    expect(used.length, arms.length);
+    expect(m.hp, 0);
+    expect(m.state, LionState.dead);
   });
 
   test('seven inn arms, one for each realm, every one stronger than the last, kept by the save', () async {

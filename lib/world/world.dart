@@ -6,6 +6,7 @@
 import 'dart:math' as math;
 
 import '../config.dart';
+import 'arms.dart';
 import 'progress.dart';
 
 enum LocKind { town, hearth, trail, cave, shrine, ruin, arena, boss, secret }
@@ -325,12 +326,16 @@ bool realmUnlocked(Realm r, Progress p) {
 }
 
 // A location can be entered when its realm is open, any neighbour is cleared (or it is the town),
-// and, for secret places, Ra carries Saena's Feather.
+// and, for secret places, Ra carries Saena's Feather. The last guardian waits until Ra carries all
+// seven inn arms, since nothing else can break its wards.
 bool isOpen(Location l, Progress p, GameState s) {
   if (!realmUnlocked(l.realm, p)) return false;
   if (l.needsFeather && !s.hasFeather) return false;
+  if (needsAllArms(l) && s.arms.length < arms.length) return false;
   if (l.index == 0) return true;
   return l.links.any(p.isCleared);
 }
+
+bool needsAllArms(Location l) => l.realm.hidden && l.kind == LocKind.boss;
 
 int clearedIn(Realm r, Progress p) => r.locations.where(p.isCleared).length;

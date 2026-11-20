@@ -16,7 +16,7 @@ class LevelObject {
 int trialWaves(int tier) => 3 + (tier >= 3 ? 1 : 0) + (tier >= 6 ? 1 : 0);
 
 // Which beast waits at the 'L' in a boss arena
-enum BossKind { lion, elephant }
+enum BossKind { lion, elephant, mirror }
 
 class BossDef {
   const BossDef(this.name, this.title, {this.hp = 30, this.kind = BossKind.lion});

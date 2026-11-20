@@ -17,6 +17,7 @@ import '../config.dart';
 import '../entities/enemy.dart';
 import '../entities/elephant.dart';
 import '../entities/lion.dart';
+import '../entities/mirror.dart';
 import '../entities/player.dart';
 import '../input.dart';
 import '../music.dart';
@@ -665,7 +666,10 @@ class MeetRaGame extends Game with KeyboardEvents {
         P.frozen = false;
         _cineAt = null;
         // How to beat it, as the fight begins
-        if (lion != null) {
+        final m = lion;
+        if (m is Mirror) {
+          m.announce();
+        } else if (lion != null) {
           ui.banner.value = BannerMsg(
               'Jump over its charge',
               def.boss.kind == BossKind.elephant
@@ -1640,6 +1644,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     return switch (def.boss.kind) {
       BossKind.elephant => Elephant(this, at.dx, at.dy, maxHp: def.boss.hp),
       BossKind.lion => Lion(this, at.dx, at.dy, maxHp: def.boss.hp),
+      BossKind.mirror => Mirror(this, at.dx, at.dy, maxHp: def.boss.hp),
     };
   }
 
@@ -2462,7 +2467,7 @@ class MeetRaGame extends Game with KeyboardEvents {
       paintSunDisc(c, at, 0.24);
       paintSunEye(c, at, 0.24, look: to / math.max(1.0, to.distance), open: sunBlink(_realT + 1.7));
     }
-    lion?.render(c, lion is Elephant ? a.elephant : a.lion);
+    lion?.render(c, switch (lion) { Elephant() => a.elephant, Mirror() => a.hero, _ => a.lion });
     for (final o in orbs) {
       drawFrame(c, a.xp, 0, o.x, o.y, oy: 0.5, angle: o.t * 0.4);
     }

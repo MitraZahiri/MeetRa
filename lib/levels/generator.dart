@@ -285,6 +285,8 @@ LevelDef levelFor(Location loc) {
   }
 
   final boss = switch (loc.kind) {
+    // The last guardian is Ra's own shadow, and it takes all seven inn arms to break its wards
+    LocKind.boss when r.hidden => BossDef(r.bossName, r.bossTitle, hp: 140, kind: BossKind.mirror),
     LocKind.boss => BossDef(r.bossName, r.bossTitle, hp: 30 + tier * 10, kind: tier == 0 ? BossKind.elephant : BossKind.lion),
     LocKind.arena => BossDef('Trial of ${r.name}', 'Wave 1 of ${trialWaves(tier)}', hp: 18 + tier * 6),
     _ => const BossDef('', ''),
@@ -300,7 +302,9 @@ LevelDef levelFor(Location loc) {
       loc.desc,
       loc.kind == LocKind.arena
           ? 'Beyond this hearth: the Trial of ${r.name}, ${trialWaves(tier)} waves of creatures. Rest first. Once you step in, the way back closes.'
-          : 'Beyond this hearth: ${r.bossName}, ${r.bossTitle}. Rest first. Once you step in, the way back closes.',
+          : r.hidden
+              ? 'Beyond this hearth: ${r.bossName}. It knows every weapon you carry: its seven wards break only to the seven inn arms, one by one. Change arms with the arms button.'
+              : 'Beyond this hearth: ${r.bossName}, ${r.bossTitle}. Rest first. Once you step in, the way back closes.',
     ],
     boss: boss,
     enemyBonus: tier,

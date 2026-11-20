@@ -808,7 +808,15 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
     }
     final cleared = g.progress.isCleared(l);
     final open = isOpen(l, g.progress, g.state);
-    final status = cleared ? 'Cleared' : (open ? 'Open' : (l.needsFeather && !g.state.hasFeather ? "Sealed: needs Saena's Feather" : 'Locked: clear a neighbouring place first'));
+    final status = cleared
+        ? 'Cleared'
+        : open
+            ? 'Open'
+            : l.needsFeather && !g.state.hasFeather
+                ? "Sealed: needs Saena's Feather"
+                : needsAllArms(l) && g.state.arms.length < arms.length
+                    ? 'Sealed: needs all seven inn arms (${g.state.arms.length} / ${arms.length})'
+                    : 'Locked: clear a neighbouring place first';
     final statusColor = cleared ? const Color(0xff8ae0d8) : (open ? gold : const Color(0xffc8bca0));
     final action = !open && !cleared
         ? null
@@ -851,6 +859,7 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
 String? _note(Location l) => switch (l.kind) {
       LocKind.town => "Inside: ${townMerchants[l.realm.id]!.$1}'s stall, the inn (it keeps the ${arms[l.realm.index].name}) and the townsfolk",
       LocKind.trail when merchantStops.contains(l.index) && !(l.realm.index == 0 && l.index == 1) => 'By the hearth: a travelling merchant',
+      LocKind.boss when needsAllArms(l) => 'Waiting at the end: ${l.realm.bossName}. Only the seven inn arms break its seven wards',
       LocKind.boss => 'Waiting at the end: ${l.realm.bossName}, ${l.realm.bossTitle}',
       LocKind.arena => 'Waiting at the end: a trial of ${trialWaves(l.realm.index)} waves',
       _ when l.realm.index == 0 && l.index == 1 => 'Waiting at the end: the Reed Lion, Terror of the Marsh',
