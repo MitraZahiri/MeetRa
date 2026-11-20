@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../config.dart';
 import '../game/meetra_game.dart';
 import '../levels/build.dart' show trialWaves;
+import '../world/arms.dart';
 import '../world/saga.dart';
 import '../world/shop.dart';
 import '../world/world.dart';
@@ -848,7 +849,7 @@ class _RealmMapScreenState extends State<RealmMapScreen> with SingleTickerProvid
 // What a place holds beyond its description: the fight at the end of its road, the town's
 // stall and inn, or a travelling merchant; null when there is nothing to add
 String? _note(Location l) => switch (l.kind) {
-      LocKind.town => "Inside: ${townMerchants[l.realm.id]!.$1}'s stall, the inn and the townsfolk",
+      LocKind.town => "Inside: ${townMerchants[l.realm.id]!.$1}'s stall, the inn (it keeps the ${arms[l.realm.index].name}) and the townsfolk",
       LocKind.trail when merchantStops.contains(l.index) && !(l.realm.index == 0 && l.index == 1) => 'By the hearth: a travelling merchant',
       LocKind.boss => 'Waiting at the end: ${l.realm.bossName}, ${l.realm.bossTitle}',
       LocKind.arena => 'Waiting at the end: a trial of ${trialWaves(l.realm.index)} waves',

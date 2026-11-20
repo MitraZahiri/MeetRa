@@ -25,6 +25,7 @@ import '../levels/generator.dart';
 import '../levels/level1.dart';
 import '../levels/rooms.dart' show roomH;
 import '../sfx.dart';
+import '../world/arms.dart';
 import '../world/progress.dart';
 import '../world/saga.dart';
 import '../world/shop.dart';
@@ -760,7 +761,9 @@ class MeetRaGame extends Game with KeyboardEvents {
     }
     final d = inn;
     if (text == null && d != null && (P.x - d.dx).abs() < 12 && (P.y - d.dy).abs() < 24) {
-      text = 'The inn. Tap Rest to sleep the night: health and aura come back, and the journey is saved.';
+      text = loc != null && !state.arms.contains(loc.realm.index)
+          ? 'The inn. The innkeeper keeps something for you: ${arms[loc.realm.index].name}. Tap Rest to sleep the night and take it.'
+          : 'The inn. Tap Rest to sleep the night: health and aura come back, and the journey is saved.';
       action = 'Rest';
     }
     if (ui.action.value != action) ui.action.value = action;
@@ -798,8 +801,25 @@ class MeetRaGame extends Game with KeyboardEvents {
         sfx.altar();
         camera.fadeIn(700);
         player.frozen = false;
-        ui.banner.value = BannerMsg('A night at the inn', 'Health, aura and bombs restored  ·  the journey is saved');
-        tell(StoryScroll(location?.name ?? 'The inn', [StoryPage('The innkeeper', _innkeeper[_nights++ % _innkeeper.length])]));
+        // The first night in a realm's town, the innkeeper hands over the arm kept for Ra
+        final realm = location?.realm;
+        if (realm != null && !state.arms.contains(realm.index)) {
+          final arm = arms[realm.index];
+          state
+            ..arms.add(realm.index)
+            ..wield = realm.index;
+          progress.save(state);
+          camera.flash(arm.color, 0.3, 600);
+          particles.ring(player.x, player.y - 10, arm.color, r1: 34, life: 700, width: 3);
+          ui.banner.value = BannerMsg('A new arm: ${arm.name}', 'Tap the arms button to change weapons');
+          tell(StoryScroll(location?.name ?? 'The inn', [
+            StoryPage('The innkeeper', arm.gift),
+            StoryPage(arm.name, '${arm.use} It adds ${arm.bonus} to every blow. Tap the arms button beside the sword to change weapons.'),
+          ]));
+        } else {
+          ui.banner.value = BannerMsg('A night at the inn', 'Health, aura and bombs restored  ·  the journey is saved');
+          tell(StoryScroll(location?.name ?? 'The inn', [StoryPage('The innkeeper', _innkeeper[_nights++ % _innkeeper.length])]));
+        }
         _atInn = false;
       });
       _atInn = true; // resting: no second night until this one is over
