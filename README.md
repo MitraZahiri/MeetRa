@@ -9,7 +9,7 @@
   Built with Flutter and Flame · landscape, touch-first · Android and iOS
 </p>
 
-A young guardian named **Ra** walks the old **Road of Seven Trials** to win back the stolen Dawnfire from the Pale Giant. Seven realms, 140 places, beasts out of old Persian lore, and a great sun with an eye that watches Ra wherever he goes.
+A young guardian named **Ra** walks the old **Road of Seven Trials** to win back the stolen Dawnfire from the Pale Giant. Seven realms, 140 places, beasts out of old Persian lore, **seven weapons waiting in seven inns**, and a great sun with an eye that watches Ra wherever he goes.
 
 ## Screenshots
 
@@ -56,7 +56,23 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
   </tr>
 </table>
 
-## Status: playable prototype (v1.9.0)
+## Status: playable prototype (v1.10.0)
+
+### New in v1.10.0: the seven inn arms
+
+The stories of the saga happen in its towns, so that is where Ra is armed. The inn of every realm's town keeps one weapon for Ra, handed over by the innkeeper after the first night under their roof. Each arm is stronger than the one before and fights in its own way. The **arms button** (left of the bottle) shows the weapon in Ra's hand and changes to the next one.
+
+| Inn | Arm | Bonus | How it fights |
+|---|---|---|---|
+| Hearthvale Village | **Reed Spear** | +1 | A long thrust with twice a sword's reach |
+| Crownhold City | **Smith's Hammer** | +2 | Slow and heavy: hurls foes back and smashes cracked rock walls without a bomb |
+| Oasis of Wells | **Tamarisk Bow** | +3 | Shoots arrows straight ahead |
+| Mountain Hamlet | **Ox-Head Mace** | +4 | Struck into the ground, it sends a shockwave both ways that dazes everything, guardians too |
+| Ashen River Camp | **Horsehair Lasso** | +5 | Catches a foe, drags it to Ra's feet and holds it dazed |
+| The Marble Harbor | **Sea-Glass Shield** | +6 | A charging bash: nothing can hurt Ra during the rush |
+| The Last Lantern | **Dawnfire Blade** | +7 | A burning sword: every swing also sends a wave of fire through foes |
+
+**The last battle needs all of them.** The **Mirror of Ra**, Ra's own shadow at the Heart of Night, knows every weapon Ra carries. It wears **seven wards** in a random order, and each ward breaks only to one arm: every other blow, feather and bomb is turned aside, and it calls out which arm gets through. The Heart of Night stays sealed until Ra carries all seven.
 
 ### The world
 
@@ -73,7 +89,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 
 - **Towns are places to walk into**: a peaceful street of houses in the realm's own style, with three **townsfolk** who stroll about and stop to talk (the town's keeper has something new to say on every visit).
 - A **merchant's stall** in every town sells healing draughts, heart vessels, aura tonics and whetstones; the lasting goods once per realm, and prices rise realm by realm.
-- An **inn** in every town: rest the night to restore health and aura and save the journey.
+- An **inn** in every town: rest the night to restore health, aura and bombs and save the journey. On the first night the innkeeper hands Ra the realm's **inn arm**; the realm map says which arm each town keeps.
 - A **travelling merchant** waits by the hearth halfway along every realm's road, with draughts and tonics.
 - **Healing draughts** go in Ra's satchel (up to three) and are drunk with the bottle button in a fight.
 - The realm map marks with a gold coin where Ra can trade.
@@ -93,6 +109,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 
 - Walking, variable-height jumps, **double jump**, coyote time and jump buffering
 - **3-hit sword combo**, down-strike (pogo), hitstop and screen shake
+- **Seven inn arms** to switch between: spear, hammer, bow, mace, lasso, shield and the Dawnfire Blade, each adding to every blow
 - **Saena's Feather** spell and the **Aura** bar
 - XP, levelling and a **Heart / Might / Aura** choice
 - Gold, breakable vases and bushes, hidden chests, heart drops
@@ -113,6 +130,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
 | Shade | Waits unseen in the dark, where blows pass through it. Its ember eyes open first, then it seeps out, glides after Ra through rock, and after every blow sinks away and rises again behind Ra |
 | **The Reed Lion** (boss) | Charges, stuns itself on walls, pounces; enraged at half health |
 | **The White Elephant** (boss) | Stamps shockwaves along the ground and charges with its tusks |
+| **The Mirror of Ra** (final boss) | Ra's own shadow: charges and pounces, and wears seven wards that each break only to one of the seven inn arms |
 
 ### Look and sound
 
@@ -160,6 +178,7 @@ flutter run --release --dart-define=SHOT=world,realm:0,0:13,2:4
 | Sword combo | ⚔ | J / X |
 | Down-strike | ⚔ while falling onto a foe | J while falling |
 | Bomb | Bomb button | B / L |
+| Change arms | Arms button (shows the weapon in hand) | R / Tab |
 | Healing draught | Bottle button | H / Q |
 | Trade / Rest | The button that appears at a stall or the inn | E / Enter |
 | Saena's Feather | ✦ | K / C |
@@ -182,11 +201,11 @@ lib/
   music.dart           Procedural santur and daf music, rendered in a background isolate
   art/                 Art generated from code: pixel sprites and tiles, painted backdrops
   levels/              ASCII level builder, the hand-made tutorial, rooms and the level generator
-  world/               The 7 realms × 20 places, unlock rules, the save file and the saga's text
-  entities/            Player, enemies (demon, fly, ghoul, scorpion, man-eater, shade), Lion and Elephant bosses
+  world/               The 7 realms × 20 places, unlock rules, the save file, the inn arms and the saga's text
+  entities/            Player, enemies (demon, fly, ghoul, scorpion, man-eater, shade), the Lion, Elephant and Mirror bosses
   game/                MeetRaGame (loop, camera, render), arcade physics, effects, ambience (grass, weather, lights)
   ui/                  HUD, menus, world and realm maps, story scrolls, the Book of Verses, touch buttons
-test/                  Unit tests (level builder, physics, world, unlocks, saves) and a UI layout test
+test/                  Unit tests (level builder, physics, world, unlocks, saves, arms, the Mirror's wards) and UI layout tests
 android/, ios/         Native platform projects
 docs/                  Design documents and screenshots
 ```

@@ -105,7 +105,7 @@ The story is told in play, on parchment scrolls that pause the game. All text li
 
 ## 3d. Towns and Trade
 
-**Towns** are walkable streets with no foes: houses in the realm's style, three townsfolk (the keeper, whose words change every visit, and two ordinary folk), a merchant's stall, an inn and a gate back to the map. Walking in visits the town and opens the roads beyond it. Stand at the stall or the inn's door and press down to trade or to rest.
+**Towns** are walkable streets with no foes: houses in the realm's style, three townsfolk (the keeper, whose words change every visit, and two ordinary folk), a merchant's stall, an inn and a gate back to the map. Walking in visits the town and opens the roads beyond it. Stand at the stall or the inn's door and tap the Trade or Rest button that appears.
 
 | Ware | Effect | Limit | Price (realm index t) |
 |---|---|---|---|
@@ -114,7 +114,25 @@ The story is told in play, on parchment scrolls that pause the game. All text li
 | Aura Tonic | +20 aura | Once per realm | 60 + 30t |
 | Whetstone | +1 might | Once per realm, town only | 140 + 60t |
 
-A **travelling merchant** stands by the hearth on road stops 5 and 10 of every realm, selling draughts and tonics. The **inn** is free: health and aura come back and the game is saved.
+A **travelling merchant** stands by the hearth on road stops 5 and 10 of every realm, selling draughts and tonics. The **inn** is free: health, aura and bombs come back and the game is saved.
+
+## 3e. The Seven Inn Arms
+
+The saga's stories happen in its towns, so that is where Ra is armed. Every realm's inn keeps one weapon, given by the innkeeper on Ra's first night there with a few words about where it came from. Each arm adds more to every blow than the one before (+1 up to +7), and each changes how the attack button fights. Ra's own sword is always carried too; the arms button cycles through the sword and every arm carried, in the order they were won.
+
+| Realm (inn) | Arm | Bonus | Attack button | Use in exploring and fights |
+|---|---|---|---|---|
+| Hearthvale | Reed Spear | +1 | A long, low thrust (42 px) | Hit foes before they reach Ra |
+| Crownhold | Smith's Hammer | +2 | A slow, tall swing with heavy knockback | Smashes cracked rock walls in front of Ra; slabs underfoot still need a bomb |
+| Serpent Sands | Tamarisk Bow | +3 | Fires an arrow | Strike flies and guardians from afar |
+| Sky Spine | Ox-Head Mace | +4 | On the ground: a shockwave both ways; in the air: a heavy swing | Dazes every foe it touches and staggers a guardian on its feet |
+| Duskland | Horsehair Lasso | +5 | Throws a loop a short way ahead | Drags a foe to Ra's feet, dazed; catches a guardian out of its charge |
+| Marble West | Sea-Glass Shield | +6 | A rush forward behind the shield | Ra cannot be hurt during the rush |
+| Lightless Land | Dawnfire Blade | +7 | The sword combo, burning | Every swing also sends a wave of fire that passes through foes |
+
+The down-strike works with every arm. The weapons are a breeze of the old epics (a reed spear, a smith's hammer, a tamarisk bow, an ox-headed mace, a horsehair lasso), told with MeetRa's own people.
+
+**The Mirror of Ra** at the Heart of Night is the battle that needs them all. Ra's own shadow fights like the beasts before it (prowl, charge, pounce, dazed against the wall), but its life is split into **seven wards**, raised in a random order. Each ward breaks only to one arm, shown by the colour of its glow, the diamond over its head and the boss bar; every other blow, feather or bomb is turned aside with a call of which arm gets through. When a ward breaks the Mirror leaps back and raises the next. The Heart of Night stays sealed on the realm map until Ra carries all seven arms.
 
 ## 4. Gameplay
 
@@ -124,16 +142,18 @@ Landscape. Left thumb moves; right thumb acts.
 | Button | Action |
 |---|---|
 | ◀ ▶ | Walk |
+| ▲ | Jump; tap again in mid-air to double jump; hold to jump higher |
+| ⚔ | Attack with the arm in hand: the sword's **3-hit combo**, or the inn arm's own blow |
+| Arms | Shows the weapon in hand; tap to change to the next one (appears with the first inn arm) |
 | 💣 | Bomb: breaks cracked rock (the only way down through a cracked slab) and hurts foes |
+| Bottle | Drink a healing draught (appears when the satchel holds one) |
+| ✦ | Cast the selected spell (appears once a spell is earned) |
 | (context) | Trade / Rest, shown only at a stall or the inn's door |
 
-There is no down button: a sword swing while falling onto something strikes down on it.
-| ▲ | Jump; tap again in mid-air to double jump; hold to jump higher |
-| ⚔ | Sword: **3-hit combo** |
-| ✦ | Cast the selected spell (appears once a spell is earned) |
+There is no down button: a swing while falling onto something strikes down on it.
 
 Rule from Swordigo: **a button does not appear until its ability is earned.**
-A keyboard works for development: arrows/WASD, Space, J, K.
+A keyboard works for development: arrows/WASD, Space, J (attack), K (spell), R or Tab (arms), B (bomb), H (draught), E (trade / rest).
 
 ### 4.2 Combat (where we beat Swordigo)
 - 3-hit combo; the third hit is stronger and knocks back
