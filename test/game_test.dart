@@ -71,6 +71,31 @@ void main() {
     expect(b.y, 5 * tile);
   });
 
+  test('a cracked slab is solid from below too: the way up must be bombed as well', () {
+    final lv = buildLevel(const LevelDef(
+      id: 'test',
+      title: 't',
+      subtitle: '',
+      rows: 6,
+      chunks: [
+        ['.....', '.....', 'ZZZZZ', '.....', '.....', '#####'],
+      ],
+      signs: [],
+      boss: BossDef('', ''),
+    ));
+    final physics = Physics(lv);
+    final up = Body(24, 5 * tile, 8, 16)..vy = -400;
+    for (var i = 0; i < 20; i++) {
+      physics.step(up, 1 / 60);
+    }
+    expect(up.top, greaterThanOrEqualTo(3 * tile - 0.01));
+    final down = Body(24, tile, 8, 16);
+    for (var i = 0; i < 60; i++) {
+      physics.step(down, 1 / 60);
+    }
+    expect(down.y, 2 * tile);
+  });
+
   test('xp curve matches the web version', () {
     expect([1, 2, 3, 4].map(xpForLevel), [20, 40, 70, 110]);
   });

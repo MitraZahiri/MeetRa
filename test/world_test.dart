@@ -470,7 +470,7 @@ Set<Offset> _standable(Level level, Offset from) {
     return x >= 0 && x < level.cols && y < level.rows && (t == T.empty);
   }
 
-  bool passUp(int x, int y) => air(x, y) || level.tileAt(x, y) == T.platform || level.tileAt(x, y) == T.slab;
+  bool passUp(int x, int y) => air(x, y) || level.tileAt(x, y) == T.platform;
   bool floor(int x, int y) => level.tileAt(x, y) != T.empty && level.tileAt(x, y) != T.spikes;
   bool stand(int x, int y) => air(x, y) && floor(x, y + 1);
 
@@ -504,7 +504,8 @@ Set<Offset> _standable(Level level, Offset from) {
     // Rise straight up, then move across at that height and fall wherever that ends
     for (var up = 0; up <= 5; up++) {
       final yy = y - up;
-      if (up > 0 && !passUp(x, yy)) break;
+      // A slab up to three tiles overhead can be bombed from below (the bomb sticks to it)
+      if (up > 0 && !passUp(x, yy) && !(up <= 3 && level.tileAt(x, yy) == T.slab)) break;
       if (!air(x, yy)) continue;
       for (final dir in const [-1, 1]) {
         for (var dx = 1; dx <= 5; dx++) {

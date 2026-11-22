@@ -204,7 +204,8 @@ List<String> buildRooms(RoomPlan plan, math.Random rnd,
       for (var x = hx - 1; x <= hx + 4; x++) {
         set(x, oy + roomH, '.');
       }
-      // The way down is a cracked slab: Ra can jump up through it from below, but going down takes a bomb
+      // The way down is a cracked slab, and so is the way back up: either way it takes a bomb
+      // (set down under the slab, a bomb sticks to it)
       for (var x = hx; x <= hx + 3; x++) {
         set(x, oy + 10, 'Z');
       }

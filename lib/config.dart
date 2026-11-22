@@ -30,7 +30,7 @@ abstract final class T {
   static const brick = 3;
   static const spikes = 4;
   static const cracked = 5; // cracked rock: solid until a bomb breaks it (drawn over the brick tile)
-  static const slab = 6; // a cracked slab over a drop: Ra can jump up through it, but only a bomb opens the way down
+  static const slab = 6; // a cracked slab over a drop: solid both ways until a bomb opens it
 }
 
 abstract final class PlayerTuning {

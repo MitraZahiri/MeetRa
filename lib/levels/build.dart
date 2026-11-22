@@ -78,7 +78,7 @@ class Level {
 // Legend:
 //   #  ground (grass on top, dirt below)   =  one-way platform
 //   B  stone brick   ^  thorns   X  cracked rock, broken by a bomb
-//   Z  a cracked slab over a drop: jump up through it, bomb it to go down   Q  a bomb flower
+//   Z  a cracked slab over a drop: solid both ways, bomb it to go down or up   Q  a bomb flower
 //   P  player        A  hearth (checkpoint)   S  signpost
 //   D  demon         V  fly      U  ghoul    K  scorpion pair    M  manticore
 //   H  shade, hidden in the dark until Ra comes near

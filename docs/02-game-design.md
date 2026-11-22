@@ -123,7 +123,7 @@ The saga's stories happen in its towns, so that is where Ra is armed. Every real
 | Realm (inn) | Arm | Bonus | Attack button | Use in exploring and fights |
 |---|---|---|---|---|
 | Hearthvale | Reed Spear | +1 | A long, low thrust (42 px) | Hit foes before they reach Ra |
-| Crownhold | Smith's Hammer | +2 | A slow, tall swing with heavy knockback | Smashes cracked rock walls in front of Ra; slabs underfoot still need a bomb |
+| Crownhold | Smith's Hammer | +2 | A slow, tall swing with heavy knockback | Smashes cracked rock walls in front of Ra; slabs still need a bomb |
 | Serpent Sands | Tamarisk Bow | +3 | Fires an arrow | Strike flies and guardians from afar |
 | Sky Spine | Ox-Head Mace | +4 | On the ground: a shockwave both ways; in the air: a heavy swing | Dazes every foe it touches and staggers a guardian on its feet |
 | Duskland | Horsehair Lasso | +5 | Throws a loop a short way ahead | Drags a foe to Ra's feet, dazed; catches a guardian out of its charge |
@@ -145,7 +145,7 @@ Landscape. Left thumb moves; right thumb acts.
 | ▲ | Jump; tap again in mid-air to double jump; hold to jump higher |
 | ⚔ | Attack with the arm in hand: the sword's **3-hit combo**, or the inn arm's own blow |
 | Arms | Shows the weapon in hand; tap to change to the next one (appears with the first inn arm) |
-| 💣 | Bomb: breaks cracked rock (the only way down through a cracked slab) and hurts foes |
+| 💣 | Bomb: breaks cracked rock (the only way down or up through a cracked slab; set down under a slab, it sticks to it) and hurts foes |
 | Bottle | Drink a healing draught (appears when the satchel holds one) |
 | ✦ | Cast the selected spell (appears once a spell is earned) |
 | (context) | Trade / Rest, shown only at a stall or the inn's door |

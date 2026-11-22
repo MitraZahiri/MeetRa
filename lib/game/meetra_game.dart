@@ -1006,7 +1006,22 @@ class MeetRaGame extends Game with KeyboardEvents {
       return;
     }
     state.bombs -= 1;
-    bombs.add(Bomb(P.x + P.facing * 6, P.y - 4)..body.vx = P.facing * 40);
+    final b = Bomb(P.x + P.facing * 6, P.y - 4)..body.vx = P.facing * 40;
+    // Under cracked rock close overhead, the bomb is pressed up against it: that is how a slab is
+    // blasted open from below to climb back up
+    final tx = (b.body.x / tile).floor(), ty = ((b.body.y - 1) / tile).floor();
+    for (var y = ty - 1; y >= ty - 3; y--) {
+      final t = level.tileAt(tx, y);
+      if (t == T.slab || t == T.cracked) {
+        b.body
+          ..allowGravity = false
+          ..vx = 0
+          ..y = (y + 1) * tile + b.body.h;
+        break;
+      }
+      if (t != T.empty) break;
+    }
+    bombs.add(b);
     sfx.swing();
   }
 
