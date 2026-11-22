@@ -56,7 +56,7 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
   </tr>
 </table>
 
-## Status: playable prototype (v1.10.0)
+## Status: playable prototype (v1.10.1)
 
 ### New in v1.10.0: the seven inn arms
 
