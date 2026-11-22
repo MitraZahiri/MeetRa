@@ -9,6 +9,7 @@ import 'package:meetra/input.dart';
 import 'package:meetra/levels/build.dart';
 import 'package:meetra/levels/generator.dart';
 import 'package:meetra/levels/level1.dart';
+import 'package:meetra/levels/rooms.dart';
 import 'package:meetra/world/arms.dart';
 import 'package:meetra/world/progress.dart';
 import 'package:meetra/world/saga.dart';
@@ -423,6 +424,19 @@ void main() {
     expect(used.length, arms.length);
     expect(m.hp, 0);
     expect(m.state, LionState.dead);
+  });
+
+  testWidgets('the gate opens the way out only to Ra standing at it, not in a room above or below', (tester) async {
+    final art = await tester.runAsync(Art.generate);
+    final game = MeetRaGame(art!);
+    game.enterLocation(realms[0].locations[2]);
+    await tester.pump(const Duration(milliseconds: 500));
+    final g = game.gate!;
+    expect(game.atGate(g.x, g.y), isTrue);
+    expect(game.atGate(g.x + 4, g.y), isTrue);
+    expect(game.atGate(g.x, g.y - roomH * tile), isFalse);
+    expect(game.atGate(g.x, g.y + roomH * tile), isFalse);
+    expect(game.atGate(g.x + 40, g.y), isFalse);
   });
 
   test('seven inn arms, one for each realm, every one stronger than the last, kept by the save', () async {

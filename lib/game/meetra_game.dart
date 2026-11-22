@@ -633,7 +633,7 @@ class MeetRaGame extends Game with KeyboardEvents {
     // Exit gate: open, or sealed until the Sun Key is found
     final g = gate;
     _sealedHint = math.max(0, _sealedHint - dt);
-    if (g != null && !victory && (P.x - g.x).abs() < 10 && P.body.blockedDown) {
+    if (g != null && !victory && atGate(P.x, P.y) && P.body.blockedDown) {
       if (def.town) {
         // A town's gate leads straight back to the realm map
         victory = true;
@@ -856,6 +856,13 @@ class MeetRaGame extends Game with KeyboardEvents {
       });
       _atInn = true; // resting: no second night until this one is over
     }
+  }
+
+  // Standing at the exit gate itself: in the maze levels other rooms lie above and below it, so the
+  // height counts as well as the column
+  bool atGate(double x, double y) {
+    final g = gate;
+    return g != null && (x - g.x).abs() < 10 && (y - g.y).abs() < 8;
   }
 
   // Called by the Trade / Rest button
