@@ -179,63 +179,205 @@ void _crown(Canvas c, int seed, Offset at, double size, String dark, String mid,
   }
 }
 
-// ---------- Hearthvale: a forest glade with light pouring in ----------
+/// ---------- Flat painted plants, shared by the green realms ----------
+
+Offset _dir(double a) => Offset(math.cos(a), math.sin(a));
+
+// A fan palm like a paper parasol: a round crown of leaf spokes on a slim ringed trunk.
+// [tilt] squashes the crown, as if seen a little from below.
+void _fanPalm(Canvas c, Offset top, double radius, double trunkH, String trunk, String crown, String spoke, {double tilt = 1, double turn = 0}) {
+  final tw = math.max(2.0, radius * 0.14);
+  c.drawRect(Rect.fromLTWH(top.dx - tw / 2, top.dy, tw, trunkH), _fill(trunk));
+  for (var y = top.dy + radius * 0.6; y < top.dy + trunkH; y += 4) {
+    c.drawRect(Rect.fromLTWH(top.dx - tw / 2, y, tw, 0.8), _fill('#000000', 0.18));
+  }
+  c.save();
+  c.translate(top.dx, top.dy);
+  c.scale(1, tilt);
+  // The crown's rim is notched where the leaves split
+  const n = 18;
+  final rim = Path();
+  for (var k = 0; k <= n * 2; k++) {
+    final p = _dir(turn + k / (n * 2) * math.pi * 2) * radius * (k.isEven ? 1 : 0.9);
+    k == 0 ? rim.moveTo(p.dx, p.dy) : rim.lineTo(p.dx, p.dy);
+  }
+  c.drawPath(rim..close(), _fill(crown));
+  final ink = Paint()
+    ..color = hex(spoke)
+    ..strokeWidth = math.max(0.7, radius * 0.05)
+    ..strokeCap = StrokeCap.round;
+  for (var k = 0; k < n; k++) {
+    final a = turn + (k + 0.5) / n * math.pi * 2;
+    c.drawLine(_dir(a) * radius * 0.1, _dir(a) * radius * 0.88, ink);
+  }
+  c.drawCircle(Offset.zero, radius * 0.1, _fill(spoke));
+  c.restore();
+}
+
+// A long leaf from [base] along [angle], with a midrib and slashes down its sides
+void _leaf(Canvas c, Offset base, double angle, double len, double width, String fill, {String? vein, int slits = 0}) {
+  c.save();
+  c.translate(base.dx, base.dy);
+  c.rotate(angle);
+  c.drawPath(
+      Path()
+        ..moveTo(0, 0)
+        ..quadraticBezierTo(len * 0.35, -width, len, 0)
+        ..quadraticBezierTo(len * 0.35, width, 0, 0)
+        ..close(),
+      _fill(fill));
+  if (vein != null) {
+    final v = Paint()
+      ..color = hex(vein)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(0.6, width * 0.09)
+      ..strokeCap = StrokeCap.round;
+    c.drawLine(Offset.zero, Offset(len * 0.92, 0), v);
+    for (var k = 1; k <= slits; k++) {
+      final x = len * k / (slits + 1);
+      final w = width * 0.75 * math.sin(math.pi * (0.25 + 0.75 * x / len));
+      for (final s in [-1.0, 1.0]) {
+        c.drawLine(Offset(x, 0), Offset(x + len * 0.12, s * w), v);
+      }
+    }
+  }
+  c.restore();
+}
+
+// A star flower of five slim petals round a dark eye
+void _flower(Canvas c, Offset at, double size, String petal, String eye, double turn) {
+  for (var k = 0; k < 5; k++) {
+    c.save();
+    c.translate(at.dx, at.dy);
+    c.rotate(turn + k * math.pi * 2 / 5);
+    c.drawOval(Rect.fromLTWH(size * 0.1, -size * 0.17, size, size * 0.34), _fill(petal));
+    c.restore();
+  }
+  c.drawCircle(at, size * 0.16, _fill(eye));
+}
+
+// A fan of narrow upright blades, like a clump of sword plants
+void _blades(Canvas c, math.Random r, Offset base, double h, int n, String color) {
+  for (var k = 0; k < n; k++) {
+    final a = -math.pi / 2 + (k / (n - 1) - 0.5) * 1.1 + (r.nextDouble() - 0.5) * 0.15;
+    _leaf(c, base, a, h * (0.6 + r.nextDouble() * 0.4), h * 0.07, color);
+  }
+}
+
+// A round bush covered in rows of small oval leaves
+void _scaleBush(Canvas c, math.Random r, Offset base, double w, double h, String body, String leaf) {
+  final dome = Path()
+    ..moveTo(base.dx - w, base.dy)
+    ..cubicTo(base.dx - w, base.dy - h * 1.3, base.dx + w, base.dy - h * 1.3, base.dx + w, base.dy)
+    ..close();
+  c.drawPath(dome, _fill(body));
+  c.save();
+  c.clipPath(dome);
+  var row = 0;
+  for (var y = base.dy - h; y < base.dy; y += 5, row++) {
+    for (var x = base.dx - w + (row.isEven ? 0 : 3); x < base.dx + w; x += 6) {
+      c.save();
+      c.translate(x + r.nextDouble() * 2, y + r.nextDouble() * 2);
+      c.rotate(-0.5 + r.nextDouble() * 0.3);
+      c.drawOval(const Rect.fromLTWH(-2.6, -1.3, 5.2, 2.6), _fill(leaf));
+      c.restore();
+    }
+  }
+  c.restore();
+}
+
+// ---------- Hearthvale: a deep green jungle round a sunny clearing ----------
 
 final List<_Painter> _vale = [
   (c, r) {
-    _sky(c, ['#245a52', '#5fae96', '#d6efc0', '#f4f8d8'], [0, 0.4, 0.75, 1]);
-    _glow(c, const Offset(240, 190), 150, '#fffbe0', 0.55);
+    _sky(c, ['#2e5a48', '#5f9474', '#b8d49a', '#e8eebc'], [0, 0.35, 0.72, 1]);
+    _glow(c, const Offset(240, 200), 170, '#fff4c0', 0.5);
+    _glow(c, const Offset(360, 80), 90, '#fff8d8', 0.45);
     paintSunDisc(c, const Offset(360, 80), 1);
   },
-  (c, r) => _clouds(c, r, 5, '#ffffff', '#b8dcc8', 0.8),
+  (c, r) => _clouds(c, r, 4, '#f4f8e0', '#b4d0a8', 0.55, yMax: 90),
   (c, r) {
-    // Pale tree line far away in the haze
-    for (var i = 0; i < 16; i++) {
-      final x = i * 30.0 + r.nextDouble() * 10;
-      _wrap((dx) => c.drawRect(Rect.fromLTWH(x + dx, 150, 3, 90), _fill('#7fb89a', 0.7)));
+    // Far fan palms fading into the green haze
+    for (var i = 0; i < 9; i++) {
+      final x = i * W / 9 + r.nextDouble() * 20;
+      final y = 95 + r.nextDouble() * 55;
+      final rad = 14 + r.nextDouble() * 10;
+      final turn = r.nextDouble();
+      _wrap((dx) => _fanPalm(c, Offset(x + dx, y), rad, 240 - y, '#6a8a6a', '#7fa88a', '#a4c8a4', tilt: 0.8, turn: turn));
     }
-    final p = _ridge(r, 175, 40, 12);
-    c.drawPath(p, _vgrad(130, 240, ['#8cc8a4', '#a8d8b0']));
-    _mist(c, 205, 30, '#e8f8d8', 0.7);
+    c.drawPath(_ridge(r, 205, 26, 10), _vgrad(170, 240, ['#5e8c6c', '#7aa47c']));
+    _mist(c, 200, 34, '#dcecc0', 0.6);
   },
   (c, r) {
-    // Big old trees round the glade
-    for (var i = 0; i < 3; i++) {
-      final x = i * 160.0 + r.nextDouble() * 50;
-      final w = 10 + r.nextDouble() * 8;
+    // Tall fan palms, flowering trees, dark sword plants and leafy bushes
+    for (var i = 0; i < 4; i++) {
+      final x = i * 120.0 + r.nextDouble() * 40;
+      final y = 45 + r.nextDouble() * 40;
+      final rad = 26 + r.nextDouble() * 10;
+      final turn = r.nextDouble();
+      final (crown, spoke) = i.isEven ? ('#4f8a60', '#2f5e40') : ('#2a5a3c', '#5a9a68');
+      _wrap((dx) => _fanPalm(c, Offset(x + dx, y), rad, 250 - y, '#b08a48', crown, spoke, tilt: 0.85, turn: turn));
+    }
+    for (var i = 0; i < 2; i++) {
+      final x = i * 240.0 + 60 + r.nextDouble() * 60;
       final seed = r.nextInt(1 << 20);
       _wrap((dx) {
-        final trunk = Path()
-          ..moveTo(x + dx - w, 260)
-          ..quadraticBezierTo(x + dx - w * 0.4, 160, x + dx - w * 0.5, 75)
-          ..lineTo(x + dx + w * 0.5, 75)
-          ..quadraticBezierTo(x + dx + w * 0.4, 160, x + dx + w, 260)
-          ..close();
-        _shape(c, trunk, const Rect.fromLTWH(0, 75, 0, 185), ['#2a3a2a', '#4a3a28'], rim: '#8aa070', rimA: 0.35);
-        _crown(c, seed, Offset(x + dx, 72), 50, '#173a26', '#2f6a3e', '#5aa04a');
+        final rr = math.Random(seed);
+        c.drawPath(
+            Path()
+              ..moveTo(x + dx - 7, 250)
+              ..quadraticBezierTo(x + dx - 2, 200, x + dx - 3, 160)
+              ..lineTo(x + dx + 3, 160)
+              ..quadraticBezierTo(x + dx + 2, 200, x + dx + 9, 250)
+              ..close(),
+            _fill('#3a2a22'));
+        c.drawCircle(Offset(x + dx, 140), 34, _fill('#8a9a3a'));
+        c.drawCircle(Offset(x + dx - 12, 132), 20, _fill('#9aaa44'));
+        for (var k = 0; k < 9; k++) {
+          final a = rr.nextDouble() * math.pi * 2;
+          final d = rr.nextDouble() * 30;
+          _flower(c, Offset(x + dx, 140) + _dir(a) * d, 5 + rr.nextDouble() * 3, '#f0a890', '#3a2a22', rr.nextDouble());
+        }
       });
     }
-    _mist(c, 235, 25, '#d8f0c0', 0.5);
+    for (var i = 0; i < 5; i++) {
+      final x = i * 96.0 + r.nextDouble() * 40;
+      final seed = r.nextInt(1 << 20);
+      final color = r.nextBool() ? '#6aa8a0' : '#1e3a2a';
+      _wrap((dx) => _blades(c, math.Random(seed), Offset(x + dx, 252), 60.0 + seed % 30, 9, color));
+    }
+    for (var i = 0; i < 2; i++) {
+      final x = i * 240.0 + 170 + r.nextDouble() * 40;
+      final seed = r.nextInt(1 << 20);
+      _wrap((dx) => _scaleBush(c, math.Random(seed), Offset(x + dx, 252), 38, 46, '#1e4a2c', '#4a8a4a'));
+    }
+    // The sunny clearing floor
+    c.drawRect(const Rect.fromLTWH(0, 248, W, 22), _vgrad(248, 270, ['#a8a83a', '#8a8a2e']));
+    for (var i = 0; i < 60; i++) {
+      c.drawOval(Rect.fromLTWH(r.nextDouble() * W, 250 + r.nextDouble() * 18, 3 + r.nextDouble() * 3, 1.4), _fill('#c8c058', 0.7));
+    }
   },
   (c, r) {
-    // Bushes and mossy rocks at the bottom edge
-    for (var i = 0; i < 7; i++) {
-      final x = i * 70.0 + r.nextDouble() * 30;
-      final size = 18 + r.nextDouble() * 10;
-      final seed = r.nextInt(1 << 20);
-      _wrap((dx) => _crown(c, seed, Offset(x + dx, 262), size, '#16361f', '#2a5a30', '#4a8a3a'));
+    // Grass tufts and dark red star flowers at the bottom edge
+    final grass = Paint()
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 70; i++) {
+      final x = r.nextDouble() * W;
+      final h = 5 + r.nextDouble() * 9;
+      final lean = (r.nextDouble() - 0.5) * 5;
+      grass.color = hex(r.nextBool() ? '#3e5a2a' : '#6a7a34');
+      _wrap((dx) => c.drawLine(Offset(x + dx, 270), Offset(x + dx + lean, 270 - h), grass));
     }
-    for (var i = 0; i < 3; i++) {
-      final x = i * 160.0 + r.nextDouble() * 60;
+    for (var i = 0; i < 4; i++) {
+      final x = i * 120.0 + r.nextDouble() * 60;
+      final seed = r.nextInt(1 << 20);
       _wrap((dx) {
-        final p = Path()
-          ..moveTo(x + dx - 16, 270)
-          ..lineTo(x + dx - 12, 250)
-          ..lineTo(x + dx + 2, 242)
-          ..lineTo(x + dx + 16, 252)
-          ..lineTo(x + dx + 18, 270)
-          ..close();
-        _shape(c, p, const Rect.fromLTWH(0, 242, 0, 28), ['#c8ccc0', '#7a8478'], rim: '#ffffff');
+        final rr = math.Random(seed);
+        c.drawOval(Rect.fromCenter(center: Offset(x + dx, 272), width: 60, height: 26), _fill('#1e3a26'));
+        for (var k = 0; k < 4; k++) {
+          _flower(c, Offset(x + dx - 20 + k * 13 + rr.nextDouble() * 4, 258 + rr.nextDouble() * 8), 9 + rr.nextDouble() * 4, '#8a4a40', '#1a1014', rr.nextDouble());
+        }
       });
     }
   },
