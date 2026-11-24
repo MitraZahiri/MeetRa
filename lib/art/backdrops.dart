@@ -3,6 +3,8 @@
 // Unlike the pixel-art level they are drawn with smooth shapes, gradients, glows and mist
 // at twice the world resolution, so they read as soft painted scenery behind the play.
 // Every layer is 480 x 270 world pixels and wraps left to right without a seam.
+// A realm can also bring things to life on a layer: they are drawn every frame on top of
+// that layer, in its own coordinates, so they scroll with it (leaves sway, a caravan walks).
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -19,9 +21,14 @@ const backdropScale = 2.0; // image pixels per world pixel
 // How far each layer moves with the camera: sky, clouds, far, middle, near
 const backdropParallax = [0.0, 0.05, 0.15, 0.32, 0.55];
 
+// Draws the moving things of one layer at time [t] (seconds), in layer coordinates.
+// Anything placed within 0..backdropW is repeated a tile width apart by the renderer.
+typedef BackdropLive = void Function(Canvas c, double t);
+
 class Backdrop {
-  Backdrop(this.layers);
+  Backdrop(this.layers, [this.live = const {}]);
   final List<ui.Image> layers;
+  final Map<int, BackdropLive> live; // layer index -> its moving things
 
   void dispose() {
     for (final l in layers) {
@@ -43,7 +50,7 @@ Backdrop paintBackdrop(RealmTheme? theme) {
         p(c, math.Random(theme == null ? 900 + i : theme.index * 10 + i));
         return rec.endRecording().toImageSync((backdropW * backdropScale).toInt(), (backdropH * backdropScale).toInt());
       }(),
-  ]);
+  ], theme == null ? const {} : _live[theme] ?? const {});
 }
 
 // ---------- Helpers ----------
@@ -760,3 +767,5 @@ final Map<RealmTheme, List<_Painter>> _realms = {
   RealmTheme.coast: _coast,
   RealmTheme.dark: _dark,
 };
+
+final Map<RealmTheme, Map<int, BackdropLive>> _live = {};

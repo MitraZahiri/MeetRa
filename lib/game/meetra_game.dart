@@ -10,7 +10,7 @@ import 'package:flutter/widgets.dart' show KeyEventResult;
 import 'package:flame/input.dart' show KeyboardEvents;
 
 import '../art/pixel.dart';
-import '../art/backdrops.dart' show Backdrop, backdropParallax, backdropScale, paintBackdrop;
+import '../art/backdrops.dart' show Backdrop, BackdropLive, backdropParallax, backdropScale, backdropW, paintBackdrop;
 import '../art/sprites.dart';
 import '../art/sun_eye.dart';
 import '../config.dart';
@@ -2104,7 +2104,28 @@ class MeetRaGame extends Game with KeyboardEvents {
           ..shader = ImageShader(image, TileMode.repeated, TileMode.clamp, m.storage, filterQuality: FilterQuality.low),
       );
       if (i == 0) sky?.call();
+      final live = b.live[i];
+      if (live != null && alpha >= 1) _drawLive(c, z, tx, y, live);
     }
+  }
+
+  // The moving things of a layer, repeated a tile width apart across the view
+  void _drawLive(Canvas c, double z, double tx, double y, BackdropLive live) {
+    final x0 = tx % backdropW;
+    final viewW = size.x / z;
+    c
+      ..save()
+      ..clipRect(Offset.zero & Size(size.x, size.y))
+      ..scale(z, z)
+      ..translate(-x0, -y);
+    for (var k = -1; k * backdropW - x0 < viewW; k++) {
+      c
+        ..save()
+        ..translate(k * backdropW, 0);
+      live(c, _realT);
+      c.restore();
+    }
+    c.restore();
   }
 
   double _eyeOpen = 1;
