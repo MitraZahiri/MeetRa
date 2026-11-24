@@ -56,7 +56,13 @@ A young guardian named **Ra** walks the old **Road of Seven Trials** to win back
   </tr>
 </table>
 
-## Status: playable prototype (v1.10.1)
+## Status: playable prototype (v1.11.0)
+
+### New in v1.11.0: livelier backdrops
+
+- **Hearthvale** is now a flat painted jungle: fan palms like paper parasols, trees in pink blossom, sword plants and leafy bushes round a sunny clearing. Big leaves sway at the front and butterflies flit across.
+- **The Serpent Sands** burn under an orange evening: a great pale sun, long streaks of cloud, layered dunes, date palms, and a camel caravan plodding along the crest.
+- Every backdrop has a fine grain, like ink printed on rough paper.
 
 ### New in v1.10.0: the seven inn arms
 
@@ -134,7 +140,7 @@ The stories of the saga happen in its towns, so that is where Ra is armed. The i
 
 ### Look and sound
 
-- Soft painted backdrops behind crisp pixel art, sun rays and the **Eye of Ra** watching from the sun
+- Soft painted backdrops with a print grain behind crisp pixel art, some with moving things of their own (swaying leaves, butterflies, a camel caravan), sun rays and the **Eye of Ra** watching from the sun
 - A living world: grass that sways and parts around feet, weather for each realm (pollen and fireflies, dust, sand, snow, leaves, sea spray, embers), glowing hearths, darkness and light in caves and the Lightless Land
 - Juice: Ra's flowing scarf, breathing, landing squash and dust; hit sparks, shockwave rings, popping damage numbers, screen flashes
 - Procedural music in Persian modes: a santur and daf theme for exploring (Shur) and a tense boss theme (Chahargah)
