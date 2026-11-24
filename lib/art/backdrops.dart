@@ -995,6 +995,77 @@ void _valeButterflies(Canvas c, double t) {
   }
 }
 
+// A camel in silhouette facing right, its feet on the origin, legs at [step] of the gait
+void _camel(Canvas c, double step, bool rider, Paint ink, Paint leg) {
+  for (final (x, ph) in [(-5.0, 0.0), (-3.6, math.pi), (4.0, math.pi), (5.4, 0.0)]) {
+    final swing = math.sin(step + ph);
+    c.drawLine(Offset(x, -8.5), Offset(x + swing * 1.8, -math.max(0.0, -math.cos(step + ph)) * 1.2), leg);
+  }
+  c.drawPath(
+      Path()
+        ..moveTo(-7, -8)
+        ..cubicTo(-7.5, -13, -3, -17.5, 0, -14)
+        ..cubicTo(2, -12.5, 4.5, -12.5, 6.5, -10.5)
+        ..lineTo(6.5, -8)
+        ..quadraticBezierTo(0, -6.5, -7, -8)
+        ..close(),
+      ink);
+  // Neck and head reaching forward
+  c.drawPath(
+      Path()
+        ..moveTo(5, -11)
+        ..quadraticBezierTo(9.5, -10.5, 10, -16.5)
+        ..lineTo(13.5, -16.8)
+        ..lineTo(13.6, -15.2)
+        ..lineTo(11.6, -14.6)
+        ..quadraticBezierTo(10.5, -8.5, 6, -8.4)
+        ..close(),
+      ink);
+  c.drawLine(const Offset(-7, -10), Offset(-8.2, -6 + math.sin(step) * 0.6), leg);
+  if (rider) {
+    c.drawPath(
+        Path()
+          ..moveTo(-3.4, -14.5)
+          ..lineTo(-1.2, -21)
+          ..lineTo(1.2, -14.5)
+          ..close(),
+        ink);
+    c.drawCircle(const Offset(-1.2, -21.8), 1.5, ink);
+  }
+}
+
+const _camelSize = 1.4;
+
+// A caravan of camels and riders plodding along the crest of the middle dune
+void _desertCaravan(Canvas c, double t) {
+  final ink = _fill('#3a160e');
+  final leg = Paint()
+    ..color = ink.color
+    ..strokeWidth = 1.3
+    ..strokeCap = StrokeCap.round;
+  final rope = Paint()
+    ..color = ink.color
+    ..strokeWidth = 0.5;
+  Offset? lastTail;
+  for (var k = 0; k < 5; k++) {
+    final x = (180 + t * 4 - k * 29) % W;
+    final step = t * 3.2 + k * 0.9;
+    final y = _duneCrest(x) + 1 + math.sin(step * 2) * 0.3;
+    final tilt = math.atan2(_duneCrest(x + 4) - _duneCrest(x - 4), 8);
+    c.save();
+    c.translate(x, y);
+    c.rotate(tilt);
+    c.scale(_camelSize, _camelSize);
+    _camel(c, step, k != 2, ink, leg);
+    c.restore();
+    // Each camel is led by a rope from the one ahead, unless they stand at opposite edges of the tile
+    final head = Offset(x, y) + Offset(12 * math.cos(tilt), 12 * math.sin(tilt) - 15) * _camelSize;
+    if (lastTail != null && (lastTail - head).distance < 28) c.drawLine(head, lastTail, rope);
+    lastTail = Offset(x, y) + Offset(-7 * math.cos(tilt), -7 * math.sin(tilt) - 9) * _camelSize;
+  }
+}
+
 final Map<RealmTheme, Map<int, BackdropLive>> _live = {
   RealmTheme.vale: {3: _valeButterflies, 4: _valeLeaves},
+  RealmTheme.desert: {3: _desertCaravan},
 };
