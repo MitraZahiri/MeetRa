@@ -7,6 +7,7 @@
 // that layer, in its own coordinates, so they scroll with it (leaves sway, a caravan walks).
 
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:ui';
 
@@ -47,7 +48,9 @@ Backdrop paintBackdrop(RealmTheme? theme) {
       () {
         final rec = ui.PictureRecorder();
         final c = Canvas(rec)..scale(backdropScale);
-        p(c, math.Random(theme == null ? 900 + i : theme.index * 10 + i));
+        final seed = theme == null ? 900 + i : theme.index * 10 + i;
+        p(c, math.Random(seed));
+        _grain(c, math.Random(seed + 5000));
         return rec.endRecording().toImageSync((backdropW * backdropScale).toInt(), (backdropH * backdropScale).toInt());
       }(),
   ], theme == null ? const {} : _live[theme] ?? const {});
@@ -59,6 +62,21 @@ const W = backdropW;
 const H = backdropH;
 
 Paint _fill(String c, [double a = 1]) => Paint()..color = hex(c).withValues(alpha: a);
+
+// A fine grain of light and dark specks, like ink on rough paper. It lands only where the
+// layer is already painted, so a layer's open sky stays clear for the layers behind it.
+void _grain(Canvas c, math.Random r, {int n = 4000, double a = 0.07}) {
+  Float32List specks() => Float32List.fromList([for (var i = 0; i < n; i++) ...[r.nextDouble() * W, r.nextDouble() * H]]);
+  for (final color in ['#ffffff', '#000000']) {
+    c.drawRawPoints(
+        PointMode.points,
+        specks(),
+        Paint()
+          ..color = hex(color).withValues(alpha: a)
+          ..strokeWidth = 0.7
+          ..blendMode = BlendMode.srcATop);
+  }
+}
 
 // Colors spread evenly from top to bottom unless [stops] place them
 Paint _vgrad(double top, double bottom, List<String> colors, [List<double>? stops]) => Paint()
