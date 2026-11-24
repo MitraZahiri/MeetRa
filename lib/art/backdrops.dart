@@ -928,4 +928,44 @@ final Map<RealmTheme, List<_Painter>> _realms = {
   RealmTheme.dark: _dark,
 };
 
-final Map<RealmTheme, Map<int, BackdropLive>> _live = {};
+// ---------- Moving things ----------
+
+// Big jungle leaves rising from the bottom edge, swaying in a slow breeze
+void _valeLeaves(Canvas c, double t) {
+  const leaves = [
+    // x, lean, length, width, fill, vein
+    (24.0, -0.5, 62.0, 28.0, '#2e6a44', '#173a26'),
+    (44.0, -0.15, 48.0, 22.0, '#d8c890', '#6a7a40'),
+    (210.0, 0.35, 56.0, 25.0, '#3a7a50', '#1a4228'),
+    (330.0, -0.3, 44.0, 20.0, '#2e6a44', '#173a26'),
+    (452.0, 0.45, 60.0, 27.0, '#d8c890', '#6a7a40'),
+  ];
+  for (final (k, (x, lean, len, w, fill, vein)) in leaves.indexed) {
+    final sway = math.sin(t * 1.1 + k * 1.7) * 0.07 + math.sin(t * 2.3 + k) * 0.02;
+    _leaf(c, Offset(x, 274), -math.pi / 2 + lean + sway, len, w, fill, vein: vein, slits: 5);
+  }
+}
+
+// Butterflies flitting across the clearing, wings beating
+void _valeButterflies(Canvas c, double t) {
+  const colors = [('#f0a890', '#c86a5a'), ('#f8d870', '#c89a30'), ('#f0a890', '#c86a5a'), ('#ffffff', '#b8c8a8')];
+  for (final (k, (wing, edge)) in colors.indexed) {
+    final x = (k * 120 + 40 + t * (9 + k * 2) + math.sin(t * 0.8 + k) * 20) % W;
+    final y = 170 + math.sin(t * 0.6 + k * 2.1) * 35 + math.sin(t * 5 + k) * 3;
+    final beat = 0.25 + 0.75 * math.sin(t * 16 + k * 2).abs();
+    c.save();
+    c.translate(x, y);
+    c.scale(beat, 1);
+    for (final s in [-1.0, 1.0]) {
+      c.drawOval(Rect.fromCenter(center: Offset(s * 3, -1.5), width: 6, height: 5), _fill(edge));
+      c.drawOval(Rect.fromCenter(center: Offset(s * 3, -1.5), width: 4.4, height: 3.6), _fill(wing));
+      c.drawOval(Rect.fromCenter(center: Offset(s * 2.2, 2), width: 3.6, height: 3), _fill(wing));
+    }
+    c.restore();
+    c.drawLine(Offset(x, y - 2.5), Offset(x, y + 2.5), _fill('#2a1a14')..strokeWidth = 0.8);
+  }
+}
+
+final Map<RealmTheme, Map<int, BackdropLive>> _live = {
+  RealmTheme.vale: {3: _valeButterflies, 4: _valeLeaves},
+};
