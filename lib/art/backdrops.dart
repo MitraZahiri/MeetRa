@@ -459,67 +459,96 @@ final List<_Painter> _city = [
   },
 ];
 
-// ---------- The Serpent Sands: a canyon of balanced rock pillars ----------
+// ---------- The Serpent Sands: layered dunes under a burning evening sky ----------
+
+// The crest of the middle dune, where the caravan walks. Whole waves across the tile, so it wraps.
+double _duneCrest(double x) => 214 - 9 * math.sin(x / W * math.pi * 4 + 0.7) - 5 * math.sin(x / W * math.pi * 6 + 1.9);
+
+// A dune ridge filled down to the bottom, following [y] across the tile
+Path _dune(double Function(double x) y) {
+  final p = Path()..moveTo(0, H);
+  for (var x = 0.0; x <= W; x += 4) {
+    p.lineTo(x, y(x));
+  }
+  return p
+    ..lineTo(W, H)
+    ..close();
+}
+
+// A date palm: a curved trunk and a burst of drooping fronds
+void _datePalm(Canvas c, Offset base, double h, String color) {
+  final top = base + Offset(h * 0.12, -h);
+  c.drawPath(
+      Path()
+        ..moveTo(base.dx - 1.6, base.dy)
+        ..quadraticBezierTo(base.dx + h * 0.02, base.dy - h * 0.5, top.dx - 0.8, top.dy)
+        ..lineTo(top.dx + 0.8, top.dy)
+        ..quadraticBezierTo(base.dx + h * 0.06, base.dy - h * 0.5, base.dx + 1.6, base.dy)
+        ..close(),
+      _fill(color));
+  for (var k = 0; k < 9; k++) {
+    final a = -math.pi + k / 8 * math.pi;
+    final droop = math.cos(a).abs();
+    _leaf(c, top, a + droop * 0.5 * math.cos(a).sign, h * (0.3 + 0.12 * droop), h * 0.05, color);
+  }
+}
 
 final List<_Painter> _desert = [
   (c, r) {
-    _sky(c, ['#3a7ab0', '#8cc0d8', '#f0d8a8', '#f8e8c8'], [0, 0.4, 0.8, 1]);
+    _sky(c, ['#e8742a', '#f08c34', '#f6a848', '#f8bc5c'], [0, 0.35, 0.7, 1]);
+    // A great pale sun behind the golden one
+    c.drawCircle(const Offset(360, 80), 62, _fill('#f8d478', 0.9));
+    _glow(c, const Offset(360, 80), 120, '#ffe0a0', 0.35);
     paintSunDisc(c, const Offset(360, 80), 1);
   },
-  (c, r) => _clouds(c, r, 4, '#ffffff', '#d8c8b0', 0.7, yMax: 80),
   (c, r) {
-    // Flat-topped mesas, pale in the heat
-    for (var i = 0; i < 4; i++) {
-      final x = i * 120.0 + r.nextDouble() * 40;
-      final w = 30 + r.nextDouble() * 30;
-      final h = 50 + r.nextDouble() * 40;
-      _wrap((dx) {
-        final p = Path()
-          ..moveTo(x + dx - w - 14, 240)
-          ..lineTo(x + dx - w, 200 - h)
-          ..lineTo(x + dx + w, 200 - h)
-          ..lineTo(x + dx + w + 14, 240)
-          ..close();
-        c.drawPath(p, _vgrad(200 - h, 240, ['#e0c098', '#d8b890']));
-      });
-    }
-    _mist(c, 215, 30, '#f8e8c8', 0.8);
-  },
-  (c, r) {
-    // Stacks of rounded boulders, lit from the left
-    for (var i = 0; i < 4; i++) {
-      final x = i * 120.0 + 50 + r.nextDouble() * 30;
-      var y = 250.0;
-      var w = 26 + r.nextDouble() * 10;
-      final stones = 3 + r.nextInt(3);
-      for (var k = 0; k < stones; k++) {
-        final h = 22 + r.nextDouble() * 14;
-        final ox = (r.nextDouble() - 0.5) * 8;
-        final box = Rect.fromLTWH(x + ox - w, y - h, w * 2, h);
-        _wrap((dx) {
-          final rr = RRect.fromRectAndRadius(box.shift(Offset(dx, 0)), Radius.circular(h * 0.45));
-          final p = Path()..addRRect(rr);
-          _shape(c, p, box, ['#e8a858', '#b87038', '#8a4e28'], rim: '#ffe0a0', rimA: 0.8);
-          c.drawLine(Offset(box.left + dx + 6, y - 4), Offset(box.right + dx - 6, y - 4), _fill('#6a3a1e', 0.4)..strokeWidth = 1.5);
-        });
-        y -= h - 2;
-        w *= 0.82 + r.nextDouble() * 0.2;
-      }
+    // Long flat streaks of evening cloud
+    for (var i = 0; i < 9; i++) {
+      final x = r.nextDouble() * W;
+      final y = 20 + r.nextDouble() * 120;
+      final w = 60 + r.nextDouble() * 120;
+      final h = 3 + r.nextDouble() * 5;
+      final color = r.nextBool() ? '#f8b860' : '#e0762e';
+      _wrap((dx) => c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(x + dx, y, w, h), Radius.circular(h / 2)), _fill(color, 0.55)));
     }
   },
   (c, r) {
-    // Dark canyon walls at the edges of the view
+    // Far dunes, two rows fading into the glare
+    double wave(double x, double base, double amp, double ph, int n) => base - amp * (0.5 + 0.5 * math.sin(x / W * math.pi * 2 * n + ph));
+    c.drawPath(_dune((x) => wave(x, 190, 30, 0.4, 3) - 6 * math.sin(x / W * math.pi * 10)), _fill('#f2a050'));
+    c.drawPath(_dune((x) => wave(x, 205, 24, 2.2, 4)), _fill('#ec8c40'));
+    _mist(c, 205, 22, '#f8c070', 0.45);
+  },
+  (c, r) {
+    // The caravan's dune, shaded on its far slopes, with a pair of date palms
+    final dune = _dune(_duneCrest);
+    c.drawPath(dune, _vgrad(195, 270, ['#d8682a', '#c45a24']));
+    c.save();
+    c.clipPath(dune);
+    // The same crest a little lower and to the right leaves a lit band along the sunny slopes
+    c.drawPath(_dune((x) => _duneCrest(x - 18) + 7), _fill('#b44e20', 0.8));
+    c.restore();
     for (var i = 0; i < 2; i++) {
-      final x = i * 240.0 + r.nextDouble() * 40;
+      final x = 70 + i * 22 + r.nextDouble() * 6;
+      _datePalm(c, Offset(x, _duneCrest(x) + 2), 30 + r.nextDouble() * 10, '#8a3a1a');
+    }
+  },
+  (c, r) {
+    // A dark dune sweeping across the front, with dry tufts and stones
+    c.drawPath(_dune((x) => 252 - 10 * math.sin(x / W * math.pi * 2 + 0.3) - 4 * math.sin(x / W * math.pi * 6)), _vgrad(238, 270, ['#7a3418', '#4a1e10']));
+    final tuft = Paint()
+      ..color = hex('#3a160c')
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 8; i++) {
+      final x = r.nextDouble() * W;
+      final y = 268.0 - r.nextDouble() * 6;
+      final seed = r.nextInt(1 << 20);
       _wrap((dx) {
-        final p = Path()..moveTo(x + dx - 50, 270);
-        for (var k = 0; k <= 6; k++) {
-          p.lineTo(x + dx - 40 + k * 14 + (k.isEven ? 0 : 6), 270 - 60 - math.sin(k / 6 * math.pi) * 50 + r.nextDouble() * 10);
+        final rr = math.Random(seed);
+        for (var k = 0; k < 6; k++) {
+          c.drawLine(Offset(x + dx, y), Offset(x + dx + (k - 2.5) * 2.5, y - 6 - rr.nextDouble() * 7), tuft);
         }
-        p
-          ..lineTo(x + dx + 60, 270)
-          ..close();
-        _shape(c, p, const Rect.fromLTWH(0, 160, 0, 110), ['#7a4a2e', '#3a2418'], rim: '#d89858', rimA: 0.5);
       });
     }
   },
